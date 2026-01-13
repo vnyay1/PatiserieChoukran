@@ -1,0 +1,90 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\User;
+use Illuminate\Http\Request;
+
+class UserController extends Controller
+{
+    /**
+     * Liste des utilisateurs
+     */
+    public function index(Request $request)
+    {
+        $query = User::query();
+
+        // Filtre par role
+        if ($request->has('role')) {
+            $query->where('role', $request->role);
+        }
+
+        // Filtre par statut
+        if ($request->has('statut')) {
+            $query->where('statut', $request->statut);
+        }
+
+        // Recherche
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('nom_complet', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('telephone', 'like', "%{$search}%");
+            });
+        }
+
+        $users = $query->withCount('commandes')
+            ->orderBy('created_at', 'desc')
+            ->paginate($request->get('per_page', 15));
+
+        return response()->json([
+            'success' => true,
+            'data' => $users,
+        ]);
+    }
+
+    /**
+     * Détail d'un utilisateur
+     */
+    public function show($id)
+    {
+        $user = User::with(['commandes', 'adresses'])
+            ->withCount('commandes')
+            ->findOrFail($id);
+
+        // Statistiques du client
+        if ($user->role === 'client') {
+            $user->stats = [
+                'total_depense' => $user->commandes()->where('statut_paiement', 'paye')->sum('montant_total'),
+                'commandes_livrees' => $user->commandes()->livree()->count(),
+                'commande_moyenne' => $user->commandes()->where('statut_paiement', 'paye')->avg('montant_total'),
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $user,
+        ]);
+    }
+
+    /**
+     * Changer le statut d'un utilisateur
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'statut' => 'required|in:actif,inactif,suspendu',
+        ]);
+
+        $user = User::findOrFail($id);
+        $user->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Statut mis à jour',
+            'data' => $user,
+        ]);
+    }
+}
