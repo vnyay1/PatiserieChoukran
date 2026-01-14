@@ -1,0 +1,104 @@
+<!-- ===================================
+2. HEADER (Desktop & Mobile Top)
+File: src/components/layout/Header.vue
+=================================== -->
+
+<template>
+  <header class="bg-white shadow-sm sticky top-0 z-40 safe-top">
+    <div class="container mx-auto px-4">
+      <div class="flex items-center justify-between h-16 md:h-20">
+        <!-- Logo -->
+        <router-link to="/" class="flex items-center space-x-2">
+          <img src="/logo.png" alt="Choukrane" class="h-10 md:h-12 w-auto" />
+        </router-link>
+
+        <!-- Navigation Desktop -->
+        <nav class="hidden md:flex items-center space-x-8">
+          <router-link
+            v-for="item in desktopNavItems"
+            :key="item.name"
+            :to="item.to"
+            class="font-medium hover:text-gold-600 transition-colors"
+            :class="isActiveRoute(item.name) ? 'text-gold-600' : 'text-gray-700'"
+          >
+            {{ item.label }}
+          </router-link>
+        </nav>
+
+        <!-- Actions -->
+        <div class="flex items-center space-x-4">
+          <!-- Panier (visible sur mobile aussi) -->
+          <router-link
+            to="/panier"
+            class="relative touch-target flex items-center justify-center md:hidden"
+          >
+            <ShoppingCart :size="24" :class="route.name === 'panier' ? 'text-gold-600' : 'text-gray-700'" />
+            <span
+              v-if="panierCount > 0"
+              class="absolute -top-1 -right-1 bg-gold-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold"
+            >
+              {{ panierCount }}
+            </span>
+          </router-link>
+
+          <!-- Authentification Desktop -->
+          <div v-if="authStore.isAuthenticated" class="hidden md:flex items-center space-x-4">
+            <router-link to="/panier" class="relative">
+              <ShoppingCart :size="24" class="text-gray-700 hover:text-gold-600" />
+              <span
+                v-if="panierCount > 0"
+                class="absolute -top-1 -right-1 bg-gold-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold"
+              >
+                {{ panierCount }}
+              </span>
+            </router-link>
+
+            <router-link
+              to="/profil"
+              class="flex items-center space-x-2 hover:text-gold-600 transition-colors"
+            >
+              <User :size="24" />
+              <span class="font-medium">{{ authStore.userName }}</span>
+            </router-link>
+          </div>
+
+          <div v-else class="hidden md:flex items-center space-x-2">
+            <router-link to="/connexion" class="btn-outline py-2 px-4 text-sm">
+              Connexion
+            </router-link>
+            <router-link to="/inscription" class="btn-primary py-2 px-4 text-sm">
+              Inscription
+            </router-link>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+</template>
+
+<script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { usePanierStore } from '@/stores/panier'
+import { ShoppingCart, User } from 'lucide-vue-next'
+
+const route = useRoute()
+const authStore = useAuthStore()
+const panierStore = usePanierStore()
+
+const panierCount = computed(() => panierStore.itemCount)
+
+const desktopNavItems = [
+  { name: 'home', label: 'Accueil', to: '/' },
+  { name: 'produits', label: 'Nos Produits', to: '/produits' },
+  { name: 'commandes', label: 'Mes Commandes', to: '/mes-commandes' },
+]
+
+const isActiveRoute = (name) => {
+  if (name === 'home') return route.name === 'home'
+  if (name === 'produits') return route.name === 'produits' || route.name === 'produit-detail'
+  if (name === 'commandes') return route.name === 'mes-commandes'
+  return false
+}
+</script>

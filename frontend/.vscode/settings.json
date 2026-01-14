@@ -1,0 +1,31 @@
+// ===================================
+// 1. CONFIGURATION VSCODE
+// File: .vscode/settings.json
+// Créer ce fichier à la racine du projet
+// ===================================
+
+{
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+  "css.validate": false,
+  "less.validate": false,
+  "scss.validate": false,
+  "tailwindCSS.experimental.classRegex": [
+    ["class(?:Name)?\\s*[:=]\\s*['\"`]([^'\"`]*)['\"`]", "([^'\"`]*)"]
+  ],
+  "tailwindCSS.includeLanguages": {
+    "vue": "html",
+    "javascript": "javascript"
+  },
+  "editor.inlineSuggest.enabled": true,
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/node_modules": true,
+    "**/dist": true
+  }
+}
