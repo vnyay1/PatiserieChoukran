@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use App\Models\ParametreSite;
 use Ramsey\Uuid\Type\Decimal;
 
 class Panier extends Model
@@ -52,6 +53,29 @@ class Panier extends Model
         return $this->date_expiration <= now();
     }
 
+    public static function getExpirationHeures(): int
+    {
+        $heures = (int) ParametreSite::get('panier_expiration_heures', 24);
+
+        return $heures > 0 ? $heures : 24;
+    }
+
+    public static function prochaineExpiration(): Carbon
+    {
+        return Carbon::now()->addHours(static::getExpirationHeures());
+    }
+
+    public static function purgerExpires(?int $userId = null): int
+    {
+        $query = static::expire();
+
+        if ($userId !== null) {
+            $query->where('user_id', $userId);
+        }
+
+        return $query->delete();
+    }
+
     public function calculerSousTotal()
     {
         $this->sous_total = ($this->prix_unitaire_actuel * $this->quantite);
@@ -64,9 +88,9 @@ class Panier extends Model
         parent::boot();
 
         static::creating(function ($panier) {
-            // Expire dans 24h par défaut
+            // Expire selon le paramètre du site (24h par défaut)
             if (empty($panier->date_expiration)) {
-                $panier->date_expiration = Carbon::now()->addHours(24);
+                $panier->date_expiration = static::prochaineExpiration();
             }
             $panier->sous_total = (float)($panier->prix_unitaire_actuel * $panier->quantite);
         });

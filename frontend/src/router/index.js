@@ -13,9 +13,17 @@ const ProduitDetail = () => import('@/views/ProduitDetail.vue')
 const Panier = () => import('@/views/Panier.vue')
 const Checkout = () => import('@/views/Checkout.vue')
 const MesCommandes = () => import('@/views/MesCommandes.vue')
+const CommandeDetail = () => import('@/views/CommandeDetail.vue')
 const Profil = () => import('@/views/Profil.vue')
 const Login = () => import('@/views/Login.vue')
 const Register = () => import('@/views/Register.vue')
+const AdminDashboard = () => import('@/views/admin/AdminDashboard.vue')
+const AdminCategories = () => import('@/views/admin/AdminCategories.vue')
+const AdminCommandes = () => import('@/views/admin/AdminCommandes.vue')
+const AdminParametres = () => import('@/views/admin/AdminParametres.vue')
+const AdminProduits = () => import('@/views/admin/AdminProduits.vue')
+const AdminUsers = () => import('@/views/admin/AdminUsers.vue')
+const AdminZones = () => import('@/views/admin/AdminZones.vue')
 
 const routes = [
   {
@@ -55,6 +63,12 @@ const routes = [
     meta: { title: 'Mes Commandes', requiresAuth: true }
   },
   {
+    path: '/mes-commandes/:id',
+    name: 'commande-detail',
+    component: CommandeDetail,
+    meta: { title: 'Détail Commande', requiresAuth: true }
+  },
+  {
     path: '/profil',
     name: 'profil',
     component: Profil,
@@ -71,6 +85,53 @@ const routes = [
     name: 'register',
     component: Register,
     meta: { title: 'Inscription', guest: true }
+  },
+  {
+    path: '/admin',
+    redirect: { name: 'admin-dashboard' },
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/dashboard',
+    name: 'admin-dashboard',
+    component: AdminDashboard,
+    meta: { title: 'Dashboard Admin', requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/categories',
+    name: 'admin-categories',
+    component: AdminCategories,
+    meta: { title: 'Administration Catégories', requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/parametres',
+    name: 'admin-parametres',
+    component: AdminParametres,
+    meta: { title: 'Paramètres du site', requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/commandes',
+    name: 'admin-commandes',
+    component: AdminCommandes,
+    meta: { title: 'Administration Commandes', requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/produits',
+    name: 'admin-produits',
+    component: AdminProduits,
+    meta: { title: 'Administration Produits', requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/users',
+    name: 'admin-users',
+    component: AdminUsers,
+    meta: { title: 'Administration Utilisateurs', requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/zones-livraison',
+    name: 'admin-zones',
+    component: AdminZones,
+    meta: { title: 'Administration Zones de livraison', requiresAuth: true, requiresAdmin: true }
   }
 ]
 
@@ -86,9 +147,15 @@ const router = createRouter({
 })
 
 // Navigation guards
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
+
+  if (authStore.token && !authStore.user) {
+    await authStore.fetchUser()
+  }
+
   const isAuthenticated = authStore.isAuthenticated
+  const isAdmin = authStore.isAdmin
 
   // Mettre à jour le titre de la page
   document.title = `${to.meta.title || 'Choukrane'} - Pâtisserie`
@@ -96,6 +163,18 @@ router.beforeEach((to, from, next) => {
   // Routes nécessitant l'authentification
   if (to.meta.requiresAuth && !isAuthenticated) {
     next({ name: 'login', query: { redirect: to.fullPath } })
+    return
+  }
+
+  // Routes nécessitant un rôle admin
+  if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    next({ name: 'home' })
+    return
+  }
+
+  // Empêcher les admins d'accéder au panier/commande client
+  if (isAdmin && ['panier', 'checkout', 'mes-commandes', 'commande-detail'].includes(to.name)) {
+    next({ name: 'admin-dashboard' })
     return
   }
 

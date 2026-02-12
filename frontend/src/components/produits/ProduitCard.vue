@@ -13,7 +13,7 @@ File: src/components/produits/ProduitCard.vue
     <!-- Image -->
     <div class="relative aspect-square overflow-hidden">
       <img
-        :src="produit.image_principale || '/placeholder-product.jpg'"
+        :src="resolveImageUrl(produit.image_principale)"
         :alt="produit.nom"
         class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
       />
@@ -68,7 +68,7 @@ File: src/components/produits/ProduitCard.vue
         variant="primary"
         size="sm"
         full-width
-        :disabled="!produit.est_disponible || produit.stock_disponible === 0"
+        :disabled="isAdmin || !produit.est_disponible || produit.stock_disponible === 0"
         :loading="addingToCart"
         @click.stop="addToCart"
       >
@@ -82,6 +82,7 @@ File: src/components/produits/ProduitCard.vue
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
@@ -95,14 +96,31 @@ const props = defineProps({
 })
 
 const router = useRouter()
+const authStore = useAuthStore()
 const panierStore = usePanierStore()
 const addingToCart = ref(false)
+const isAdmin = computed(() => authStore.isAdmin)
 
 const reductionPercent = computed(() => {
   if (!props.produit.prix_promo) return 0
   const reduction = ((props.produit.prix_unitaire - props.produit.prix_promo) / props.produit.prix_unitaire) * 100
   return Math.round(reduction)
 })
+
+const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+const apiOrigin = (() => {
+  try {
+    return new URL(apiBase).origin
+  } catch {
+    return ''
+  }
+})()
+
+const resolveImageUrl = (path) => {
+  if (!path) return '/placeholder-product.jpg'
+  if (path.startsWith('http') || path.startsWith('/')) return path
+  return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
+}
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR').format(price)
@@ -113,6 +131,9 @@ const goToDetail = () => {
 }
 
 const addToCart = async () => {
+  if (isAdmin.value) {
+    return
+  }
   addingToCart.value = true
 
   const result = await panierStore.addItem(props.produit.id, 1)

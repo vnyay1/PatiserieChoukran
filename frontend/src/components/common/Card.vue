@@ -41,9 +41,10 @@ const cardClasses = computed(() => {
   }
 
   const hover = props.hoverable ? 'hover:shadow-elegant-lg transform hover:-translate-y-1' : ''
+  const group = props.hoverable ? 'group' : ''
   const cursor = props.clickable ? 'cursor-pointer' : ''
 
-  return `${base} ${paddings[props.padding]} ${hover} ${cursor}`
+  return `${base} ${paddings[props.padding]} ${hover} ${group} ${cursor}`
 })
 
 const handleClick = (event) => {

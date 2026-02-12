@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Panier;
 use App\Models\Produit;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
 
 class PanierController extends Controller
 {
@@ -15,6 +14,12 @@ class PanierController extends Controller
      */
     public function index(Request $request)
     {
+        if ($response = $this->rejectAdmin($request)) {
+            return $response;
+        }
+
+        $this->purgeExpiredPanier($request);
+
         $panier = Panier::where('user_id', $request->user()->id)
             ->nonExpire()
             ->with('produit.categorie')
@@ -37,6 +42,12 @@ class PanierController extends Controller
      */
     public function store(Request $request)
     {
+        if ($response = $this->rejectAdmin($request)) {
+            return $response;
+        }
+
+        $this->purgeExpiredPanier($request);
+
         $validated = $request->validate([
             'produit_id' => 'required|exists:produits,id',
             'quantite' => 'required|integer|min:1',
@@ -70,7 +81,7 @@ class PanierController extends Controller
             // Mettre à jour la quantité
             $panierItem->quantite += $validated['quantite'];
             $panierItem->calculerSousTotal();
-            $panierItem->date_expiration = Carbon::now()->addHours(24);
+            $panierItem->date_expiration = Panier::prochaineExpiration();
             $panierItem->save();
         } else {
             // Créer une nouvelle ligne
@@ -80,7 +91,7 @@ class PanierController extends Controller
                 'quantite' => $validated['quantite'],
                 'prix_unitaire_actuel' => $produit->prix_actuel,
                 'sous_total' => $produit->prix_actuel * $validated['quantite'],
-                'date_expiration' => Carbon::now()->addHours(24),
+                'date_expiration' => Panier::prochaineExpiration(),
             ]);
         }
 
@@ -96,6 +107,12 @@ class PanierController extends Controller
      */
     public function update(Request $request, $id)
     {
+        if ($response = $this->rejectAdmin($request)) {
+            return $response;
+        }
+
+        $this->purgeExpiredPanier($request);
+
         $validated = $request->validate([
             'quantite' => 'required|integer|min:1',
         ]);
@@ -114,7 +131,7 @@ class PanierController extends Controller
 
         $panierItem->quantite = $validated['quantite'];
         $panierItem->calculerSousTotal();
-        $panierItem->date_expiration = Carbon::now()->addHours(24);
+        $panierItem->date_expiration = Panier::prochaineExpiration();
         $panierItem->save();
 
         return response()->json([
@@ -129,6 +146,12 @@ class PanierController extends Controller
      */
     public function destroy(Request $request, $id)
     {
+        if ($response = $this->rejectAdmin($request)) {
+            return $response;
+        }
+
+        $this->purgeExpiredPanier($request);
+
         $panierItem = Panier::where('user_id', $request->user()->id)
             ->where('id', $id)
             ->firstOrFail();
@@ -146,6 +169,12 @@ class PanierController extends Controller
      */
     public function clear(Request $request)
     {
+        if ($response = $this->rejectAdmin($request)) {
+            return $response;
+        }
+
+        $this->purgeExpiredPanier($request);
+
         Panier::where('user_id', $request->user()->id)->delete();
 
         return response()->json([
@@ -159,14 +188,38 @@ class PanierController extends Controller
      */
     public function count(Request $request)
     {
+        if ($response = $this->rejectAdmin($request)) {
+            return $response;
+        }
+
+        $this->purgeExpiredPanier($request);
+
         $count = Panier::where('user_id', $request->user()->id)
             ->nonExpire()
-            ->sum('quantite');
+            ->count();
 
         return response()->json([
             'success' => true,
             'data' => ['count' => $count]
         ]);
     }
-}
 
+    private function purgeExpiredPanier(Request $request): void
+    {
+        if ($request->user()) {
+            Panier::purgerExpires($request->user()->id);
+        }
+    }
+
+    private function rejectAdmin(Request $request)
+    {
+        if ($request->user() && $request->user()->role === 'admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Les administrateurs ne peuvent pas utiliser le panier.',
+            ], 403);
+        }
+
+        return null;
+    }
+}

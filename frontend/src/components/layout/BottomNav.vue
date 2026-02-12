@@ -15,7 +15,7 @@ File: src/components/layout/BottomNav.vue
       >
         <!-- Badge pour le panier -->
         <span
-          v-if="item.name === 'panier' && panierCount > 0"
+          v-if="authStore.isAuthenticated && item.name === 'panier' && panierCount > 0"
           class="absolute top-1 right-1/4 bg-gold-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold"
         >
           {{ panierCount }}
@@ -32,27 +32,46 @@ File: src/components/layout/BottomNav.vue
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { usePanierStore } from '@/stores/panier'
-import { Home, ShoppingBag, ShoppingCart, Package, User } from 'lucide-vue-next'
+import { useAuthStore } from '@/stores/auth'
+import { Home, ShoppingBag, ShoppingCart, Package, User, Shield, Settings } from 'lucide-vue-next'
 
 const route = useRoute()
 const panierStore = usePanierStore()
+const authStore = useAuthStore()
 
 const panierCount = computed(() => panierStore.itemCount)
 
-const navItems = [
-  { name: 'home', label: 'Accueil', icon: Home, to: '/' },
-  { name: 'produits', label: 'Produits', icon: ShoppingBag, to: '/produits' },
-  { name: 'panier', label: 'Panier', icon: ShoppingCart, to: '/panier' },
-  { name: 'commandes', label: 'Commandes', icon: Package, to: '/mes-commandes' },
-  { name: 'profil', label: 'Profil', icon: User, to: '/profil' },
-]
+const navItems = computed(() => {
+  if (authStore.isAdmin) {
+    return [
+      { name: 'home', label: 'Accueil', icon: Home, to: '/' },
+      { name: 'produits', label: 'Produits', icon: ShoppingBag, to: '/produits' },
+      { name: 'admin-dashboard', label: 'Admin', icon: Shield, to: '/admin/dashboard' },
+      { name: 'admin-commandes', label: 'Commandes', icon: Package, to: '/admin/commandes' },
+      { name: 'admin-parametres', label: 'Paramètres', icon: Settings, to: '/admin/parametres' },
+    ]
+  }
+
+  return [
+    { name: 'home', label: 'Accueil', icon: Home, to: '/' },
+    { name: 'produits', label: 'Produits', icon: ShoppingBag, to: '/produits' },
+    { name: 'panier', label: 'Panier', icon: ShoppingCart, to: '/panier' },
+    { name: 'commandes', label: 'Commandes', icon: Package, to: '/mes-commandes' },
+    { name: 'profil', label: 'Profil', icon: User, to: '/profil' },
+  ]
+})
 
 const isActive = (name) => {
   if (name === 'home') return route.name === 'home'
   if (name === 'produits') return route.name === 'produits' || route.name === 'produit-detail'
   if (name === 'panier') return route.name === 'panier' || route.name === 'checkout'
-  if (name === 'commandes') return route.name === 'mes-commandes'
+  if (name === 'commandes') return route.name === 'mes-commandes' || route.name === 'commande-detail'
   if (name === 'profil') return route.name === 'profil'
+  if (name === 'admin-dashboard') {
+    return route.name === 'admin-dashboard' || route.name === 'admin-produits' || route.name === 'admin-users' || route.name === 'admin-zones' || route.name === 'admin-categories' || route.name === 'admin-parametres'
+  }
+  if (name === 'admin-commandes') return route.name === 'admin-commandes'
+  if (name === 'admin-parametres') return route.name === 'admin-parametres'
   return false
 }
 </script>

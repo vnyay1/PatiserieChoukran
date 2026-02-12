@@ -35,14 +35,21 @@ File: src/views/Register.vue
             <label class="block text-sm font-medium text-gray-700 mb-2">
               Numéro de téléphone
             </label>
-            <input
-              v-model="form.telephone"
-              type="tel"
-              placeholder="+237699123456"
-              class="input"
-              required
-            />
-            <p class="text-xs text-gray-500 mt-1">Format: +237XXXXXXXXX</p>
+            <div class="flex">
+              <span
+                class="inline-flex items-center px-4 py-3 rounded-l-xl border border-gray-200 border-r-0 bg-gray-100 text-gray-500"
+              >
+                +237
+              </span>
+              <input
+                v-model="telephoneInput"
+                type="tel"
+                placeholder="699123456"
+                class="input rounded-l-none border-l-0"
+                required
+              />
+            </div>
+            <p class="text-xs text-gray-500 mt-1">Indicatif non modifiable</p>
           </div>
 
           <!-- Email (optionnel) -->
@@ -120,7 +127,7 @@ File: src/views/Register.vue
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import Button from '@/components/common/Button.vue'
@@ -140,6 +147,24 @@ const form = ref({
 const loading = ref(false)
 const error = ref(null)
 
+const sanitizeLocalTelephone = (value) => {
+  const digits = (value || '').replace(/\D/g, '')
+  const withoutPrefix = digits.startsWith('237') ? digits.slice(3) : digits
+  return withoutPrefix.slice(0, 9)
+}
+
+const buildTelephone = (value) => {
+  const local = sanitizeLocalTelephone(value)
+  return local ? `+237${local}` : ''
+}
+
+const telephoneInput = computed({
+  get: () => form.value.telephone,
+  set: (value) => {
+    form.value.telephone = sanitizeLocalTelephone(value)
+  }
+})
+
 const handleRegister = async () => {
   // Vérifier que les mots de passe correspondent
   if (form.value.mot_de_passe !== form.value.mot_de_passe_confirmation) {
@@ -152,7 +177,7 @@ const handleRegister = async () => {
 
   const result = await authStore.register({
     nom_complet: form.value.nom_complet,
-    telephone: form.value.telephone,
+    telephone: buildTelephone(form.value.telephone),
     email: form.value.email || null,
     mot_de_passe: form.value.mot_de_passe,
     mot_de_passe_confirmation: form.value.mot_de_passe_confirmation

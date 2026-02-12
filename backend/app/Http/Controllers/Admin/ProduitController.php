@@ -52,12 +52,25 @@ class ProduitController extends Controller
             'description' => 'nullable|string',
             'prix_unitaire' => 'required|numeric|min:0',
             'prix_promo' => 'nullable|numeric|min:0|lt:prix_unitaire',
+            'promo_active' => 'sometimes|boolean',
             'image_principale' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
             'images_secondaires.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
             'stock_disponible' => 'required|integer|min:0',
             'est_disponible' => 'boolean',
             'est_vedette' => 'boolean',
         ]);
+
+        if ($request->has('promo_active')) {
+            $promoActive = $request->boolean('promo_active');
+            if (!$promoActive) {
+                $validated['prix_promo'] = null;
+            } elseif (!array_key_exists('prix_promo', $validated) || is_null($validated['prix_promo'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Veuillez renseigner un prix promo pour activer la promotion.',
+                ], 422);
+            }
+        }
 
         // Upload image principale
         if ($request->hasFile('image_principale')) {
@@ -75,7 +88,7 @@ class ProduitController extends Controller
         }
 
         // Générer le slug
-        $validated['slug'] = Str::slug($validated['nom']);
+        $validated['slug'] = $this->generateUniqueSlug($validated['nom']);
 
         $produit = Produit::create($validated);
 
@@ -112,11 +125,27 @@ class ProduitController extends Controller
             'description' => 'nullable|string',
             'prix_unitaire' => 'sometimes|numeric|min:0',
             'prix_promo' => 'nullable|numeric|min:0',
+            'promo_active' => 'sometimes|boolean',
             'image_principale' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'images_secondaires.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
             'stock_disponible' => 'sometimes|integer|min:0',
             'est_disponible' => 'boolean',
             'est_vedette' => 'boolean',
         ]);
+
+        if ($request->has('promo_active') && !$request->boolean('promo_active')) {
+            $validated['prix_promo'] = null;
+        }
+
+        if (array_key_exists('prix_promo', $validated)) {
+            $prixBase = $validated['prix_unitaire'] ?? $produit->prix_unitaire;
+            if (!is_null($validated['prix_promo']) && $validated['prix_promo'] >= $prixBase) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Le prix promo doit être inférieur au prix unitaire',
+                ], 422);
+            }
+        }
 
         // Upload nouvelle image principale si fournie
         if ($request->hasFile('image_principale')) {
@@ -128,9 +157,24 @@ class ProduitController extends Controller
                 ->store('produits', 'public');
         }
 
+        // Upload nouvelles images secondaires si fournies
+        if ($request->hasFile('images_secondaires')) {
+            if ($produit->images_secondaires) {
+                foreach ($produit->images_secondaires as $image) {
+                    \Storage::disk('public')->delete($image);
+                }
+            }
+
+            $imagesSecondaires = [];
+            foreach ($request->file('images_secondaires') as $image) {
+                $imagesSecondaires[] = $image->store('produits', 'public');
+            }
+            $validated['images_secondaires'] = $imagesSecondaires;
+        }
+
         // Mettre à jour le slug si le nom change
         if (isset($validated['nom']) && $validated['nom'] !== $produit->nom) {
-            $validated['slug'] = Str::slug($validated['nom']);
+            $validated['slug'] = $this->generateUniqueSlug($validated['nom'], $produit->id);
         }
 
         $produit->update($validated);
@@ -184,5 +228,25 @@ class ProduitController extends Controller
             'message' => 'Stock mis à jour',
             'data' => $produit,
         ]);
+    }
+
+    protected function generateUniqueSlug(string $nom, ?int $ignoreId = null): string
+    {
+        $base = Str::slug($nom);
+        $slug = $base;
+        $suffix = 2;
+
+        while (
+            Produit::where('slug', $slug)
+                ->when($ignoreId, function ($query) use ($ignoreId) {
+                    $query->where('id', '!=', $ignoreId);
+                })
+                ->exists()
+        ) {
+            $slug = "{$base}-{$suffix}";
+            $suffix++;
+        }
+
+        return $slug;
     }
 }

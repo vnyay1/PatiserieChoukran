@@ -87,4 +87,31 @@ class UserController extends Controller
             'data' => $user,
         ]);
     }
+
+    /**
+     * Changer le rôle d'un utilisateur
+     */
+    public function updateRole(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'role' => 'required|in:client,admin,livreur',
+        ]);
+
+        $user = User::findOrFail($id);
+
+        if ($request->user()->id === $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vous ne pouvez pas changer votre propre rôle.',
+            ], 400);
+        }
+
+        $user->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Rôle mis à jour',
+            'data' => $user,
+        ]);
+    }
 }

@@ -7,18 +7,23 @@ use App\Models\Commande;
 use App\Models\LigneCommande;
 use App\Models\Panier;
 use App\Models\Produit;
-use App\Models\ZoneLivraison;
 use App\Models\HistoriqueStatutCommande;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class CommandeController extends Controller
 {
+    private const TARIF_MIN = 1000;
+
     /**
      * Liste des commandes de l'utilisateur
      */
     public function index(Request $request)
     {
+        if ($response = $this->rejectAdmin($request)) {
+            return $response;
+        }
+
         $query = Commande::where('user_id', $request->user()->id)
             ->with(['ligneCommandes.produit', 'adresseLivraison'])
             ->orderBy('created_at', 'desc');
@@ -41,6 +46,10 @@ class CommandeController extends Controller
      */
     public function show(Request $request, $id)
     {
+        if ($response = $this->rejectAdmin($request)) {
+            return $response;
+        }
+
         $commande = Commande::where('user_id', $request->user()->id)
             ->where('id', $id)
             ->with([
@@ -62,16 +71,25 @@ class CommandeController extends Controller
      */
     public function store(Request $request)
     {
+        if ($response = $this->rejectAdmin($request)) {
+            return $response;
+        }
+
         $validated = $request->validate([
             'type_livraison' => 'required|in:livraison,retrait_boutique',
-            'adresse_livraison_id' => 'required_if:type_livraison,livraison|exists:adresses,id',
-            'telephone_livraison' => 'nullable|string',
-            'date_livraison_souhaitee' => 'required|date|after_or_equal:today',
-            'heure_livraison_souhaitee' => 'required|date_format:H:i',
+            'adresse_livraison_id' => 'exclude_unless:type_livraison,livraison|required|exists:adresses,id',
+            'telephone_livraison' => 'exclude_unless:type_livraison,livraison|required|string',
+            'date_livraison_souhaitee' => 'exclude_unless:type_livraison,livraison|required|date|after_or_equal:today',
+            'heure_livraison_souhaitee' => 'exclude_unless:type_livraison,livraison|required|date_format:H:i|after_or_equal:09:00|before_or_equal:18:00',
             'instructions_speciales' => 'nullable|string|max:500',
             'moyen_paiement' => 'required|in:orange_money,mtn_momo,especes',
             'telephone_paiement' => 'required_unless:moyen_paiement,especes|string',
+        ], [
+            'heure_livraison_souhaitee.after_or_equal' => 'L\'heure de livraison doit être comprise entre 09:00 et 18:00.',
+            'heure_livraison_souhaitee.before_or_equal' => 'L\'heure de livraison doit être comprise entre 09:00 et 18:00.',
         ]);
+
+        Panier::purgerExpires($request->user()->id);
 
         // Vérifier que le panier n'est pas vide
         $panierItems = Panier::where('user_id', $request->user()->id)
@@ -92,13 +110,17 @@ class CommandeController extends Controller
         // Calculer les frais de livraison
         $montantLivraison = 0;
         if ($validated['type_livraison'] === 'livraison') {
-            $adresse = $request->user()->adresses()->find($validated['adresse_livraison_id']);
-            $zone = ZoneLivraison::where('ville', $adresse->ville)
-                ->where('quartier', $adresse->quartier)
-                ->active()
-                ->first();
-            
-            $montantLivraison = $zone ? $zone->tarif_livraison : 1000; // Tarif par défaut
+            $adresse = $request->user()->adresses()->findOrFail($validated['adresse_livraison_id']);
+            $shipping = $this->calculateShippingForAdresse($adresse);
+
+            if (!empty($shipping['error'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $shipping['error'],
+                ], 422);
+            }
+
+            $montantLivraison = $shipping['frais_livraison'] ?? self::TARIF_MIN;
         }
 
         $montantTotal = $montantProduits + $montantLivraison;
@@ -121,10 +143,14 @@ class CommandeController extends Controller
                 'montant_livraison' => $montantLivraison,
                 'montant_total' => $montantTotal,
                 'type_livraison' => $validated['type_livraison'],
-                'adresse_livraison_id' => $validated['adresse_livraison_id'] ?? null,
-                'telephone_livraison' => $validated['telephone_livraison'] ?? null,
-                'date_livraison_souhaitee' => $validated['date_livraison_souhaitee'],
-                'heure_livraison_souhaitee' => $validated['heure_livraison_souhaitee'],
+                'adresse_livraison_id' => $validated['type_livraison'] === 'livraison'
+                    ? ($validated['adresse_livraison_id'] ?? null)
+                    : null,
+                'telephone_livraison' => $validated['type_livraison'] === 'livraison'
+                    ? ($validated['telephone_livraison'] ?? null)
+                    : null,
+                'date_livraison_souhaitee' => $validated['date_livraison_souhaitee'] ?? null,
+                'heure_livraison_souhaitee' => $validated['heure_livraison_souhaitee'] ?? null,
                 'instructions_speciales' => $validated['instructions_speciales'] ?? null,
                 'moyen_paiement' => $validated['moyen_paiement'],
                 'operateur_mobile' => $operateurMobile,
@@ -187,6 +213,10 @@ class CommandeController extends Controller
      */
     public function cancel(Request $request, $id)
     {
+        if ($response = $this->rejectAdmin($request)) {
+            return $response;
+        }
+
         $commande = Commande::where('user_id', $request->user()->id)
             ->where('id', $id)
             ->firstOrFail();
@@ -214,10 +244,126 @@ class CommandeController extends Controller
     }
 
     /**
+     * Modifier une commande (uniquement si en attente)
+     */
+    public function update(Request $request, $id)
+    {
+        if ($response = $this->rejectAdmin($request)) {
+            return $response;
+        }
+
+        $commande = Commande::where('user_id', $request->user()->id)
+            ->where('id', $id)
+            ->firstOrFail();
+
+        if ($commande->statut !== 'en_attente') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cette commande ne peut plus être modifiée',
+            ], 400);
+        }
+
+        $validated = $request->validate([
+            'type_livraison' => 'sometimes|in:livraison,retrait_boutique',
+            'adresse_livraison_id' => 'nullable|exists:adresses,id',
+            'telephone_livraison' => 'nullable|string',
+            'date_livraison_souhaitee' => 'nullable|sometimes|date|after_or_equal:today',
+            'heure_livraison_souhaitee' => 'nullable|sometimes|date_format:H:i|after_or_equal:09:00|before_or_equal:18:00',
+            'instructions_speciales' => 'nullable|string|max:500',
+            'moyen_paiement' => 'sometimes|in:orange_money,mtn_momo,especes',
+            'telephone_paiement' => 'nullable|string',
+        ], [
+            'heure_livraison_souhaitee.after_or_equal' => 'L\'heure de livraison doit être comprise entre 09:00 et 18:00.',
+            'heure_livraison_souhaitee.before_or_equal' => 'L\'heure de livraison doit être comprise entre 09:00 et 18:00.',
+        ]);
+
+        $typeLivraison = $validated['type_livraison'] ?? $commande->type_livraison;
+        $adresseLivraisonId = $typeLivraison === 'livraison'
+            ? ($validated['adresse_livraison_id'] ?? $commande->adresse_livraison_id)
+            : null;
+
+        if ($typeLivraison === 'livraison' && !$adresseLivraisonId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Veuillez sélectionner une adresse de livraison valide.',
+            ], 422);
+        }
+
+        // Recalculer les frais de livraison si nécessaire
+        $montantLivraison = 0;
+        if ($typeLivraison === 'livraison') {
+            $adresse = $request->user()->adresses()->findOrFail($adresseLivraisonId);
+            $shipping = $this->calculateShippingForAdresse($adresse);
+
+            if (!empty($shipping['error'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $shipping['error'],
+                ], 422);
+            }
+
+            $montantLivraison = $shipping['frais_livraison'] ?? self::TARIF_MIN;
+        }
+
+        $moyenPaiement = $validated['moyen_paiement'] ?? $commande->moyen_paiement;
+        $telephonePaiement = array_key_exists('telephone_paiement', $validated)
+            ? $validated['telephone_paiement']
+            : $commande->telephone_paiement;
+
+        $telephoneLivraison = $typeLivraison === 'livraison'
+            ? ($validated['telephone_livraison'] ?? $commande->telephone_livraison)
+            : null;
+
+        if ($moyenPaiement !== 'especes' && empty($telephonePaiement)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Veuillez renseigner un numéro de téléphone pour le paiement.',
+            ], 422);
+        }
+
+        $operateurMobile = null;
+        if ($moyenPaiement === 'orange_money') {
+            $operateurMobile = 'orange';
+        } elseif ($moyenPaiement === 'mtn_momo') {
+            $operateurMobile = 'mtn';
+        }
+
+        if ($moyenPaiement === 'especes') {
+            $telephonePaiement = null;
+        }
+
+        $commande->update([
+            'type_livraison' => $typeLivraison,
+            'adresse_livraison_id' => $adresseLivraisonId,
+            'telephone_livraison' => $telephoneLivraison,
+            'date_livraison_souhaitee' => $validated['date_livraison_souhaitee'] ?? $commande->date_livraison_souhaitee,
+            'heure_livraison_souhaitee' => $validated['heure_livraison_souhaitee'] ?? $commande->heure_livraison_souhaitee,
+            'instructions_speciales' => $validated['instructions_speciales'] ?? $commande->instructions_speciales,
+            'moyen_paiement' => $moyenPaiement,
+            'operateur_mobile' => $operateurMobile,
+            'telephone_paiement' => $telephonePaiement,
+            'montant_livraison' => $montantLivraison,
+            'montant_total' => $commande->montant_produits + $montantLivraison,
+        ]);
+
+        $commande->load(['ligneCommandes.produit', 'adresseLivraison']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Commande mise à jour',
+            'data' => $commande,
+        ]);
+    }
+
+    /**
      * Statistiques des commandes de l'utilisateur
      */
     public function stats(Request $request)
     {
+        if ($response = $this->rejectAdmin($request)) {
+            return $response;
+        }
+
         $userId = $request->user()->id;
 
         $stats = [
@@ -243,29 +389,75 @@ class CommandeController extends Controller
      */
     public function calculateShipping(Request $request)
     {
+        if ($response = $this->rejectAdmin($request)) {
+            return $response;
+        }
+
         $validated = $request->validate([
             'adresse_id' => 'required|exists:adresses,id',
         ]);
 
-        $adresse = $request->user()->adresses()->find($validated['adresse_id']);
+        $adresse = $request->user()->adresses()->findOrFail($validated['adresse_id']);
 
-        $zone = ZoneLivraison::where('ville', $adresse->ville)
-            ->where('quartier', $adresse->quartier)
-            ->active()
-            ->first();
+        $shipping = $this->calculateShippingForAdresse($adresse);
+        if (!empty($shipping['error'])) {
+            return response()->json([
+                'success' => false,
+                'message' => $shipping['error'],
+            ], 422);
+        }
 
-        $frais = $zone ? $zone->tarif_livraison : 1000;
-        $delaiMin = $zone ? $zone->delai_livraison_min : 2;
-        $delaiMax = $zone ? $zone->delai_livraison_max : 4;
+        $frais = $shipping['frais_livraison'] ?? self::TARIF_MIN;
 
         return response()->json([
             'success' => true,
             'data' => [
                 'frais_livraison' => $frais,
-                'delai_livraison_min' => $delaiMin,
-                'delai_livraison_max' => $delaiMax,
-                'zone' => $zone ? $zone->nom_zone : 'Zone par défaut',
+                'zone' => $shipping['zone'],
             ]
         ]);
+    }
+
+    private function calculateShippingForAdresse($adresse): array
+    {
+        if (!$adresse || !$adresse->zone_livraison_id) {
+            return [
+                'frais_livraison' => null,
+                'zone' => null,
+                'error' => 'Veuillez sélectionner une zone de livraison pour cette adresse.',
+            ];
+        }
+
+        $zone = $adresse->zoneLivraison ?: \App\Models\ZoneLivraison::find($adresse->zone_livraison_id);
+
+        if (!$zone) {
+            return [
+                'frais_livraison' => null,
+                'zone' => null,
+                'error' => 'Zone de livraison invalide. Merci de sélectionner une zone valide.',
+            ];
+        }
+
+        return [
+            'frais_livraison' => (float) $zone->tarif_livraison,
+            'zone' => [
+                'id' => $zone->id,
+                'nom_zone' => $zone->nom_zone,
+                'ville' => $zone->ville,
+                'tarif_livraison' => (float) $zone->tarif_livraison,
+            ],
+        ];
+    }
+
+    private function rejectAdmin(Request $request)
+    {
+        if ($request->user() && $request->user()->role === 'admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Les administrateurs ne peuvent pas passer de commande.',
+            ], 403);
+        }
+
+        return null;
     }
 }

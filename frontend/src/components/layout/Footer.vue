@@ -44,8 +44,8 @@ File: src/components/layout/Footer.vue
             </li>
             <li class="flex items-center space-x-2">
               <Instagram :size="16" class="text-gold-500" />
-              <a href="https://instagram.com/Choukrane.Patisserie" target="_blank" class="hover:text-gold-600">
-                @Choukrane.Patisserie
+              <a href="https://instagram.com/Choukran.Patisserie" target="_blank" class="hover:text-gold-600">
+                @Choukran.Patisserie
               </a>
             </li>
           </ul>

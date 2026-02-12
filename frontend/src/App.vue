@@ -26,7 +26,7 @@ File: src/App.vue
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
@@ -56,10 +56,22 @@ const mainClasses = computed(() => {
 // Initialiser l'app
 onMounted(async () => {
   await authStore.initialize()
-  if (authStore.isAuthenticated) {
+})
+
+watch(
+  () => authStore.user?.id,
+  async (userId) => {
+    if (!userId) return
+    if (authStore.isAdmin) {
+      panierStore.reset()
+      return
+    }
+    if (panierStore.ownerUserId && panierStore.ownerUserId !== userId) {
+      panierStore.reset()
+    }
     await panierStore.fetch()
   }
-})
+)
 </script>
 
 <style>

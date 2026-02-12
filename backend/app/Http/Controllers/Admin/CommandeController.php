@@ -84,6 +84,13 @@ class CommandeController extends Controller
         ]);
 
         $commande = Commande::findOrFail($id);
+
+        if ($commande->statut === 'annulee') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cette commande est annulée et ne peut plus être modifiée.',
+            ], 400);
+        }
         
         $commande->changerStatut(
             $validated['statut'],
@@ -137,6 +144,13 @@ class CommandeController extends Controller
         ]);
 
         $commande = Commande::findOrFail($id);
+
+        if ($commande->statut === 'annulee') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Impossible de confirmer le paiement d\'une commande annulée.',
+            ], 400);
+        }
         
         $commande->update([
             'statut_paiement' => 'paye',

@@ -4,6 +4,7 @@
 // ===================================
 
 import { defineStore } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
 
 export const usePanierStore = defineStore('panier', {
@@ -11,22 +12,34 @@ export const usePanierStore = defineStore('panier', {
     items: [],
     loading: false,
     error: null,
+    ownerUserId: null,
   }),
 
   getters: {
-    itemCount: (state) => state.items.reduce((sum, item) => sum + item.quantite, 0),
+    // Nombre de produits distincts dans le panier
+    itemCount: (state) => state.items.length,
     total: (state) => state.items.reduce((sum, item) => sum + parseFloat(item.sous_total), 0),
     isEmpty: (state) => state.items.length === 0,
   },
 
   actions: {
+    // Réinitialiser l'état local du panier (sans appel API)
+    reset() {
+      this.items = []
+      this.loading = false
+      this.error = null
+      this.ownerUserId = null
+    },
+
     // Charger le panier
     async fetch() {
       this.loading = true
+      const authStore = useAuthStore()
       try {
         const response = await api.panier.get()
         if (response.data.success) {
           this.items = response.data.data.items
+          this.ownerUserId = authStore.user?.id || null
         }
       } catch (error) {
         this.error = 'Erreur lors du chargement du panier'
@@ -43,6 +56,10 @@ export const usePanierStore = defineStore('panier', {
         if (response.data.success) {
           await this.fetch() // Recharger le panier
           return { success: true, message: 'Produit ajouté au panier' }
+        }
+        return {
+          success: false,
+          message: response.data?.message || 'Erreur lors de l\'ajout au panier'
         }
       } catch (error) {
         return { 

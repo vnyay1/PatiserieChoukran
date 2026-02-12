@@ -11,6 +11,9 @@ class Adresse extends Model
         'libelle',
         'quartier',
         'ville',
+        'zone_livraison_id',
+        'latitude',
+        'longitude',
         'telephone_contact',
         'point_repere',
         'complement_adresse',
@@ -19,6 +22,8 @@ class Adresse extends Model
 
     protected $casts = [
         'est_principale' => 'boolean',
+        'latitude' => 'float',
+        'longitude' => 'float',
     ];
 
     // Relations
@@ -30,6 +35,11 @@ class Adresse extends Model
     public function commandes()
     {
         return $this->hasMany(Commande::class, 'adresse_livraison_id');
+    }
+
+    public function zoneLivraison()
+    {
+        return $this->belongsTo(ZoneLivraison::class, 'zone_livraison_id');
     }
 
     // Scopes
@@ -59,4 +69,3 @@ class Adresse extends Model
         ])));
     }
 }
-

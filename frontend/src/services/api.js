@@ -100,6 +100,7 @@ export default {
     getAll: (params) => api.get('/commandes', { params }),
     getOne: (id) => api.get(`/commandes/${id}`),
     create: (data) => api.post('/commandes', data),
+    update: (id, data) => api.put(`/commandes/${id}`, data),
     cancel: (id) => api.post(`/commandes/${id}/cancel`),
     calculateShipping: (data) => api.post('/commandes/calculate-shipping', data),
     stats: () => api.get('/commandes/stats'),
@@ -128,5 +129,61 @@ export default {
     getAll: () => api.get('/zones-livraison'),
     byCity: (ville) => api.get(`/zones-livraison/ville/${ville}`),
     search: (data) => api.post('/zones-livraison/search', data),
+  },
+
+  // Admin
+  admin: {
+    dashboard: {
+      stats: (params) => api.get('/admin/dashboard/stats', { params }),
+    },
+    commandes: {
+      getAll: (params) => api.get('/admin/commandes', { params }),
+      getOne: (id) => api.get(`/admin/commandes/${id}`),
+      updateStatus: (id, data) => api.patch(`/admin/commandes/${id}/status`, data),
+      confirmPayment: (id, data) => api.post(`/admin/commandes/${id}/confirm-payment`, data),
+      assignLivreur: (id, data) => api.post(`/admin/commandes/${id}/assign-livreur`, data),
+    },
+    categories: {
+      getAll: (params) => api.get('/admin/categories', { params }),
+      getOne: (id) => api.get(`/admin/categories/${id}`),
+      create: (data) => api.post('/admin/categories', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      }),
+      update: (id, data) => api.post(`/admin/categories/${id}`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      }),
+      remove: (id) => api.delete(`/admin/categories/${id}`),
+    },
+    parametres: {
+      getAll: (params) => api.get('/admin/parametres', { params }),
+      getOne: (id) => api.get(`/admin/parametres/${id}`),
+      create: (data) => api.post('/admin/parametres', data),
+      update: (id, data) => api.put(`/admin/parametres/${id}`, data),
+      remove: (id) => api.delete(`/admin/parametres/${id}`),
+    },
+    produits: {
+      getAll: (params) => api.get('/admin/produits', { params }),
+      getOne: (id) => api.get(`/admin/produits/${id}`),
+      create: (data) => api.post('/admin/produits', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      }),
+      update: (id, data) => api.post(`/admin/produits/${id}`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      }),
+      remove: (id) => api.delete(`/admin/produits/${id}`),
+    },
+    users: {
+      getAll: (params) => api.get('/admin/users', { params }),
+      getOne: (id) => api.get(`/admin/users/${id}`),
+      updateStatus: (id, data) => api.patch(`/admin/users/${id}/status`, data),
+      updateRole: (id, data) => api.patch(`/admin/users/${id}/role`, data),
+    },
+    zones: {
+      getAll: (params) => api.get('/admin/zones-livraison', { params }),
+      getOne: (id) => api.get(`/admin/zones-livraison/${id}`),
+      create: (data) => api.post('/admin/zones-livraison', data),
+      update: (id, data) => api.put(`/admin/zones-livraison/${id}`, data),
+      remove: (id) => api.delete(`/admin/zones-livraison/${id}`),
+    }
   }
 }

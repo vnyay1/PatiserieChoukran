@@ -1,0 +1,417 @@
+<!-- ===================================
+ADMIN - DASHBOARD
+File: src/views/admin/AdminDashboard.vue
+=================================== -->
+
+<template>
+  <div class="admin-dashboard-page bg-cream min-h-screen pb-20">
+    <div class="container mx-auto px-4 py-6 max-w-6xl">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div>
+          <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
+            Dashboard Admin
+          </h1>
+          <p class="text-gray-600 text-sm">
+            Vue d'ensemble des ventes, clients et produits.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" :loading="loading" @click="fetchStats">
+            Actualiser
+          </Button>
+          <Button variant="secondary" size="sm" @click="$router.push('/admin/commandes')">
+            Gérer les commandes
+          </Button>
+          <Button variant="secondary" size="sm" @click="$router.push('/admin/categories')">
+            Gérer les catégories
+          </Button>
+          <Button variant="secondary" size="sm" @click="$router.push('/admin/parametres')">
+            Paramètres du site
+          </Button>
+          <Button variant="primary" size="sm" @click="$router.push('/admin/produits')">
+            Gérer les produits
+          </Button>
+          <Button variant="secondary" size="sm" @click="$router.push('/admin/users')">
+            Gérer les utilisateurs
+          </Button>
+        </div>
+      </div>
+
+      <!-- Filtres de période -->
+      <div class="flex flex-wrap gap-2 mb-6">
+        <button
+          v-for="option in periodes"
+          :key="option.value"
+          class="px-4 py-2 rounded-full text-sm font-medium transition-colors"
+          :class="periode === option.value ? 'bg-gold-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+          @click="setPeriode(option.value)"
+        >
+          {{ option.label }}
+        </button>
+      </div>
+
+      <!-- Loading -->
+      <div v-if="loading" class="space-y-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+          <div v-for="n in 10" :key="n" class="skeleton h-24 rounded-elegant"></div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="skeleton h-72 rounded-elegant lg:col-span-2"></div>
+          <div class="skeleton h-72 rounded-elegant"></div>
+        </div>
+        <div class="skeleton h-96 rounded-elegant"></div>
+      </div>
+
+      <!-- Error -->
+      <Card v-else-if="error" padding="md" class="border border-red-200 bg-red-50">
+        <p class="text-red-600 text-sm">{{ error }}</p>
+      </Card>
+
+      <!-- Contenu -->
+      <div v-else class="space-y-6">
+        <!-- Statistiques -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+          <Card v-for="card in statCards" :key="card.key" padding="md">
+            <div class="text-xs text-gray-500 mb-2">{{ card.label }}</div>
+            <div class="text-2xl font-bold text-gray-800">
+              <span v-if="card.format === 'currency'">
+                {{ formatPrice(card.value) }} FCFA
+              </span>
+              <span v-else>
+                {{ formatNumber(card.value) }}
+              </span>
+            </div>
+            <div v-if="card.helper" class="text-xs text-gray-400 mt-1">
+              {{ card.helper }}
+            </div>
+          </Card>
+        </div>
+
+        <!-- Ventes + Top produits -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card padding="md" class="lg:col-span-2">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="font-display text-xl font-bold text-gray-800">
+                Ventes des 7 derniers jours
+              </h2>
+              <span class="text-xs text-gray-500">Payées uniquement</span>
+            </div>
+
+            <div v-if="chartData.length === 0" class="text-sm text-gray-500">
+              Aucune donnée disponible.
+            </div>
+
+            <div v-else class="h-56 flex items-end gap-2">
+              <div
+                v-for="day in chartData"
+                :key="day.date"
+                class="flex-1 flex flex-col items-center gap-2"
+              >
+                <div class="w-full h-40 bg-gold-50 rounded-lg flex items-end overflow-hidden">
+                  <div
+                    class="w-full bg-gold-500 rounded-lg transition-all duration-300"
+                    :style="{ height: `${getBarHeight(day.montant)}%` }"
+                  ></div>
+                </div>
+                <div class="text-[11px] text-gray-600 text-center">
+                  {{ day.label }}
+                </div>
+                <div class="text-[11px] text-gray-500">
+                  {{ formatNumber(day.nombre) }} cmd
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card padding="md">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="font-display text-xl font-bold text-gray-800">
+                Top produits
+              </h2>
+              <span class="text-xs text-gray-500">Top 5</span>
+            </div>
+
+            <div v-if="topProduits.length === 0" class="text-sm text-gray-500">
+              Aucun produit trouvé.
+            </div>
+
+            <div v-else class="space-y-3">
+              <div v-for="produit in topProduits" :key="produit.id" class="flex items-center gap-3">
+                <img
+                  :src="resolveImageUrl(produit.image_principale)"
+                  :alt="produit.nom"
+                  class="h-12 w-12 rounded-lg object-cover border"
+                />
+                <div class="flex-1">
+                  <div class="font-semibold text-gray-800 text-sm">{{ produit.nom }}</div>
+                  <div class="text-xs text-gray-500">
+                    {{ formatNumber(produit.nombre_commandes || 0) }} commande(s)
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <!-- Dernières commandes -->
+        <Card padding="md">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="font-display text-xl font-bold text-gray-800">
+              Dernières commandes
+            </h2>
+            <span class="text-xs text-gray-500">10 dernières</span>
+          </div>
+
+          <div v-if="dernieresCommandes.length === 0" class="text-sm text-gray-500">
+            Aucune commande récente.
+          </div>
+
+          <div v-else class="space-y-3">
+            <div
+              v-for="commande in dernieresCommandes"
+              :key="commande.id"
+              class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-3 rounded-lg border border-gray-100 bg-white"
+            >
+              <div>
+                <div class="font-semibold text-gray-800">
+                  {{ commande.numero_commande }}
+                </div>
+                <div class="text-xs text-gray-500">
+                  {{ commande.user?.nom_complet || 'Client' }} · {{ formatDateTime(commande.created_at) }}
+                </div>
+              </div>
+              <div class="flex flex-col md:items-end gap-2">
+                <div class="price text-lg">
+                  {{ formatPrice(commande.montant_total) }} FCFA
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <span class="badge" :class="getBadgeClass(commande.statut)">
+                    {{ getStatutLabel(commande.statut) }}
+                  </span>
+                  <span class="badge" :class="getPaymentBadgeClass(commande.statut_paiement)">
+                    {{ getPaymentLabel(commande.statut_paiement) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import api from '@/services/api'
+import Card from '@/components/common/Card.vue'
+import Button from '@/components/common/Button.vue'
+
+const loading = ref(false)
+const error = ref('')
+
+const periode = ref('mois')
+const periodes = [
+  { value: 'aujourd_hui', label: "Aujourd'hui" },
+  { value: 'semaine', label: 'Semaine' },
+  { value: 'mois', label: 'Mois' },
+  { value: 'annee', label: 'Année' },
+]
+
+const stats = ref({
+  total_commandes: 0,
+  commandes_en_attente: 0,
+  commandes_en_preparation: 0,
+  commandes_livrees: 0,
+  revenus_total: 0,
+  revenus_aujourd_hui: 0,
+  total_clients: 0,
+  nouveaux_clients: 0,
+  total_produits: 0,
+  produits_stock_faible: 0,
+})
+
+const ventesParJour = ref([])
+const topProduits = ref([])
+const dernieresCommandes = ref([])
+
+const statCards = computed(() => [
+  { key: 'total_commandes', label: 'Commandes (période)', value: stats.value.total_commandes },
+  { key: 'commandes_en_attente', label: 'En attente', value: stats.value.commandes_en_attente },
+  { key: 'commandes_en_preparation', label: 'En préparation', value: stats.value.commandes_en_preparation },
+  { key: 'commandes_livrees', label: 'Livrées (période)', value: stats.value.commandes_livrees },
+  { key: 'revenus_total', label: 'Revenus (période)', value: stats.value.revenus_total, format: 'currency' },
+  { key: 'revenus_aujourd_hui', label: "Revenus aujourd'hui", value: stats.value.revenus_aujourd_hui, format: 'currency' },
+  { key: 'total_clients', label: 'Clients actifs', value: stats.value.total_clients },
+  { key: 'nouveaux_clients', label: 'Nouveaux clients', value: stats.value.nouveaux_clients },
+  { key: 'total_produits', label: 'Produits disponibles', value: stats.value.total_produits },
+  { key: 'produits_stock_faible', label: 'Stock faible', value: stats.value.produits_stock_faible, helper: '≤ 5 unités' },
+])
+
+const chartData = computed(() => {
+  if (!Array.isArray(ventesParJour.value)) return []
+
+  const map = new Map(
+    ventesParJour.value.map((item) => [
+      item.date,
+      {
+        nombre: Number(item.nombre || 0),
+        montant: Number(item.montant || 0),
+      },
+    ])
+  )
+
+  const days = []
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date()
+    date.setDate(date.getDate() - i)
+    const iso = date.toISOString().slice(0, 10)
+    const data = map.get(iso)
+    days.push({
+      date: iso,
+      label: formatDateShort(iso),
+      nombre: data?.nombre || 0,
+      montant: data?.montant || 0,
+    })
+  }
+
+  return days
+})
+
+const maxMontant = computed(() => {
+  if (chartData.value.length === 0) return 0
+  return Math.max(...chartData.value.map((item) => item.montant))
+})
+
+const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+const apiOrigin = (() => {
+  try {
+    return new URL(apiBase).origin
+  } catch {
+    return ''
+  }
+})()
+
+const resolveImageUrl = (path) => {
+  if (!path) return '/placeholder-product.jpg'
+  if (path.startsWith('http') || path.startsWith('/')) return path
+  return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
+}
+
+const getBarHeight = (value) => {
+  if (!maxMontant.value || value <= 0) return 0
+  return Math.max(4, (value / maxMontant.value) * 100)
+}
+
+const formatNumber = (value) => {
+  return new Intl.NumberFormat('fr-FR').format(value || 0)
+}
+
+const formatPrice = (value) => {
+  return new Intl.NumberFormat('fr-FR').format(value || 0)
+}
+
+const toDate = (value) => {
+  if (!value) return null
+  if (typeof value === 'string' && value.length === 10) {
+    return new Date(`${value}T00:00:00`)
+  }
+  return new Date(value)
+}
+
+const formatDateShort = (date) => {
+  const parsed = toDate(date)
+  if (!parsed) return ''
+  return parsed.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+  })
+}
+
+const formatDateTime = (date) => {
+  const parsed = toDate(date)
+  if (!parsed) return ''
+  return parsed.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+const getStatutLabel = (statut) => {
+  const labels = {
+    en_attente: 'En attente',
+    confirmee: 'Confirmée',
+    en_preparation: 'En préparation',
+    prete: 'Prête',
+    en_livraison: 'En livraison',
+    livree: 'Livrée',
+    annulee: 'Annulée',
+  }
+  return labels[statut] || statut
+}
+
+const getBadgeClass = (statut) => {
+  const classes = {
+    en_attente: 'bg-yellow-100 text-yellow-700',
+    confirmee: 'bg-blue-100 text-blue-700',
+    en_preparation: 'bg-purple-100 text-purple-700',
+    prete: 'bg-indigo-100 text-indigo-700',
+    en_livraison: 'bg-orange-100 text-orange-700',
+    livree: 'bg-green-100 text-green-700',
+    annulee: 'bg-red-100 text-red-700',
+  }
+  return classes[statut] || 'bg-gray-100 text-gray-700'
+}
+
+const getPaymentLabel = (statut) => {
+  const labels = {
+    en_attente: 'À payer',
+    paye: 'Payé',
+    echec: 'Échec',
+    rembourse: 'Remboursé',
+  }
+  return labels[statut] || statut
+}
+
+const getPaymentBadgeClass = (statut) => {
+  const classes = {
+    en_attente: 'bg-yellow-100 text-yellow-700',
+    paye: 'bg-green-100 text-green-700',
+    echec: 'bg-red-100 text-red-700',
+    rembourse: 'bg-gray-100 text-gray-700',
+  }
+  return classes[statut] || 'bg-gray-100 text-gray-700'
+}
+
+const setPeriode = (value) => {
+  if (periode.value === value) return
+  periode.value = value
+  fetchStats()
+}
+
+const fetchStats = async () => {
+  loading.value = true
+  error.value = ''
+
+  try {
+    const response = await api.admin.dashboard.stats({ periode: periode.value })
+    if (response.data.success) {
+      stats.value = response.data.data.stats || stats.value
+      ventesParJour.value = response.data.data.ventes_par_jour || []
+      topProduits.value = response.data.data.top_produits || []
+      dernieresCommandes.value = response.data.data.dernieres_commandes || []
+    } else {
+      error.value = 'Impossible de charger les statistiques.'
+    }
+  } catch (err) {
+    error.value = err.response?.data?.message || 'Erreur lors du chargement du dashboard.'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchStats()
+})
+</script>

@@ -15,6 +15,10 @@ class AuthController extends Controller
      */
     public function register(Request $request)
     {
+        $request->merge([
+            'telephone' => $this->normalizeTelephone($request->telephone),
+        ]);
+
         $validated = $request->validate([
             'nom_complet' => 'required|string|max:255',
             'telephone' => 'required|string|unique:users,telephone|regex:/^\+237[0-9]{9}$/',
@@ -51,6 +55,10 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
+        $request->merge([
+            'telephone' => $this->normalizeTelephone($request->telephone),
+        ]);
+
         $request->validate([
             'telephone' => 'required|string',
             'mot_de_passe' => 'required|string',
@@ -121,6 +129,12 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
+        if ($request->has('telephone')) {
+            $request->merge([
+                'telephone' => $this->normalizeTelephone($request->telephone),
+            ]);
+        }
+
         $validated = $request->validate([
             'nom_complet' => 'sometimes|string|max:255',
             'email' => 'sometimes|email|unique:users,email,' . $user->id,
@@ -175,5 +189,28 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Mot de passe changé avec succès. Veuillez vous reconnecter.',
         ]);
+    }
+
+    private function normalizeTelephone(?string $telephone): ?string
+    {
+        if ($telephone === null) {
+            return null;
+        }
+
+        $cleaned = preg_replace('/[\s-]+/', '', trim($telephone));
+
+        if ($cleaned === '') {
+            return $cleaned;
+        }
+
+        if (str_starts_with($cleaned, '+')) {
+            return $cleaned;
+        }
+
+        if (str_starts_with($cleaned, '237')) {
+            return '+' . $cleaned;
+        }
+
+        return '+237' . $cleaned;
     }
 }

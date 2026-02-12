@@ -102,6 +102,7 @@ File: src/views/Checkout.vue
                   :value="adresse.id"
                 >
                   {{ adresse.libelle }} - {{ adresse.quartier }}, {{ adresse.ville }}
+                  {{ adresse.zone_livraison?.nom_zone ? ` (${adresse.zone_livraison?.nom_zone})` : '' }}
                 </option>
               </select>
             </div>
@@ -109,7 +110,7 @@ File: src/views/Checkout.vue
             <button
               type="button"
               class="text-gold-600 hover:text-gold-700 text-sm font-medium mb-6"
-              @click="showAddAddress = true"
+              @click="openAddAddress"
             >
               + Ajouter une nouvelle adresse
             </button>
@@ -242,10 +243,13 @@ File: src/views/Checkout.vue
             <span>Sous-total</span>
             <span>{{ formatPrice(panierStore.total) }} FCFA</span>
           </div>
-          <div class="flex justify-between text-sm">
+          <div v-if="formData.type_livraison === 'livraison'" class="flex justify-between text-sm">
             <span>Livraison</span>
             <span>{{ fraisLivraison > 0 ? formatPrice(fraisLivraison) + ' FCFA' : 'Gratuit' }}</span>
           </div>
+          <p v-if="formData.type_livraison === 'livraison' && shippingError" class="text-xs text-red-600">
+            {{ shippingError }}
+          </p>
           <div class="divider-ornament"></div>
           <div class="flex justify-between font-bold text-lg">
             <span>Total</span>
@@ -253,12 +257,104 @@ File: src/views/Checkout.vue
           </div>
         </div>
       </Card>
+
+      <!-- Modal ajout adresse -->
+      <div
+        v-if="showAddAddress"
+        class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6"
+      >
+        <div class="bg-white w-full max-w-2xl rounded-elegant shadow-card overflow-hidden">
+          <div class="p-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 class="font-display text-xl font-bold text-gray-800">
+              Ajouter une adresse
+            </h2>
+            <button class="text-sm text-gray-500 hover:text-gray-700" @click="closeAddAddress">
+              Fermer
+            </button>
+          </div>
+
+          <form class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4" @submit.prevent="submitAddress">
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Libellé (optionnel)</label>
+              <input v-model="addressForm.libelle" type="text" class="input" placeholder="Maison, Bureau..." />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Quartier *</label>
+              <input v-model="addressForm.quartier" type="text" class="input" required />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Ville *</label>
+              <input v-model="addressForm.ville" type="text" class="input" required />
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Zone de livraison *</label>
+              <select v-model="addressForm.zone_livraison_id" class="input" required>
+                <option value="">Sélectionner une zone</option>
+                <option v-for="zone in zones" :key="zone.id" :value="zone.id">
+                  {{ zone.ville }} - {{ zone.nom_zone }} ({{ formatPrice(zone.tarif_livraison) }} FCFA)
+                </option>
+              </select>
+              <p v-if="addressForm.ville && zones.length === 0" class="text-xs text-red-600 mt-1">
+                Aucune zone active pour cette ville.
+              </p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Téléphone *</label>
+              <input
+                v-model="addressForm.telephone_contact"
+                type="tel"
+                class="input"
+                placeholder="+237699123456"
+                required
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Point de repère</label>
+              <input v-model="addressForm.point_repere" type="text" class="input" />
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Complément d'adresse</label>
+              <textarea v-model="addressForm.complement_adresse" rows="2" class="input resize-none"></textarea>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="inline-flex items-center gap-2">
+                <input
+                  v-model="addressForm.est_principale"
+                  type="checkbox"
+                  class="rounded border-gray-300 text-gold-600 focus:ring-gold-500"
+                />
+                <span class="text-sm text-gray-700">Définir comme adresse principale</span>
+              </label>
+            </div>
+
+            <p v-if="addressError" class="text-sm text-red-600 md:col-span-2">
+              {{ addressError }}
+            </p>
+
+            <div class="md:col-span-2 flex gap-3">
+              <Button type="submit" variant="primary" :loading="savingAddress">
+                Enregistrer
+              </Button>
+              <Button type="button" variant="outline" @click="closeAddAddress">
+                Annuler
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePanierStore } from '@/stores/panier'
 import { useAuthStore } from '@/stores/auth'
@@ -277,7 +373,22 @@ const submitting = ref(false)
 const showAddAddress = ref(false)
 
 const adresses = ref([])
-const fraisLivraison = ref(1000)
+const zones = ref([])
+const fraisLivraison = ref(0)
+const shippingError = ref('')
+const savingAddress = ref(false)
+const addressError = ref('')
+
+const addressForm = ref({
+  libelle: '',
+  quartier: '',
+  ville: '',
+  zone_livraison_id: '',
+  telephone_contact: authStore.user?.telephone || '',
+  point_repere: '',
+  complement_adresse: '',
+  est_principale: false,
+})
 
 const formData = ref({
   type_livraison: 'livraison',
@@ -319,13 +430,110 @@ const fetchAdresses = async () => {
         const principale = adresses.value.find(a => a.est_principale)
         formData.value.adresse_livraison_id = principale?.id || adresses.value[0].id
       }
+      await refreshShipping()
     }
   } catch (error) {
     console.error('Erreur chargement adresses:', error)
   }
 }
 
+const resetAddressForm = () => {
+  addressForm.value = {
+    libelle: '',
+    quartier: '',
+    ville: '',
+    zone_livraison_id: '',
+    telephone_contact: authStore.user?.telephone || '',
+    point_repere: '',
+    complement_adresse: '',
+    est_principale: false,
+  }
+  addressError.value = ''
+}
+
+const openAddAddress = () => {
+  resetAddressForm()
+  showAddAddress.value = true
+}
+
+const closeAddAddress = () => {
+  showAddAddress.value = false
+}
+
+const submitAddress = async () => {
+  savingAddress.value = true
+  addressError.value = ''
+
+  try {
+    const response = await api.adresses.create(addressForm.value)
+    if (response.data.success) {
+      showAddAddress.value = false
+      await fetchAdresses()
+      if (response.data.data?.id) {
+        formData.value.adresse_livraison_id = response.data.data.id
+      }
+      await refreshShipping()
+    } else {
+      addressError.value = response.data?.message || 'Erreur lors de la création de l\'adresse.'
+    }
+  } catch (error) {
+    addressError.value = error.response?.data?.message || 'Erreur lors de la création de l\'adresse.'
+  } finally {
+    savingAddress.value = false
+  }
+}
+
+const fetchZonesByVille = async (ville) => {
+  if (!ville) {
+    zones.value = []
+    return
+  }
+
+  try {
+    const response = await api.zones.byCity(ville)
+    if (response.data.success) {
+      zones.value = response.data.data || []
+    }
+  } catch (error) {
+    console.error('Erreur chargement zones:', error)
+  }
+}
+
+const refreshShipping = async () => {
+  shippingError.value = ''
+
+  if (formData.value.type_livraison !== 'livraison') {
+    fraisLivraison.value = 0
+    return
+  }
+
+  if (!formData.value.adresse_livraison_id) {
+    fraisLivraison.value = 0
+    return
+  }
+
+  try {
+    const response = await api.commandes.calculateShipping({
+      adresse_id: formData.value.adresse_livraison_id
+    })
+    if (response.data.success) {
+      const data = response.data.data || {}
+      fraisLivraison.value = data.frais_livraison || 0
+    } else {
+      fraisLivraison.value = 0
+      shippingError.value = 'Impossible de calculer les frais de livraison.'
+    }
+  } catch (error) {
+    fraisLivraison.value = 0
+    shippingError.value = error.response?.data?.message || 'Erreur lors du calcul des frais de livraison.'
+  }
+}
+
 const goToStep2 = () => {
+  if (formData.value.type_livraison === 'livraison' && (shippingError.value || fraisLivraison.value <= 0)) {
+    alert('Merci d\'ajouter une adresse valide pour calculer les frais de livraison.')
+    return
+  }
   currentStep.value = 2
 }
 
@@ -333,9 +541,15 @@ const submitOrder = async () => {
   submitting.value = true
 
   try {
+    if (formData.value.type_livraison === 'livraison' && (shippingError.value || fraisLivraison.value <= 0)) {
+      alert('Adresse de livraison invalide. Merci de vérifier votre adresse.')
+      return
+    }
     const response = await api.commandes.create(formData.value)
     
     if (response.data.success) {
+      // Vider le panier après une commande valide
+      await panierStore.clear()
       // Rediriger vers la page de confirmation
       router.push(`/mes-commandes`)
     }
@@ -354,4 +568,29 @@ onMounted(() => {
   }
   fetchAdresses()
 })
+
+watch(
+  () => [formData.value.type_livraison, formData.value.adresse_livraison_id],
+  () => {
+    refreshShipping()
+  }
+)
+
+let zoneSearchTimeout = null
+watch(
+  () => addressForm.value.ville,
+  (ville) => {
+    clearTimeout(zoneSearchTimeout)
+    const trimmed = (ville || '').trim()
+    if (!trimmed) {
+      zones.value = []
+      addressForm.value.zone_livraison_id = ''
+      return
+    }
+    addressForm.value.zone_livraison_id = ''
+    zoneSearchTimeout = setTimeout(() => {
+      fetchZonesByVille(trimmed)
+    }, 300)
+  }
+)
 </script>

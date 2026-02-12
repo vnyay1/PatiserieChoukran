@@ -30,8 +30,9 @@ class ZoneLivraisonController extends Controller
      */
     public function byCity($ville)
     {
+        $ville = trim($ville);
         $zones = ZoneLivraison::active()
-            ->ville($ville)
+            ->where('ville', 'like', "%{$ville}%")
             ->orderBy('nom_zone')
             ->get();
 

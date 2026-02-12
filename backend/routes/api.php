@@ -19,9 +19,12 @@ use App\Http\Controllers\Api\ZoneLivraisonController;
 
 // Admin Controllers
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\CategorieController as AdminCategorieController;
+use App\Http\Controllers\Admin\ParametreSiteController as AdminParametreSiteController;
 use App\Http\Controllers\Admin\ProduitController as AdminProduitController;
 use App\Http\Controllers\Admin\CommandeController as AdminCommandeController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Admin\ZoneLivraisonController as AdminZoneLivraisonController;
 
 /*
 |--------------------------------------------------------------------------
@@ -92,6 +95,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/stats', [CommandeController::class, 'stats']);
             Route::post('/', [CommandeController::class, 'store']);
             Route::get('/{id}', [CommandeController::class, 'show']);
+            Route::put('/{id}', [CommandeController::class, 'update']);
             Route::post('/{id}/cancel', [CommandeController::class, 'cancel']);
             Route::post('/calculate-shipping', [CommandeController::class, 'calculateShipping']);
         });
@@ -127,6 +131,24 @@ Route::prefix('v1')->group(function () {
         Route::get('dashboard/stats', [DashboardController::class, 'stats']);
 
         // Gestion des produits
+        Route::prefix('categories')->group(function () {
+            Route::get('/', [AdminCategorieController::class, 'index']);
+            Route::post('/', [AdminCategorieController::class, 'store']);
+            Route::get('/{id}', [AdminCategorieController::class, 'show']);
+            Route::put('/{id}', [AdminCategorieController::class, 'update']);
+            Route::delete('/{id}', [AdminCategorieController::class, 'destroy']);
+        });
+
+        // Gestion des paramètres du site
+        Route::prefix('parametres')->group(function () {
+            Route::get('/', [AdminParametreSiteController::class, 'index']);
+            Route::post('/', [AdminParametreSiteController::class, 'store']);
+            Route::get('/{id}', [AdminParametreSiteController::class, 'show']);
+            Route::put('/{id}', [AdminParametreSiteController::class, 'update']);
+            Route::delete('/{id}', [AdminParametreSiteController::class, 'destroy']);
+        });
+
+        // Gestion des produits
         Route::prefix('produits')->group(function () {
             Route::get('/', [AdminProduitController::class, 'index']);
             Route::post('/', [AdminProduitController::class, 'store']);
@@ -150,6 +172,16 @@ Route::prefix('v1')->group(function () {
             Route::get('/', [AdminUserController::class, 'index']);
             Route::get('/{id}', [AdminUserController::class, 'show']);
             Route::patch('/{id}/status', [AdminUserController::class, 'updateStatus']);
+            Route::patch('/{id}/role', [AdminUserController::class, 'updateRole']);
+        });
+
+        // Gestion des zones de livraison
+        Route::prefix('zones-livraison')->group(function () {
+            Route::get('/', [AdminZoneLivraisonController::class, 'index']);
+            Route::post('/', [AdminZoneLivraisonController::class, 'store']);
+            Route::get('/{id}', [AdminZoneLivraisonController::class, 'show']);
+            Route::put('/{id}', [AdminZoneLivraisonController::class, 'update']);
+            Route::delete('/{id}', [AdminZoneLivraisonController::class, 'destroy']);
         });
     });
 

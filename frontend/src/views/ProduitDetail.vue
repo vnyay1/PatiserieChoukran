@@ -180,7 +180,7 @@ File: src/views/ProduitDetail.vue
                 variant="primary"
                 size="lg"
                 full-width
-                :disabled="!produit.est_disponible || produit.stock_disponible === 0"
+                :disabled="isAdmin || !produit.est_disponible || produit.stock_disponible === 0"
                 :loading="addingToCart"
                 @click="addToCart"
               >
@@ -242,8 +242,9 @@ File: src/views/ProduitDetail.vue
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
 import api from '@/services/api'
 import ProduitCard from '@/components/produits/ProduitCard.vue'
@@ -251,7 +252,7 @@ import Button from '@/components/common/Button.vue'
 import { ArrowLeft, Star, ShoppingCart, Heart, Minus, Plus, AlertTriangle } from 'lucide-vue-next'
 
 const route = useRoute()
-const router = useRouter()
+const authStore = useAuthStore()
 const panierStore = usePanierStore()
 
 const produit = ref(null)
@@ -261,6 +262,22 @@ const addingToCart = ref(false)
 const quantite = ref(1)
 const currentImage = ref('')
 const isFavorite = ref(false)
+const isAdmin = computed(() => authStore.isAdmin)
+
+const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+const apiOrigin = (() => {
+  try {
+    return new URL(apiBase).origin
+  } catch {
+    return ''
+  }
+})()
+
+const resolveImageUrl = (path, { placeholder = true } = {}) => {
+  if (!path) return placeholder ? '/placeholder-product.jpg' : null
+  if (path.startsWith('http') || path.startsWith('/')) return path
+  return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
+}
 
 const allImages = computed(() => {
   if (!produit.value) return []
@@ -268,7 +285,9 @@ const allImages = computed(() => {
   if (produit.value.images_secondaires) {
     images.push(...produit.value.images_secondaires)
   }
-  return images.filter(Boolean)
+  return images
+    .filter(Boolean)
+    .map((path) => resolveImageUrl(path, { placeholder: false }))
 })
 
 const reductionPercent = computed(() => {
@@ -287,12 +306,16 @@ const formatPrice = (price) => {
 
 const fetchProduit = async () => {
   loading.value = true
+  produitsSimilaires.value = []
+  quantite.value = 1
+  currentImage.value = ''
 
   try {
     const response = await api.produits.getOne(route.params.slug)
     if (response.data.success) {
       produit.value = response.data.data
-      currentImage.value = produit.value.image_principale
+      const images = allImages.value
+      currentImage.value = images[0] || resolveImageUrl(null)
       
       // Charger les produits similaires
       fetchProduitsSimilaires()
@@ -316,6 +339,9 @@ const fetchProduitsSimilaires = async () => {
 }
 
 const addToCart = async () => {
+  if (isAdmin.value) {
+    return
+  }
   addingToCart.value = true
 
   const result = await panierStore.addItem(produit.value.id, quantite.value)
@@ -340,4 +366,13 @@ const toggleFavorite = () => {
 onMounted(() => {
   fetchProduit()
 })
+
+watch(
+  () => route.params.slug,
+  (nextSlug, prevSlug) => {
+    if (nextSlug && nextSlug !== prevSlug) {
+      fetchProduit()
+    }
+  }
+)
 </script>
