@@ -15,6 +15,10 @@ class ZoneLivraisonController extends Controller
     {
         $query = ZoneLivraison::query();
 
+        if ($this->isLivreur($request)) {
+            $query->where('created_by_user_id', $request->user()->id);
+        }
+
         if ($request->has('ville')) {
             $query->where('ville', $request->ville);
         }
@@ -55,6 +59,8 @@ class ZoneLivraisonController extends Controller
             'est_active' => 'boolean',
         ]);
 
+        $validated['created_by_user_id'] = $request->user()->id;
+
         $zone = ZoneLivraison::create($validated);
 
         return response()->json([
@@ -67,9 +73,9 @@ class ZoneLivraisonController extends Controller
     /**
      * Afficher une zone
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
-        $zone = ZoneLivraison::findOrFail($id);
+        $zone = $this->findZoneForManagement($request, $id);
 
         return response()->json([
             'success' => true,
@@ -82,7 +88,7 @@ class ZoneLivraisonController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $zone = ZoneLivraison::findOrFail($id);
+        $zone = $this->findZoneForManagement($request, $id);
 
         $validated = $request->validate([
             'nom_zone' => 'sometimes|string|max:255',
@@ -117,14 +123,28 @@ class ZoneLivraisonController extends Controller
     /**
      * Supprimer une zone
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
-        $zone = ZoneLivraison::findOrFail($id);
+        $zone = $this->findZoneForManagement($request, $id);
         $zone->delete();
 
         return response()->json([
             'success' => true,
             'message' => 'Zone supprimée',
         ]);
+    }
+
+    private function findZoneForManagement(Request $request, $id): ZoneLivraison
+    {
+        return ZoneLivraison::query()
+            ->when($this->isLivreur($request), function ($query) use ($request) {
+                $query->where('created_by_user_id', $request->user()->id);
+            })
+            ->findOrFail($id);
+    }
+
+    private function isLivreur(Request $request): bool
+    {
+        return $request->user()?->role === 'livreur';
     }
 }

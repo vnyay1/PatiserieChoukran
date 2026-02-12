@@ -180,7 +180,7 @@ File: src/views/ProduitDetail.vue
                 variant="primary"
                 size="lg"
                 full-width
-                :disabled="isAdmin || !produit.est_disponible || produit.stock_disponible === 0"
+                :disabled="isRestrictedRole || !produit.est_disponible || produit.stock_disponible === 0"
                 :loading="addingToCart"
                 @click="addToCart"
               >
@@ -262,7 +262,7 @@ const addingToCart = ref(false)
 const quantite = ref(1)
 const currentImage = ref('')
 const isFavorite = ref(false)
-const isAdmin = computed(() => authStore.isAdmin)
+const isRestrictedRole = computed(() => authStore.isAdmin || authStore.isLivreur)
 
 const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
 const apiOrigin = (() => {
@@ -339,7 +339,7 @@ const fetchProduitsSimilaires = async () => {
 }
 
 const addToCart = async () => {
-  if (isAdmin.value) {
+  if (isRestrictedRole.value) {
     return
   }
   addingToCart.value = true

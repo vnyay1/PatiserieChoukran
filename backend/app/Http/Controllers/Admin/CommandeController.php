@@ -125,6 +125,20 @@ class CommandeController extends Controller
             ], 400);
         }
 
+        $hasForeignProducts = $commande->ligneCommandes()
+            ->whereHas('produit', function ($query) use ($livreur) {
+                $query->whereNull('created_by_user_id')
+                    ->orWhere('created_by_user_id', '!=', $livreur->id);
+            })
+            ->exists();
+
+        if ($hasForeignProducts) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ce livreur ne peut pas être assigné: la commande contient des produits ajoutés par un autre utilisateur.',
+            ], 422);
+        }
+
         $commande->update(['livreur_id' => $validated['livreur_id']]);
 
         return response()->json([

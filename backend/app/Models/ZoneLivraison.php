@@ -13,6 +13,7 @@ class ZoneLivraison extends Model
         'delai_livraison_min',
         'delai_livraison_max',
         'est_active',
+        'created_by_user_id',
     ];
 
     protected $casts = [
@@ -31,5 +32,10 @@ class ZoneLivraison extends Model
     public function scopeVille($query, $ville)
     {
         return $query->where('ville', $ville);
+    }
+
+    public function createur()
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
     }
 }

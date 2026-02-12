@@ -1,0 +1,198 @@
+<?php
+
+namespace App\Http\Controllers\Livreur;
+
+use App\Http\Controllers\Controller;
+use App\Models\Commande;
+use Illuminate\Http\Request;
+
+class CommandeController extends Controller
+{
+    /**
+     * Liste des commandes du livreur (uniquement ses produits).
+     */
+    public function index(Request $request)
+    {
+        $query = $this->queryForLivreur($request->user()->id)
+            ->with(['user', 'ligneCommandes', 'adresseLivraison']);
+
+        if ($request->has('statut')) {
+            $query->where('statut', $request->statut);
+        }
+
+        if ($request->has('statut_paiement')) {
+            $query->where('statut_paiement', $request->statut_paiement);
+        }
+
+        if ($request->has('date_debut')) {
+            $query->whereDate('created_at', '>=', $request->date_debut);
+        }
+
+        if ($request->has('date_fin')) {
+            $query->whereDate('created_at', '<=', $request->date_fin);
+        }
+
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('numero_commande', 'like', "%{$search}%")
+                    ->orWhereHas('user', function ($q2) use ($search) {
+                        $q2->where('nom_complet', 'like', "%{$search}%")
+                            ->orWhere('telephone', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        $commandes = $query->orderBy('created_at', 'desc')
+            ->paginate($request->get('per_page', 15));
+
+        return response()->json([
+            'success' => true,
+            'data' => $commandes,
+        ]);
+    }
+
+    /**
+     * Commandes en cours du livreur.
+     */
+    public function enCours(Request $request)
+    {
+        $commandes = $this->queryForLivreur($request->user()->id)
+            ->whereIn('statut', ['confirmee', 'en_preparation', 'prete', 'en_livraison'])
+            ->with(['user', 'ligneCommandes', 'adresseLivraison'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $commandes,
+        ]);
+    }
+
+    /**
+     * Détail d'une commande du livreur.
+     */
+    public function show(Request $request, $id)
+    {
+        $commande = $this->findForLivreur($request->user()->id, $id)
+            ->load([
+                'user',
+                'ligneCommandes.produit',
+                'adresseLivraison',
+                'historiques.modifiePar',
+            ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $commande,
+        ]);
+    }
+
+    /**
+     * Changer le statut d'une commande du livreur.
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'statut' => 'required|in:en_attente,confirmee,en_preparation,prete,en_livraison,livree,annulee',
+            'commentaire' => 'nullable|string|max:500',
+        ]);
+
+        $livreur = $request->user();
+        $commande = $this->findForLivreur($livreur->id, $id);
+
+        if ($commande->statut === 'annulee') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cette commande est annulée et ne peut plus être modifiée.',
+            ], 400);
+        }
+
+        $commande->changerStatut(
+            $validated['statut'],
+            $livreur->id,
+            $validated['commentaire'] ?? null
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Statut mis à jour',
+            'data' => $commande->load('historiques'),
+        ]);
+    }
+
+    /**
+     * Confirmer le paiement d'une commande du livreur.
+     */
+    public function confirmPayment(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'reference_paiement' => 'nullable|string|max:255',
+        ]);
+
+        $commande = $this->findForLivreur($request->user()->id, $id);
+
+        if ($commande->statut === 'annulee') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Impossible de confirmer le paiement d\'une commande annulée.',
+            ], 400);
+        }
+
+        $commande->update([
+            'statut_paiement' => 'paye',
+            'date_paiement' => now(),
+            'reference_paiement' => $validated['reference_paiement'] ?? null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Paiement confirmé',
+            'data' => $commande,
+        ]);
+    }
+
+    /**
+     * Statistiques du livreur.
+     */
+    public function stats(Request $request)
+    {
+        $query = $this->queryForLivreur($request->user()->id);
+
+        $stats = [
+            'livraisons_total' => (clone $query)->count(),
+            'livraisons_aujourd_hui' => (clone $query)->whereDate('created_at', today())->count(),
+            'en_cours' => (clone $query)->whereIn('statut', ['confirmee', 'en_preparation', 'prete', 'en_livraison'])->count(),
+            'livrees_ce_mois' => (clone $query)
+                ->where('statut', 'livree')
+                ->whereMonth('updated_at', now()->month)
+                ->count(),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => $stats,
+        ]);
+    }
+
+    private function queryForLivreur(int $livreurId)
+    {
+        return Commande::query()
+            ->whereHas('ligneCommandes.produit', function ($q) use ($livreurId) {
+                $q->where('created_by_user_id', $livreurId);
+            })
+            ->whereDoesntHave('ligneCommandes.produit', function ($q) use ($livreurId) {
+                $q->where(function ($sub) use ($livreurId) {
+                    $sub->whereNull('created_by_user_id')
+                        ->orWhere('created_by_user_id', '!=', $livreurId);
+                });
+            });
+    }
+
+    private function findForLivreur(int $livreurId, int|string $commandeId): Commande
+    {
+        return $this->queryForLivreur($livreurId)
+            ->where('id', $commandeId)
+            ->firstOrFail();
+    }
+}

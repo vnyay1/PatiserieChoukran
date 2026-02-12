@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Categorie;
 use App\Models\Produit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -15,6 +16,10 @@ class ProduitController extends Controller
     public function index(Request $request)
     {
         $query = Produit::with('categorie');
+
+        if ($this->isLivreur($request)) {
+            $query->where('created_by_user_id', $request->user()->id);
+        }
 
         // Recherche
         if ($request->has('search')) {
@@ -72,6 +77,13 @@ class ProduitController extends Controller
             }
         }
 
+        if ($this->isLivreur($request) && !$this->isCategorieOwnedByLivreur($validated['categorie_id'], $request->user()->id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vous ne pouvez utiliser que vos propres catégories.',
+            ], 403);
+        }
+
         // Upload image principale
         if ($request->hasFile('image_principale')) {
             $validated['image_principale'] = $request->file('image_principale')
@@ -89,6 +101,7 @@ class ProduitController extends Controller
 
         // Générer le slug
         $validated['slug'] = $this->generateUniqueSlug($validated['nom']);
+        $validated['created_by_user_id'] = $request->user()->id;
 
         $produit = Produit::create($validated);
 
@@ -102,9 +115,9 @@ class ProduitController extends Controller
     /**
      * Afficher un produit
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
-        $produit = Produit::with('categorie')->findOrFail($id);
+        $produit = $this->findProduitForManagement($request, $id)->load('categorie');
 
         return response()->json([
             'success' => true,
@@ -117,7 +130,7 @@ class ProduitController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $produit = Produit::findOrFail($id);
+        $produit = $this->findProduitForManagement($request, $id);
 
         $validated = $request->validate([
             'categorie_id' => 'sometimes|exists:categories,id',
@@ -145,6 +158,17 @@ class ProduitController extends Controller
                     'message' => 'Le prix promo doit être inférieur au prix unitaire',
                 ], 422);
             }
+        }
+
+        if (
+            $this->isLivreur($request)
+            && array_key_exists('categorie_id', $validated)
+            && !$this->isCategorieOwnedByLivreur($validated['categorie_id'], $request->user()->id)
+        ) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vous ne pouvez utiliser que vos propres catégories.',
+            ], 403);
         }
 
         // Upload nouvelle image principale si fournie
@@ -189,9 +213,9 @@ class ProduitController extends Controller
     /**
      * Supprimer un produit
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
-        $produit = Produit::findOrFail($id);
+        $produit = $this->findProduitForManagement($request, $id);
 
         // Supprimer les images
         if ($produit->image_principale) {
@@ -228,6 +252,27 @@ class ProduitController extends Controller
             'message' => 'Stock mis à jour',
             'data' => $produit,
         ]);
+    }
+
+    private function findProduitForManagement(Request $request, $id): Produit
+    {
+        return Produit::query()
+            ->when($this->isLivreur($request), function ($query) use ($request) {
+                $query->where('created_by_user_id', $request->user()->id);
+            })
+            ->findOrFail($id);
+    }
+
+    private function isLivreur(Request $request): bool
+    {
+        return $request->user()?->role === 'livreur';
+    }
+
+    private function isCategorieOwnedByLivreur(int $categorieId, int $livreurId): bool
+    {
+        return Categorie::where('id', $categorieId)
+            ->where('created_by_user_id', $livreurId)
+            ->exists();
     }
 
     protected function generateUniqueSlug(string $nom, ?int $ignoreId = null): string

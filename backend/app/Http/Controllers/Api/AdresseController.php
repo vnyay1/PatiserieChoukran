@@ -11,11 +11,6 @@ class AdresseController extends Controller
 {
     private GeocodingService $geocoding;
 
-    public function __construct(GeocodingService $geocoding)
-    {
-        $this->geocoding = $geocoding;
-    }
-
     /**
      * Liste des adresses de l'utilisateur
      */

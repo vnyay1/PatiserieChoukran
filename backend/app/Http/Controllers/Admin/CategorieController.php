@@ -16,6 +16,10 @@ class CategorieController extends Controller
     {
         $query = Categorie::query();
 
+        if ($this->isLivreur($request)) {
+            $query->where('created_by_user_id', $request->user()->id);
+        }
+
         if ($request->has('search')) {
             $search = $request->search;
             $query->where('nom', 'like', "%{$search}%");
@@ -53,6 +57,7 @@ class CategorieController extends Controller
         }
 
         $validated['slug'] = $this->generateUniqueSlug($validated['nom']);
+        $validated['created_by_user_id'] = $request->user()->id;
 
         $categorie = Categorie::create($validated);
 
@@ -66,9 +71,9 @@ class CategorieController extends Controller
     /**
      * Détail d'une catégorie
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
-        $categorie = Categorie::findOrFail($id);
+        $categorie = $this->findCategorieForManagement($request, $id);
 
         return response()->json([
             'success' => true,
@@ -81,7 +86,7 @@ class CategorieController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $categorie = Categorie::findOrFail($id);
+        $categorie = $this->findCategorieForManagement($request, $id);
 
         $validated = $request->validate([
             'nom' => 'sometimes|string|max:255',
@@ -114,9 +119,9 @@ class CategorieController extends Controller
     /**
      * Supprimer une catégorie
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
-        $categorie = Categorie::findOrFail($id);
+        $categorie = $this->findCategorieForManagement($request, $id);
 
         if ($categorie->image) {
             \Storage::disk('public')->delete($categorie->image);
@@ -148,5 +153,19 @@ class CategorieController extends Controller
         }
 
         return $slug;
+    }
+
+    private function findCategorieForManagement(Request $request, $id): Categorie
+    {
+        return Categorie::query()
+            ->when($this->isLivreur($request), function ($query) use ($request) {
+                $query->where('created_by_user_id', $request->user()->id);
+            })
+            ->findOrFail($id);
+    }
+
+    private function isLivreur(Request $request): bool
+    {
+        return $request->user()?->role === 'livreur';
     }
 }

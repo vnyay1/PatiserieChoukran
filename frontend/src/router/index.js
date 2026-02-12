@@ -101,7 +101,7 @@ const routes = [
     path: '/admin/categories',
     name: 'admin-categories',
     component: AdminCategories,
-    meta: { title: 'Administration Catégories', requiresAuth: true, requiresAdmin: true }
+    meta: { title: 'Administration Catégories', requiresAuth: true, requiresCatalogueManager: true }
   },
   {
     path: '/admin/parametres',
@@ -113,13 +113,13 @@ const routes = [
     path: '/admin/commandes',
     name: 'admin-commandes',
     component: AdminCommandes,
-    meta: { title: 'Administration Commandes', requiresAuth: true, requiresAdmin: true }
+    meta: { title: 'Gestion Commandes', requiresAuth: true, requiresCommandesManager: true }
   },
   {
     path: '/admin/produits',
     name: 'admin-produits',
     component: AdminProduits,
-    meta: { title: 'Administration Produits', requiresAuth: true, requiresAdmin: true }
+    meta: { title: 'Administration Produits', requiresAuth: true, requiresCatalogueManager: true }
   },
   {
     path: '/admin/users',
@@ -131,7 +131,7 @@ const routes = [
     path: '/admin/zones-livraison',
     name: 'admin-zones',
     component: AdminZones,
-    meta: { title: 'Administration Zones de livraison', requiresAuth: true, requiresAdmin: true }
+    meta: { title: 'Administration Zones de livraison', requiresAuth: true, requiresCatalogueManager: true }
   }
 ]
 
@@ -156,6 +156,9 @@ router.beforeEach(async (to, from, next) => {
 
   const isAuthenticated = authStore.isAuthenticated
   const isAdmin = authStore.isAdmin
+  const isLivreur = authStore.isLivreur
+  const canManageCatalogue = authStore.canManageCatalogue
+  const canManageCommandes = isAdmin || isLivreur
 
   // Mettre à jour le titre de la page
   document.title = `${to.meta.title || 'Choukrane'} - Pâtisserie`
@@ -172,9 +175,21 @@ router.beforeEach(async (to, from, next) => {
     return
   }
 
-  // Empêcher les admins d'accéder au panier/commande client
-  if (isAdmin && ['panier', 'checkout', 'mes-commandes', 'commande-detail'].includes(to.name)) {
-    next({ name: 'admin-dashboard' })
+  // Routes de gestion commandes (admin + livreur)
+  if (to.meta.requiresCommandesManager && !canManageCommandes) {
+    next({ name: 'home' })
+    return
+  }
+
+  // Routes de gestion catalogue (admin + livreur)
+  if (to.meta.requiresCatalogueManager && !canManageCatalogue) {
+    next({ name: 'home' })
+    return
+  }
+
+  // Empêcher admin/livreur d'accéder aux pages client de commande
+  if ((isAdmin || isLivreur) && ['panier', 'checkout', 'mes-commandes', 'commande-detail'].includes(to.name)) {
+    next({ name: isAdmin ? 'admin-dashboard' : 'admin-commandes' })
     return
   }
 

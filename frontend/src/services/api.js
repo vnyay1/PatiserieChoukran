@@ -58,6 +58,16 @@ api.interceptors.response.use(
   }
 )
 
+const getCataloguePrefix = () => {
+  const authStore = useAuthStore()
+  return authStore.isLivreur ? '/livreur/catalogue' : '/admin'
+}
+
+const getCommandesPrefix = () => {
+  const authStore = useAuthStore()
+  return authStore.isLivreur ? '/livreur/commandes' : '/admin/commandes'
+}
+
 // Méthodes API
 export default {
   // Auth
@@ -137,22 +147,22 @@ export default {
       stats: (params) => api.get('/admin/dashboard/stats', { params }),
     },
     commandes: {
-      getAll: (params) => api.get('/admin/commandes', { params }),
-      getOne: (id) => api.get(`/admin/commandes/${id}`),
-      updateStatus: (id, data) => api.patch(`/admin/commandes/${id}/status`, data),
-      confirmPayment: (id, data) => api.post(`/admin/commandes/${id}/confirm-payment`, data),
+      getAll: (params) => api.get(getCommandesPrefix(), { params }),
+      getOne: (id) => api.get(`${getCommandesPrefix()}/${id}`),
+      updateStatus: (id, data) => api.patch(`${getCommandesPrefix()}/${id}/status`, data),
+      confirmPayment: (id, data) => api.post(`${getCommandesPrefix()}/${id}/confirm-payment`, data),
       assignLivreur: (id, data) => api.post(`/admin/commandes/${id}/assign-livreur`, data),
     },
     categories: {
-      getAll: (params) => api.get('/admin/categories', { params }),
-      getOne: (id) => api.get(`/admin/categories/${id}`),
-      create: (data) => api.post('/admin/categories', data, {
+      getAll: (params) => api.get(`${getCataloguePrefix()}/categories`, { params }),
+      getOne: (id) => api.get(`${getCataloguePrefix()}/categories/${id}`),
+      create: (data) => api.post(`${getCataloguePrefix()}/categories`, data, {
         headers: { 'Content-Type': 'multipart/form-data' }
       }),
-      update: (id, data) => api.post(`/admin/categories/${id}`, data, {
+      update: (id, data) => api.post(`${getCataloguePrefix()}/categories/${id}`, data, {
         headers: { 'Content-Type': 'multipart/form-data' }
       }),
-      remove: (id) => api.delete(`/admin/categories/${id}`),
+      remove: (id) => api.delete(`${getCataloguePrefix()}/categories/${id}`),
     },
     parametres: {
       getAll: (params) => api.get('/admin/parametres', { params }),
@@ -162,15 +172,15 @@ export default {
       remove: (id) => api.delete(`/admin/parametres/${id}`),
     },
     produits: {
-      getAll: (params) => api.get('/admin/produits', { params }),
-      getOne: (id) => api.get(`/admin/produits/${id}`),
-      create: (data) => api.post('/admin/produits', data, {
+      getAll: (params) => api.get(`${getCataloguePrefix()}/produits`, { params }),
+      getOne: (id) => api.get(`${getCataloguePrefix()}/produits/${id}`),
+      create: (data) => api.post(`${getCataloguePrefix()}/produits`, data, {
         headers: { 'Content-Type': 'multipart/form-data' }
       }),
-      update: (id, data) => api.post(`/admin/produits/${id}`, data, {
+      update: (id, data) => api.post(`${getCataloguePrefix()}/produits/${id}`, data, {
         headers: { 'Content-Type': 'multipart/form-data' }
       }),
-      remove: (id) => api.delete(`/admin/produits/${id}`),
+      remove: (id) => api.delete(`${getCataloguePrefix()}/produits/${id}`),
     },
     users: {
       getAll: (params) => api.get('/admin/users', { params }),
@@ -179,11 +189,11 @@ export default {
       updateRole: (id, data) => api.patch(`/admin/users/${id}/role`, data),
     },
     zones: {
-      getAll: (params) => api.get('/admin/zones-livraison', { params }),
-      getOne: (id) => api.get(`/admin/zones-livraison/${id}`),
-      create: (data) => api.post('/admin/zones-livraison', data),
-      update: (id, data) => api.put(`/admin/zones-livraison/${id}`, data),
-      remove: (id) => api.delete(`/admin/zones-livraison/${id}`),
+      getAll: (params) => api.get(`${getCataloguePrefix()}/zones-livraison`, { params }),
+      getOne: (id) => api.get(`${getCataloguePrefix()}/zones-livraison/${id}`),
+      create: (data) => api.post(`${getCataloguePrefix()}/zones-livraison`, data),
+      update: (id, data) => api.put(`${getCataloguePrefix()}/zones-livraison/${id}`, data),
+      remove: (id) => api.delete(`${getCataloguePrefix()}/zones-livraison/${id}`),
     }
   }
 }

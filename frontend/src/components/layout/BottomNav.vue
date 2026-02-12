@@ -52,6 +52,16 @@ const navItems = computed(() => {
     ]
   }
 
+  if (authStore.isLivreur) {
+    return [
+      { name: 'home', label: 'Accueil', icon: Home, to: '/' },
+      { name: 'produits', label: 'Produits', icon: ShoppingBag, to: '/produits' },
+      { name: 'admin-commandes', label: 'Commandes', icon: Package, to: '/admin/commandes' },
+      { name: 'admin-produits', label: 'Catalogue', icon: Shield, to: '/admin/produits' },
+      { name: 'admin-zones', label: 'Zones', icon: Settings, to: '/admin/zones-livraison' },
+    ]
+  }
+
   return [
     { name: 'home', label: 'Accueil', icon: Home, to: '/' },
     { name: 'produits', label: 'Produits', icon: ShoppingBag, to: '/produits' },
@@ -70,6 +80,9 @@ const isActive = (name) => {
   if (name === 'admin-dashboard') {
     return route.name === 'admin-dashboard' || route.name === 'admin-produits' || route.name === 'admin-users' || route.name === 'admin-zones' || route.name === 'admin-categories' || route.name === 'admin-parametres'
   }
+  if (name === 'admin-produits') return route.name === 'admin-produits'
+  if (name === 'admin-categories') return route.name === 'admin-categories'
+  if (name === 'admin-zones') return route.name === 'admin-zones'
   if (name === 'admin-commandes') return route.name === 'admin-commandes'
   if (name === 'admin-parametres') return route.name === 'admin-parametres'
   return false

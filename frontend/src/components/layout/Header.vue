@@ -29,7 +29,7 @@ File: src/components/layout/Header.vue
         <div class="flex items-center space-x-4">
           <!-- Panier (visible sur mobile aussi) -->
           <router-link
-            v-if="!authStore.isAdmin"
+            v-if="authStore.isClient"
             to="/panier"
             class="relative touch-target flex items-center justify-center md:hidden"
           >
@@ -44,7 +44,7 @@ File: src/components/layout/Header.vue
 
           <!-- Authentification Desktop -->
         <div v-if="authStore.isAuthenticated" class="hidden md:flex items-center space-x-4">
-            <router-link v-if="!authStore.isAdmin" to="/panier" class="relative">
+            <router-link v-if="authStore.isClient" to="/panier" class="relative">
               <ShoppingCart :size="24" class="text-gray-700 hover:text-gold-600" />
               <span
                 v-if="panierCount > 0"
@@ -96,17 +96,24 @@ const desktopNavItems = computed(() => {
     { name: 'produits', label: 'Nos Produits', to: '/produits' },
   ]
 
-  if (!authStore.isAdmin) {
+  if (authStore.isClient) {
     items.push({ name: 'commandes', label: 'Mes Commandes', to: '/mes-commandes' })
   }
 
   if (authStore.isAdmin) {
     items.push({ name: 'admin-dashboard', label: 'Dashboard', to: '/admin/dashboard' })
     items.push({ name: 'admin-commandes', label: 'Commandes', to: '/admin/commandes' })
-    items.push({ name: 'admin-categories', label: 'Catégories', to: '/admin/categories' })
     items.push({ name: 'admin-parametres', label: 'Paramètres', to: '/admin/parametres' })
-    items.push({ name: 'admin-produits', label: 'Produits', to: '/admin/produits' })
     items.push({ name: 'admin-users', label: 'Utilisateurs', to: '/admin/users' })
+  }
+
+  if (authStore.isLivreur) {
+    items.push({ name: 'admin-commandes', label: 'Commandes', to: '/admin/commandes' })
+  }
+
+  if (authStore.canManageCatalogue) {
+    items.push({ name: 'admin-categories', label: 'Catégories', to: '/admin/categories' })
+    items.push({ name: 'admin-produits', label: 'Produits', to: '/admin/produits' })
     items.push({ name: 'admin-zones', label: 'Zones', to: '/admin/zones-livraison' })
   }
 

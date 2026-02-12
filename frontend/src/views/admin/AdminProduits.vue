@@ -338,9 +338,11 @@ const formatPrice = (price) => {
 
 const fetchCategories = async () => {
   try {
-    const response = await api.categories.getAll()
+    const response = await api.admin.categories.getAll({ per_page: 200 })
     if (response.data.success) {
-      categories.value = response.data.data
+      categories.value = Array.isArray(response.data.data)
+        ? response.data.data
+        : (response.data.data?.data || [])
     }
   } catch (error) {
     console.error('Erreur chargement catégories:', error)

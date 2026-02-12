@@ -14,6 +14,7 @@ class Categorie extends Model
         'image',
         'ordre_affichage',
         'est_actif',
+        'created_by_user_id',
     ];
 
     protected $casts = [
@@ -30,6 +31,11 @@ class Categorie extends Model
     public function produitsDisponibles()
     {
         return $this->hasMany(Produit::class)->where('est_disponible', true);
+    }
+
+    public function createur()
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
     // Scopes
@@ -61,4 +67,3 @@ class Categorie extends Model
         });
     }
 }
-

@@ -9,6 +9,7 @@ class Produit extends Model
 {
     protected $fillable = [
         'categorie_id',
+        'created_by_user_id',
         'nom',
         'slug',
         'description',
@@ -38,6 +39,11 @@ class Produit extends Model
     public function categorie()
     {
         return $this->belongsTo(Categorie::class);
+    }
+
+    public function createur()
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
     public function ligneCommandes()

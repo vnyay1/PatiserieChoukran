@@ -62,7 +62,7 @@ watch(
   () => authStore.user?.id,
   async (userId) => {
     if (!userId) return
-    if (authStore.isAdmin) {
+    if (!authStore.isClient) {
       panierStore.reset()
       return
     }

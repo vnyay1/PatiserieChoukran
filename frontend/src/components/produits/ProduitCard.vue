@@ -68,7 +68,7 @@ File: src/components/produits/ProduitCard.vue
         variant="primary"
         size="sm"
         full-width
-        :disabled="isAdmin || !produit.est_disponible || produit.stock_disponible === 0"
+        :disabled="isRestrictedRole || !produit.est_disponible || produit.stock_disponible === 0"
         :loading="addingToCart"
         @click.stop="addToCart"
       >
@@ -99,7 +99,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const panierStore = usePanierStore()
 const addingToCart = ref(false)
-const isAdmin = computed(() => authStore.isAdmin)
+const isRestrictedRole = computed(() => authStore.isAdmin || authStore.isLivreur)
 
 const reductionPercent = computed(() => {
   if (!props.produit.prix_promo) return 0
@@ -131,7 +131,7 @@ const goToDetail = () => {
 }
 
 const addToCart = async () => {
-  if (isAdmin.value) {
+  if (isRestrictedRole.value) {
     return
   }
   addingToCart.value = true

@@ -7,6 +7,7 @@ use App\Models\Commande;
 use App\Models\LigneCommande;
 use App\Models\Panier;
 use App\Models\Produit;
+use App\Models\User;
 use App\Models\HistoriqueStatutCommande;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -104,6 +105,34 @@ class CommandeController extends Controller
             ], 400);
         }
 
+        // Assigner automatiquement un livreur si tous les produits appartiennent
+        // au même créateur ayant le rôle livreur.
+        $livreurAssigneId = null;
+
+        $creatorIds = $panierItems
+            ->pluck('produit.created_by_user_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($creatorIds->count() === 1) {
+            $creatorId = (int) $creatorIds->first();
+
+            $allItemsOwnedByCreator = $panierItems->every(function ($item) use ($creatorId) {
+                return (int) ($item->produit->created_by_user_id ?? 0) === $creatorId;
+            });
+
+            if ($allItemsOwnedByCreator) {
+                $livreur = User::where('id', $creatorId)
+                    ->where('role', 'livreur')
+                    ->first();
+
+                if ($livreur) {
+                    $livreurAssigneId = $livreur->id;
+                }
+            }
+        }
+
         // Calculer les montants
         $montantProduits = $panierItems->sum('sous_total');
         
@@ -157,6 +186,7 @@ class CommandeController extends Controller
                 'telephone_paiement' => $validated['telephone_paiement'] ?? null,
                 'statut' => 'en_attente',
                 'statut_paiement' => 'en_attente',
+                'livreur_id' => $livreurAssigneId,
             ]);
 
             // Créer les lignes de commande

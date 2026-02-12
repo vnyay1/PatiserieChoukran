@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\ProduitController as AdminProduitController;
 use App\Http\Controllers\Admin\CommandeController as AdminCommandeController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\ZoneLivraisonController as AdminZoneLivraisonController;
+use App\Http\Controllers\Livreur\CommandeController as LivreurCommandeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -79,25 +80,27 @@ Route::prefix('v1')->group(function () {
             Route::post('change-password', [AuthController::class, 'changePassword']);
         });
 
-        // Panier
-        Route::prefix('panier')->group(function () {
-            Route::get('/', [PanierController::class, 'index']);
-            Route::get('/count', [PanierController::class, 'count']);
-            Route::post('/', [PanierController::class, 'store']);
-            Route::put('/{id}', [PanierController::class, 'update']);
-            Route::delete('/{id}', [PanierController::class, 'destroy']);
-            Route::delete('/', [PanierController::class, 'clear']);
-        });
+        Route::middleware('client')->group(function () {
+            // Panier (client uniquement)
+            Route::prefix('panier')->group(function () {
+                Route::get('/', [PanierController::class, 'index']);
+                Route::get('/count', [PanierController::class, 'count']);
+                Route::post('/', [PanierController::class, 'store']);
+                Route::put('/{id}', [PanierController::class, 'update']);
+                Route::delete('/{id}', [PanierController::class, 'destroy']);
+                Route::delete('/', [PanierController::class, 'clear']);
+            });
 
-        // Commandes
-        Route::prefix('commandes')->group(function () {
-            Route::get('/', [CommandeController::class, 'index']);
-            Route::get('/stats', [CommandeController::class, 'stats']);
-            Route::post('/', [CommandeController::class, 'store']);
-            Route::get('/{id}', [CommandeController::class, 'show']);
-            Route::put('/{id}', [CommandeController::class, 'update']);
-            Route::post('/{id}/cancel', [CommandeController::class, 'cancel']);
-            Route::post('/calculate-shipping', [CommandeController::class, 'calculateShipping']);
+            // Commandes (client uniquement)
+            Route::prefix('commandes')->group(function () {
+                Route::get('/', [CommandeController::class, 'index']);
+                Route::get('/stats', [CommandeController::class, 'stats']);
+                Route::post('/', [CommandeController::class, 'store']);
+                Route::get('/{id}', [CommandeController::class, 'show']);
+                Route::put('/{id}', [CommandeController::class, 'update']);
+                Route::post('/{id}/cancel', [CommandeController::class, 'cancel']);
+                Route::post('/calculate-shipping', [CommandeController::class, 'calculateShipping']);
+            });
         });
 
         // Adresses
@@ -190,92 +193,46 @@ Route::prefix('v1')->group(function () {
     // ===================================
     
     Route::middleware(['auth:sanctum', 'livreur'])->prefix('livreur')->group(function () {
-        
-        // Mes livraisons
-        Route::get('livraisons', function() {
-            $livreur = request()->user();
-            $livraisons = \App\Models\Commande::where('livreur_id', $livreur->id)
-                ->with(['user', 'adresseLivraison', 'ligneCommandes'])
-                ->orderBy('created_at', 'desc')
-                ->paginate(15);
-            
-            return response()->json([
-                'success' => true,
-                'data' => $livraisons,
-            ]);
+
+        // Gestion des commandes du livreur (uniquement ses propres produits)
+        Route::prefix('commandes')->group(function () {
+            Route::get('/', [LivreurCommandeController::class, 'index']);
+            Route::get('/en-cours', [LivreurCommandeController::class, 'enCours']);
+            Route::get('/stats', [LivreurCommandeController::class, 'stats']);
+            Route::get('/{id}', [LivreurCommandeController::class, 'show']);
+            Route::patch('/{id}/status', [LivreurCommandeController::class, 'updateStatus']);
+            Route::post('/{id}/confirm-payment', [LivreurCommandeController::class, 'confirmPayment']);
         });
 
-        // Mes livraisons en cours
-        Route::get('livraisons/en-cours', function() {
-            $livreur = request()->user();
-            $livraisons = \App\Models\Commande::where('livreur_id', $livreur->id)
-                ->whereIn('statut', ['prete', 'en_livraison'])
-                ->with(['user', 'adresseLivraison', 'ligneCommandes'])
-                ->orderBy('created_at', 'desc')
-                ->get();
-            
-            return response()->json([
-                'success' => true,
-                'data' => $livraisons,
-            ]);
-        });
-
-        // Détail d'une livraison
-        Route::get('livraisons/{id}', function($id) {
-            $livreur = request()->user();
-            $livraison = \App\Models\Commande::where('livreur_id', $livreur->id)
-                ->where('id', $id)
-                ->with(['user', 'adresseLivraison', 'ligneCommandes.produit'])
-                ->firstOrFail();
-            
-            return response()->json([
-                'success' => true,
-                'data' => $livraison,
-            ]);
-        });
-
-        // Changer le statut de livraison
-        Route::patch('livraisons/{id}/status', function($id) {
-            $validated = request()->validate([
-                'statut' => 'required|in:en_livraison,livree',
-            ]);
-
-            $livreur = request()->user();
-            $commande = \App\Models\Commande::where('livreur_id', $livreur->id)
-                ->where('id', $id)
-                ->firstOrFail();
-            
-            $commande->changerStatut($validated['statut'], $livreur->id);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Statut mis à jour',
-                'data' => $commande,
-            ]);
-        });
+        // Alias historiques "livraisons" (compatibilité)
+        Route::get('livraisons', [LivreurCommandeController::class, 'index']);
+        Route::get('livraisons/en-cours', [LivreurCommandeController::class, 'enCours']);
+        Route::get('livraisons/{id}', [LivreurCommandeController::class, 'show']);
+        Route::patch('livraisons/{id}/status', [LivreurCommandeController::class, 'updateStatus']);
+        Route::post('livraisons/{id}/confirm-payment', [LivreurCommandeController::class, 'confirmPayment']);
 
         // Statistiques du livreur
-        Route::get('stats', function() {
-            $livreur = request()->user();
-            
-            $stats = [
-                'livraisons_total' => \App\Models\Commande::where('livreur_id', $livreur->id)->count(),
-                'livraisons_aujourd_hui' => \App\Models\Commande::where('livreur_id', $livreur->id)
-                    ->whereDate('created_at', today())
-                    ->count(),
-                'en_cours' => \App\Models\Commande::where('livreur_id', $livreur->id)
-                    ->whereIn('statut', ['prete', 'en_livraison'])
-                    ->count(),
-                'livrees_ce_mois' => \App\Models\Commande::where('livreur_id', $livreur->id)
-                    ->where('statut', 'livree')
-                    ->whereMonth('updated_at', now()->month)
-                    ->count(),
-            ];
+        Route::get('stats', [LivreurCommandeController::class, 'stats']);
 
-            return response()->json([
-                'success' => true,
-                'data' => $stats,
-            ]);
+        // Ajouts catalogue autorisés pour le livreur
+        Route::prefix('catalogue')->group(function () {
+            Route::get('categories', [AdminCategorieController::class, 'index']);
+            Route::get('categories/{id}', [AdminCategorieController::class, 'show']);
+            Route::post('categories', [AdminCategorieController::class, 'store']);
+            Route::put('categories/{id}', [AdminCategorieController::class, 'update']);
+            Route::delete('categories/{id}', [AdminCategorieController::class, 'destroy']);
+
+            Route::get('produits', [AdminProduitController::class, 'index']);
+            Route::get('produits/{id}', [AdminProduitController::class, 'show']);
+            Route::post('produits', [AdminProduitController::class, 'store']);
+            Route::put('produits/{id}', [AdminProduitController::class, 'update']);
+            Route::delete('produits/{id}', [AdminProduitController::class, 'destroy']);
+
+            Route::get('zones-livraison', [AdminZoneLivraisonController::class, 'index']);
+            Route::get('zones-livraison/{id}', [AdminZoneLivraisonController::class, 'show']);
+            Route::post('zones-livraison', [AdminZoneLivraisonController::class, 'store']);
+            Route::put('zones-livraison/{id}', [AdminZoneLivraisonController::class, 'update']);
+            Route::delete('zones-livraison/{id}', [AdminZoneLivraisonController::class, 'destroy']);
         });
     });
 });
