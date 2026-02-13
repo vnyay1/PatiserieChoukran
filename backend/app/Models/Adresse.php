@@ -26,6 +26,17 @@ class Adresse extends Model
         'longitude' => 'float',
     ];
 
+    // Relations
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function zoneLivraison()
+    {
+        return $this->belongsTo(ZoneLivraison::class, 'zone_livraison_id');
+    }
+
     // Méthodes utiles
     public function definirCommePrincipale()
     {

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Categorie;
 use App\Models\Produit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -75,13 +74,6 @@ class ProduitController extends Controller
                     'message' => 'Veuillez renseigner un prix promo pour activer la promotion.',
                 ], 422);
             }
-        }
-
-        if ($this->isLivreur($request) && !$this->isCategorieOwnedByLivreur($validated['categorie_id'], $request->user()->id)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Vous ne pouvez utiliser que vos propres catégories.',
-            ], 403);
         }
 
         // Upload image principale
@@ -158,17 +150,6 @@ class ProduitController extends Controller
                     'message' => 'Le prix promo doit être inférieur au prix unitaire',
                 ], 422);
             }
-        }
-
-        if (
-            $this->isLivreur($request)
-            && array_key_exists('categorie_id', $validated)
-            && !$this->isCategorieOwnedByLivreur($validated['categorie_id'], $request->user()->id)
-        ) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Vous ne pouvez utiliser que vos propres catégories.',
-            ], 403);
         }
 
         // Upload nouvelle image principale si fournie
@@ -266,13 +247,6 @@ class ProduitController extends Controller
     private function isLivreur(Request $request): bool
     {
         return $request->user()?->role === 'livreur';
-    }
-
-    private function isCategorieOwnedByLivreur(int $categorieId, int $livreurId): bool
-    {
-        return Categorie::where('id', $categorieId)
-            ->where('created_by_user_id', $livreurId)
-            ->exists();
     }
 
     protected function generateUniqueSlug(string $nom, ?int $ignoreId = null): string

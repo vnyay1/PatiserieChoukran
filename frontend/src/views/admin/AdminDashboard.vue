@@ -12,7 +12,7 @@ File: src/views/admin/AdminDashboard.vue
             Dashboard Admin
           </h1>
           <p class="text-gray-600 text-sm">
-            Vue d'ensemble des ventes, clients et produits.
+            {{ dashboardSubtitle }}
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -37,17 +37,39 @@ File: src/views/admin/AdminDashboard.vue
         </div>
       </div>
 
-      <!-- Filtres de période -->
-      <div class="flex flex-wrap gap-2 mb-6">
-        <button
-          v-for="option in periodes"
-          :key="option.value"
-          class="px-4 py-2 rounded-full text-sm font-medium transition-colors"
-          :class="periode === option.value ? 'bg-gold-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
-          @click="setPeriode(option.value)"
-        >
-          {{ option.label }}
-        </button>
+      <!-- Filtres -->
+      <div class="flex flex-col xl:flex-row xl:items-end gap-4 mb-6">
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="option in periodes"
+            :key="option.value"
+            class="px-4 py-2 rounded-full text-sm font-medium transition-colors"
+            :class="periode === option.value ? 'bg-gold-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+            @click="setPeriode(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+
+        <div class="w-full xl:w-80">
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            Filtrer par livreur
+          </label>
+          <select
+            class="input"
+            :value="selectedLivreurId"
+            @change="setLivreur($event.target.value)"
+          >
+            <option value="">Tous les livreurs</option>
+            <option
+              v-for="livreur in livreurs"
+              :key="livreur.id"
+              :value="String(livreur.id)"
+            >
+              {{ livreur.nom_complet }}
+            </option>
+          </select>
+        </div>
       </div>
 
       <!-- Loading -->
@@ -211,6 +233,8 @@ const loading = ref(false)
 const error = ref('')
 
 const periode = ref('mois')
+const selectedLivreurId = ref('')
+const livreurs = ref([])
 const periodes = [
   { value: 'aujourd_hui', label: "Aujourd'hui" },
   { value: 'semaine', label: 'Semaine' },
@@ -235,6 +259,17 @@ const ventesParJour = ref([])
 const topProduits = ref([])
 const dernieresCommandes = ref([])
 
+const hasLivreurFilter = computed(() => Boolean(selectedLivreurId.value))
+const selectedLivreur = computed(() => {
+  return livreurs.value.find((item) => String(item.id) === String(selectedLivreurId.value)) || null
+})
+const dashboardSubtitle = computed(() => {
+  if (selectedLivreur.value) {
+    return `Vue d'ensemble des ventes, clients et produits pour ${selectedLivreur.value.nom_complet}.`
+  }
+  return "Vue d'ensemble des ventes, clients et produits."
+})
+
 const statCards = computed(() => [
   { key: 'total_commandes', label: 'Commandes (période)', value: stats.value.total_commandes },
   { key: 'commandes_en_attente', label: 'En attente', value: stats.value.commandes_en_attente },
@@ -242,8 +277,8 @@ const statCards = computed(() => [
   { key: 'commandes_livrees', label: 'Livrées (période)', value: stats.value.commandes_livrees },
   { key: 'revenus_total', label: 'Revenus (période)', value: stats.value.revenus_total, format: 'currency' },
   { key: 'revenus_aujourd_hui', label: "Revenus aujourd'hui", value: stats.value.revenus_aujourd_hui, format: 'currency' },
-  { key: 'total_clients', label: 'Clients actifs', value: stats.value.total_clients },
-  { key: 'nouveaux_clients', label: 'Nouveaux clients', value: stats.value.nouveaux_clients },
+  { key: 'total_clients', label: hasLivreurFilter.value ? 'Clients du livreur' : 'Clients actifs', value: stats.value.total_clients },
+  { key: 'nouveaux_clients', label: hasLivreurFilter.value ? 'Clients (période)' : 'Nouveaux clients', value: stats.value.nouveaux_clients },
   { key: 'total_produits', label: 'Produits disponibles', value: stats.value.total_produits },
   { key: 'produits_stock_faible', label: 'Stock faible', value: stats.value.produits_stock_faible, helper: '≤ 5 unités' },
 ])
@@ -390,17 +425,33 @@ const setPeriode = (value) => {
   fetchStats()
 }
 
+const setLivreur = (value) => {
+  const normalized = value ? String(value) : ''
+  if (selectedLivreurId.value === normalized) return
+  selectedLivreurId.value = normalized
+  fetchStats()
+}
+
 const fetchStats = async () => {
   loading.value = true
   error.value = ''
 
   try {
-    const response = await api.admin.dashboard.stats({ periode: periode.value })
+    const params = { periode: periode.value }
+    if (selectedLivreurId.value) {
+      params.livreur_id = Number(selectedLivreurId.value)
+    }
+
+    const response = await api.admin.dashboard.stats(params)
     if (response.data.success) {
       stats.value = response.data.data.stats || stats.value
       ventesParJour.value = response.data.data.ventes_par_jour || []
       topProduits.value = response.data.data.top_produits || []
       dernieresCommandes.value = response.data.data.dernieres_commandes || []
+      livreurs.value = response.data.data.livreurs || []
+
+      const livreurIdFromApi = response.data.data.selected_livreur_id
+      selectedLivreurId.value = livreurIdFromApi ? String(livreurIdFromApi) : ''
     } else {
       error.value = 'Impossible de charger les statistiques.'
     }

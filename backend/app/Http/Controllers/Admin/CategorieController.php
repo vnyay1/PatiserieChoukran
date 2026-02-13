@@ -10,15 +10,11 @@ use Illuminate\Support\Str;
 class CategorieController extends Controller
 {
     /**
-     * Liste des catégories (admin)
+     * Liste des catégories (admin + livreur)
      */
     public function index(Request $request)
     {
-        $query = Categorie::query();
-
-        if ($this->isLivreur($request)) {
-            $query->where('created_by_user_id', $request->user()->id);
-        }
+        $query = Categorie::query()->with('createur:id,nom_complet');
 
         if ($request->has('search')) {
             $search = $request->search;

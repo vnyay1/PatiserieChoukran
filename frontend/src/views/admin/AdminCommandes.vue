@@ -12,10 +12,13 @@ File: src/views/admin/AdminCommandes.vue
             Administration Commandes
           </h1>
           <p class="text-gray-600 text-sm">
-            Consulter et mettre à jour le statut des commandes.
+            {{ isHistoriqueMode ? 'Historique complet des commandes (admin uniquement).' : 'Consulter et mettre à jour le statut des commandes.' }}
           </p>
         </div>
         <div class="flex gap-2">
+          <Button v-if="isAdmin" variant="secondary" size="sm" @click="toggleHistoriqueMode">
+            {{ isHistoriqueMode ? 'Voir commandes actives' : 'Voir historique' }}
+          </Button>
           <Button variant="outline" size="sm" :loading="loading" @click="fetchCommandes">
             Actualiser
           </Button>
@@ -85,7 +88,7 @@ File: src/views/admin/AdminCommandes.vue
       <Card padding="none">
         <div class="p-4 border-b border-gray-100 flex items-center justify-between">
           <div class="text-sm text-gray-600">
-            {{ totalCommandes }} commande{{ totalCommandes > 1 ? 's' : '' }}
+            {{ totalCommandes }} commande{{ totalCommandes > 1 ? 's' : '' }} {{ isHistoriqueMode ? 'archivée' : '' }}
           </div>
           <div class="text-xs text-gray-500">
             Page {{ currentPage }} / {{ totalPages }}
@@ -134,7 +137,7 @@ File: src/views/admin/AdminCommandes.vue
                     </span>
                     <select
                       class="text-xs border border-gray-200 rounded-lg px-2 py-1"
-                      :disabled="commande.statut === 'annulee' || updatingStatusId === commande.id"
+                      :disabled="isReadOnlyCommande(commande) || updatingStatusId === commande.id"
                       :value="commande.statut"
                       @change="onStatusChange(commande, $event)"
                     >
@@ -154,7 +157,7 @@ File: src/views/admin/AdminCommandes.vue
                       {{ getPaymentLabel(commande.statut_paiement) }}
                     </span>
                     <Button
-                      v-if="commande.statut_paiement === 'en_attente' && commande.statut !== 'annulee'"
+                      v-if="!isHistoriqueMode && commande.statut_paiement === 'en_attente' && commande.statut !== 'annulee'"
                       variant="outline"
                       size="sm"
                       :loading="confirmingPaymentId === commande.id"
@@ -301,10 +304,12 @@ File: src/views/admin/AdminCommandes.vue
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 
+const authStore = useAuthStore()
 const commandes = ref([])
 const loading = ref(false)
 const error = ref('')
@@ -314,6 +319,7 @@ const perPage = ref(15)
 const totalCommandes = ref(0)
 const updatingStatusId = ref(null)
 const confirmingPaymentId = ref(null)
+const isHistoriqueMode = ref(false)
 
 const filters = ref({
   search: '',
@@ -326,6 +332,7 @@ const filters = ref({
 const totalPages = computed(() => {
   return Math.max(1, Math.ceil(totalCommandes.value / perPage.value))
 })
+const isAdmin = computed(() => authStore.isAdmin)
 
 const showDetail = ref(false)
 const detailLoading = ref(false)
@@ -404,6 +411,19 @@ const getPaymentBadgeClass = (statut) => {
   return classes[statut] || 'bg-gray-100 text-gray-700'
 }
 
+const notifyLivreurBadgeRefresh = () => {
+  window.dispatchEvent(new CustomEvent('livreur-commandes-updated'))
+}
+
+const isCommandeArchivee = (commande) => {
+  return commande?.statut === 'annulee'
+    || (commande?.statut === 'livree' && commande?.statut_paiement === 'paye')
+}
+
+const isReadOnlyCommande = (commande) => {
+  return isHistoriqueMode.value || isCommandeArchivee(commande)
+}
+
 const fetchCommandes = async () => {
   loading.value = true
   error.value = ''
@@ -419,11 +439,21 @@ const fetchCommandes = async () => {
     if (filters.value.statut_paiement) params.statut_paiement = filters.value.statut_paiement
     if (filters.value.date_debut) params.date_debut = filters.value.date_debut
     if (filters.value.date_fin) params.date_fin = filters.value.date_fin
+    if (isAdmin.value && isHistoriqueMode.value) params.historique = 1
 
     const response = await api.admin.commandes.getAll(params)
     if (response.data.success) {
-      commandes.value = response.data.data.data
-      totalCommandes.value = response.data.data.total
+      const pagination = response.data.data || {}
+      commandes.value = pagination.data || []
+      totalCommandes.value = Number(pagination.total || 0)
+      currentPage.value = Number(pagination.current_page || currentPage.value)
+      perPage.value = Number(pagination.per_page || perPage.value)
+
+      // Si la page courante devient vide après archivage, revenir à la page précédente.
+      if (commandes.value.length === 0 && currentPage.value > 1 && totalCommandes.value > 0) {
+        currentPage.value -= 1
+        await fetchCommandes()
+      }
     } else {
       error.value = 'Impossible de charger les commandes.'
     }
@@ -435,6 +465,13 @@ const fetchCommandes = async () => {
 }
 
 const applyFilters = () => {
+  currentPage.value = 1
+  fetchCommandes()
+}
+
+const toggleHistoriqueMode = () => {
+  if (!isAdmin.value) return
+  isHistoriqueMode.value = !isHistoriqueMode.value
   currentPage.value = 1
   fetchCommandes()
 }
@@ -480,10 +517,18 @@ const onStatusChange = async (commande, event) => {
   try {
     const response = await api.admin.commandes.updateStatus(commande.id, { statut: nextStatus })
     if (response.data.success) {
-      commande.statut = response.data.data.statut
+      const updated = response.data.data
+      commande.statut = updated.statut
       if (selectedCommande.value?.id === commande.id) {
-        selectedCommande.value.statut = response.data.data.statut
+        selectedCommande.value.statut = updated.statut
       }
+
+      if (!isHistoriqueMode.value && isCommandeArchivee(commande)) {
+        closeDetail()
+      }
+
+      await fetchCommandes()
+      notifyLivreurBadgeRefresh()
     }
   } catch (err) {
     event.target.value = commande.statut
@@ -501,11 +546,19 @@ const confirmPayment = async (commande) => {
       reference_paiement: reference || null,
     })
     if (response.data.success) {
-      commande.statut_paiement = response.data.data.statut_paiement
-      commande.date_paiement = response.data.data.date_paiement
+      const updated = response.data.data
+      commande.statut_paiement = updated.statut_paiement
+      commande.date_paiement = updated.date_paiement
       if (selectedCommande.value?.id === commande.id) {
-        selectedCommande.value.statut_paiement = response.data.data.statut_paiement
+        selectedCommande.value.statut_paiement = updated.statut_paiement
       }
+
+      if (!isHistoriqueMode.value && isCommandeArchivee(commande)) {
+        closeDetail()
+      }
+
+      await fetchCommandes()
+      notifyLivreurBadgeRefresh()
     }
   } catch (err) {
     alert(err.response?.data?.message || 'Erreur lors de la confirmation du paiement')

@@ -34,7 +34,7 @@ use App\Http\Controllers\Livreur\CommandeController as LivreurCommandeController
 */
 
 Route::prefix('v1')->group(function () {
-
+    
     // ===================================
     // ROUTES PUBLIQUES (sans authentification)
     // ===================================
@@ -81,6 +81,9 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::middleware('client')->group(function () {
+            // Zones filtrées pour la commande client (par livreur du panier)
+            Route::get('zones-livraison/ville/{ville}/commande', [ZoneLivraisonController::class, 'byCityForCommande']);
+
             // Panier (client uniquement)
             Route::prefix('panier')->group(function () {
                 Route::get('/', [PanierController::class, 'index']);

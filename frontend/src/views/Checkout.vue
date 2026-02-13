@@ -107,13 +107,23 @@ File: src/views/Checkout.vue
               </select>
             </div>
 
-            <button
-              type="button"
-              class="text-gold-600 hover:text-gold-700 text-sm font-medium mb-6"
-              @click="openAddAddress"
-            >
-              + Ajouter une nouvelle adresse
-            </button>
+            <div class="flex flex-wrap items-center gap-4 mb-6">
+              <button
+                type="button"
+                class="text-gold-600 hover:text-gold-700 text-sm font-medium"
+                @click="openAddAddress"
+              >
+                + Ajouter une nouvelle adresse
+              </button>
+              <button
+                type="button"
+                class="text-gray-600 hover:text-gray-800 text-sm font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
+                :disabled="!selectedAdresse"
+                @click="openEditAddress(selectedAdresse)"
+              >
+                Modifier l'adresse sélectionnée
+              </button>
+            </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
@@ -266,7 +276,7 @@ File: src/views/Checkout.vue
         <div class="bg-white w-full max-w-2xl rounded-elegant shadow-card overflow-hidden">
           <div class="p-4 border-b border-gray-100 flex items-center justify-between">
             <h2 class="font-display text-xl font-bold text-gray-800">
-              Ajouter une adresse
+              {{ isEditingAddress ? 'Modifier une adresse' : 'Ajouter une adresse' }}
             </h2>
             <button class="text-sm text-gray-500 hover:text-gray-700" @click="closeAddAddress">
               Fermer
@@ -340,7 +350,7 @@ File: src/views/Checkout.vue
 
             <div class="md:col-span-2 flex gap-3">
               <Button type="submit" variant="primary" :loading="savingAddress">
-                Enregistrer
+                {{ isEditingAddress ? 'Mettre à jour' : 'Enregistrer' }}
               </Button>
               <Button type="button" variant="outline" @click="closeAddAddress">
                 Annuler
@@ -354,7 +364,7 @@ File: src/views/Checkout.vue
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePanierStore } from '@/stores/panier'
 import { useAuthStore } from '@/stores/auth'
@@ -371,6 +381,8 @@ const etapes = ['Livraison', 'Paiement', 'Confirmation']
 const currentStep = ref(1)
 const submitting = ref(false)
 const showAddAddress = ref(false)
+const editingAddressId = ref(null)
+const preserveZoneSelectionOnCityChange = ref(false)
 
 const adresses = ref([])
 const zones = ref([])
@@ -416,6 +428,10 @@ const minDate = computed(() => {
 const totalGeneral = computed(() => {
   return panierStore.total + (formData.value.type_livraison === 'livraison' ? fraisLivraison.value : 0)
 })
+const isEditingAddress = computed(() => editingAddressId.value !== null)
+const selectedAdresse = computed(() => {
+  return adresses.value.find((adresse) => String(adresse.id) === String(formData.value.adresse_livraison_id)) || null
+})
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR').format(price)
@@ -438,6 +454,8 @@ const fetchAdresses = async () => {
 }
 
 const resetAddressForm = () => {
+  editingAddressId.value = null
+  preserveZoneSelectionOnCityChange.value = false
   addressForm.value = {
     libelle: '',
     quartier: '',
@@ -456,8 +474,31 @@ const openAddAddress = () => {
   showAddAddress.value = true
 }
 
+const openEditAddress = (adresse) => {
+  if (!adresse) return
+
+  const zoneId = adresse.zone_livraison_id || adresse.zone_livraison?.id || ''
+  editingAddressId.value = adresse.id
+  preserveZoneSelectionOnCityChange.value = true
+  addressError.value = ''
+
+  addressForm.value = {
+    libelle: adresse.libelle || '',
+    quartier: adresse.quartier || '',
+    ville: adresse.ville || '',
+    zone_livraison_id: zoneId,
+    telephone_contact: adresse.telephone_contact || authStore.user?.telephone || '',
+    point_repere: adresse.point_repere || '',
+    complement_adresse: adresse.complement_adresse || '',
+    est_principale: Boolean(adresse.est_principale),
+  }
+
+  showAddAddress.value = true
+}
+
 const closeAddAddress = () => {
   showAddAddress.value = false
+  resetAddressForm()
 }
 
 const submitAddress = async () => {
@@ -465,19 +506,23 @@ const submitAddress = async () => {
   addressError.value = ''
 
   try {
-    const response = await api.adresses.create(addressForm.value)
+    const response = isEditingAddress.value
+      ? await api.adresses.update(editingAddressId.value, addressForm.value)
+      : await api.adresses.create(addressForm.value)
+
     if (response.data.success) {
-      showAddAddress.value = false
+      const updatedAddressId = response.data.data?.id || editingAddressId.value
+      closeAddAddress()
       await fetchAdresses()
-      if (response.data.data?.id) {
-        formData.value.adresse_livraison_id = response.data.data.id
+      if (updatedAddressId) {
+        formData.value.adresse_livraison_id = updatedAddressId
       }
       await refreshShipping()
     } else {
-      addressError.value = response.data?.message || 'Erreur lors de la création de l\'adresse.'
+      addressError.value = response.data?.message || 'Erreur lors de l\'enregistrement de l\'adresse.'
     }
   } catch (error) {
-    addressError.value = error.response?.data?.message || 'Erreur lors de la création de l\'adresse.'
+    addressError.value = error.response?.data?.message || 'Erreur lors de l\'enregistrement de l\'adresse.'
   } finally {
     savingAddress.value = false
   }
@@ -486,15 +531,19 @@ const submitAddress = async () => {
 const fetchZonesByVille = async (ville) => {
   if (!ville) {
     zones.value = []
+    addressError.value = ''
     return
   }
 
   try {
-    const response = await api.zones.byCity(ville)
+    const response = await api.zones.byCityForCommande(ville)
     if (response.data.success) {
       zones.value = response.data.data || []
+      addressError.value = ''
     }
   } catch (error) {
+    zones.value = []
+    addressError.value = error.response?.data?.message || 'Impossible de charger les zones de livraison disponibles.'
     console.error('Erreur chargement zones:', error)
   }
 }
@@ -584,13 +633,23 @@ watch(
     const trimmed = (ville || '').trim()
     if (!trimmed) {
       zones.value = []
-      addressForm.value.zone_livraison_id = ''
+      if (!preserveZoneSelectionOnCityChange.value) {
+        addressForm.value.zone_livraison_id = ''
+      }
+      preserveZoneSelectionOnCityChange.value = false
       return
     }
-    addressForm.value.zone_livraison_id = ''
+    if (!preserveZoneSelectionOnCityChange.value) {
+      addressForm.value.zone_livraison_id = ''
+    }
     zoneSearchTimeout = setTimeout(() => {
       fetchZonesByVille(trimmed)
+      preserveZoneSelectionOnCityChange.value = false
     }, 300)
   }
 )
+
+onBeforeUnmount(() => {
+  clearTimeout(zoneSearchTimeout)
+})
 </script>

@@ -20,6 +20,12 @@ File: src/components/layout/BottomNav.vue
         >
           {{ panierCount }}
         </span>
+        <span
+          v-if="showLivreurCommandesBadge(item.name)"
+          class="absolute top-1 right-1/4 bg-gold-600 text-white text-xs rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
+        >
+          {{ formatBadgeCount(livreurCommandesCount) }}
+        </span>
 
         <component :is="item.icon" :size="24" :stroke-width="isActive(item.name) ? 2.5 : 2" />
         <span class="text-xs mt-1 font-medium">{{ item.label }}</span>
@@ -33,11 +39,13 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { usePanierStore } from '@/stores/panier'
 import { useAuthStore } from '@/stores/auth'
+import { useLivreurCommandesBadge } from '@/composables/useLivreurCommandesBadge'
 import { Home, ShoppingBag, ShoppingCart, Package, User, Shield, Settings } from 'lucide-vue-next'
 
 const route = useRoute()
 const panierStore = usePanierStore()
 const authStore = useAuthStore()
+const { livreurCommandesCount, formatBadgeCount, showLivreurCommandesBadge } = useLivreurCommandesBadge()
 
 const panierCount = computed(() => panierStore.itemCount)
 
@@ -87,4 +95,5 @@ const isActive = (name) => {
   if (name === 'admin-parametres') return route.name === 'admin-parametres'
   return false
 }
+
 </script>

@@ -6,11 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Commande;
 use App\Models\LigneCommande;
 use App\Models\Panier;
-use App\Models\Produit;
 use App\Models\User;
+use App\Models\Notification;
 use App\Models\HistoriqueStatutCommande;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class CommandeController extends Controller
 {
@@ -105,33 +108,14 @@ class CommandeController extends Controller
             ], 400);
         }
 
-        // Assigner automatiquement un livreur si tous les produits appartiennent
-        // au même créateur ayant le rôle livreur.
-        $livreurAssigneId = null;
-
-        $creatorIds = $panierItems
-            ->pluck('produit.created_by_user_id')
-            ->filter()
-            ->unique()
-            ->values();
-
-        if ($creatorIds->count() === 1) {
-            $creatorId = (int) $creatorIds->first();
-
-            $allItemsOwnedByCreator = $panierItems->every(function ($item) use ($creatorId) {
-                return (int) ($item->produit->created_by_user_id ?? 0) === $creatorId;
-            });
-
-            if ($allItemsOwnedByCreator) {
-                $livreur = User::where('id', $creatorId)
-                    ->where('role', 'livreur')
-                    ->first();
-
-                if ($livreur) {
-                    $livreurAssigneId = $livreur->id;
-                }
-            }
+        $panierLivreur = $this->resolveLivreurForPanierItems($panierItems);
+        if (!empty($panierLivreur['error'])) {
+            return response()->json([
+                'success' => false,
+                'message' => $panierLivreur['error'],
+            ], 422);
         }
+        $livreur = $panierLivreur['livreur'];
 
         // Calculer les montants
         $montantProduits = $panierItems->sum('sous_total');
@@ -140,7 +124,7 @@ class CommandeController extends Controller
         $montantLivraison = 0;
         if ($validated['type_livraison'] === 'livraison') {
             $adresse = $request->user()->adresses()->findOrFail($validated['adresse_livraison_id']);
-            $shipping = $this->calculateShippingForAdresse($adresse);
+            $shipping = $this->calculateShippingForAdresse($adresse, $livreur?->id);
 
             if (!empty($shipping['error'])) {
                 return response()->json([
@@ -186,7 +170,7 @@ class CommandeController extends Controller
                 'telephone_paiement' => $validated['telephone_paiement'] ?? null,
                 'statut' => 'en_attente',
                 'statut_paiement' => 'en_attente',
-                'livreur_id' => $livreurAssigneId,
+                'livreur_id' => $livreur?->id,
             ]);
 
             // Créer les lignes de commande
@@ -217,6 +201,19 @@ class CommandeController extends Controller
             ]);
 
             DB::commit();
+
+            // Notification livreur hors application (email + notification interne)
+            if ($livreur) {
+                try {
+                    $this->notifyAssignedLivreur($commande, $livreur);
+                } catch (\Throwable $e) {
+                    Log::warning('Echec notification livreur après création commande', [
+                        'commande_id' => $commande->id,
+                        'livreur_id' => $livreur->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
 
             // Charger les relations
             $commande->load(['ligneCommandes.produit', 'adresseLivraison']);
@@ -323,7 +320,7 @@ class CommandeController extends Controller
         $montantLivraison = 0;
         if ($typeLivraison === 'livraison') {
             $adresse = $request->user()->adresses()->findOrFail($adresseLivraisonId);
-            $shipping = $this->calculateShippingForAdresse($adresse);
+            $shipping = $this->calculateShippingForAdresse($adresse, (int) $commande->livreur_id);
 
             if (!empty($shipping['error'])) {
                 return response()->json([
@@ -428,8 +425,16 @@ class CommandeController extends Controller
         ]);
 
         $adresse = $request->user()->adresses()->findOrFail($validated['adresse_id']);
+        $panierLivreur = $this->resolvePanierLivreurId((int) $request->user()->id);
 
-        $shipping = $this->calculateShippingForAdresse($adresse);
+        if (!empty($panierLivreur['error'])) {
+            return response()->json([
+                'success' => false,
+                'message' => $panierLivreur['error'],
+            ], 422);
+        }
+
+        $shipping = $this->calculateShippingForAdresse($adresse, (int) $panierLivreur['livreur_id']);
         if (!empty($shipping['error'])) {
             return response()->json([
                 'success' => false,
@@ -448,7 +453,7 @@ class CommandeController extends Controller
         ]);
     }
 
-    private function calculateShippingForAdresse($adresse): array
+    private function calculateShippingForAdresse($adresse, ?int $livreurId = null): array
     {
         if (!$adresse || !$adresse->zone_livraison_id) {
             return [
@@ -458,13 +463,29 @@ class CommandeController extends Controller
             ];
         }
 
-        $zone = $adresse->zoneLivraison ?: \App\Models\ZoneLivraison::find($adresse->zone_livraison_id);
+        $zone = \App\Models\ZoneLivraison::find($adresse->zone_livraison_id);
 
         if (!$zone) {
             return [
                 'frais_livraison' => null,
                 'zone' => null,
                 'error' => 'Zone de livraison invalide. Merci de sélectionner une zone valide.',
+            ];
+        }
+
+        if (!$zone->est_active) {
+            return [
+                'frais_livraison' => null,
+                'zone' => null,
+                'error' => 'Cette zone de livraison est actuellement inactive.',
+            ];
+        }
+
+        if ($livreurId !== null && (int) $zone->created_by_user_id !== (int) $livreurId) {
+            return [
+                'frais_livraison' => null,
+                'zone' => null,
+                'error' => 'Cette zone de livraison n\'est pas disponible pour les produits de votre panier.',
             ];
         }
 
@@ -479,6 +500,81 @@ class CommandeController extends Controller
         ];
     }
 
+    private function resolvePanierLivreurId(int $userId): array
+    {
+        Panier::purgerExpires($userId);
+
+        $panierItems = Panier::where('user_id', $userId)
+            ->nonExpire()
+            ->with(['produit:id,created_by_user_id'])
+            ->get();
+
+        $panierLivreur = $this->resolveLivreurForPanierItems($panierItems);
+
+        return [
+            'livreur_id' => $panierLivreur['livreur']?->id,
+            'error' => $panierLivreur['error'],
+        ];
+    }
+
+    private function resolveLivreurForPanierItems(Collection $panierItems): array
+    {
+        if ($panierItems->isEmpty()) {
+            return [
+                'livreur' => null,
+                'error' => 'Votre panier est vide.',
+            ];
+        }
+
+        $creatorIds = $panierItems
+            ->pluck('produit.created_by_user_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($creatorIds->count() > 1) {
+            return [
+                'livreur' => null,
+                'error' => 'Votre panier doit contenir uniquement des produits d\'un même livreur.',
+            ];
+        }
+
+        if ($creatorIds->isEmpty()) {
+            return [
+                'livreur' => null,
+                'error' => null,
+            ];
+        }
+
+        $livreurId = (int) $creatorIds->first();
+        $allItemsOwnedByCreator = $panierItems->every(function ($item) use ($livreurId) {
+            return (int) ($item->produit->created_by_user_id ?? 0) === $livreurId;
+        });
+
+        if (!$allItemsOwnedByCreator) {
+            return [
+                'livreur' => null,
+                'error' => 'Votre panier contient des produits non attribués à ce livreur.',
+            ];
+        }
+
+        $livreur = User::where('id', $livreurId)
+            ->where('role', 'livreur')
+            ->first();
+
+        if (!$livreur) {
+            return [
+                'livreur' => null,
+                'error' => 'Aucun livreur valide n\'est associé aux produits sélectionnés.',
+            ];
+        }
+
+        return [
+            'livreur' => $livreur,
+            'error' => null,
+        ];
+    }
+
     private function rejectAdmin(Request $request)
     {
         if ($request->user() && $request->user()->role === 'admin') {
@@ -489,5 +585,56 @@ class CommandeController extends Controller
         }
 
         return null;
+    }
+
+    private function notifyAssignedLivreur(Commande $commande, User $livreur): void
+    {
+        $title = 'Nouvelle commande assignée';
+        $message = "La commande {$commande->numero_commande} vous a été assignée.";
+        $actionUrl = '/admin/commandes';
+
+        // Notification consultable dans l'app (historique)
+        Notification::create([
+            'user_id' => $livreur->id,
+            'titre' => $title,
+            'message' => $message,
+            'type' => 'commande',
+            'canal' => 'app',
+            'est_lu' => false,
+            'url_action' => $actionUrl,
+            'date_envoi' => now(),
+        ]);
+
+        // Notification hors app: email
+        if (empty($livreur->email)) {
+            return;
+        }
+
+        try {
+            Mail::raw(
+                "{$message}\n\nMontant total: {$commande->montant_total} {$commande->devise}\nDate: {$commande->created_at?->format('d/m/Y H:i')}\n",
+                function ($mail) use ($livreur, $commande, $title) {
+                    $mail->to($livreur->email, $livreur->nom_complet)
+                        ->subject("{$title} - {$commande->numero_commande}");
+                }
+            );
+
+            Notification::create([
+                'user_id' => $livreur->id,
+                'titre' => $title,
+                'message' => "Email envoyé au livreur pour {$commande->numero_commande}.",
+                'type' => 'commande',
+                'canal' => 'email',
+                'est_lu' => false,
+                'url_action' => $actionUrl,
+                'date_envoi' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Echec envoi notification email livreur', [
+                'commande_id' => $commande->id,
+                'livreur_id' => $livreur->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

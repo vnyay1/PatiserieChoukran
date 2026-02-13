@@ -117,9 +117,14 @@ File: src/views/Profil.vue
                     {{ adresse.telephone_contact }}
                   </p>
                   </div>
-                  <button class="text-red-500 hover:text-red-600" @click="deleteAdresse(adresse)">
-                    <Trash2 :size="18" />
-                  </button>
+                  <div class="flex items-center gap-2 ml-3">
+                    <button class="text-gray-500 hover:text-gray-700" @click="openEditAddress(adresse)">
+                      <Pencil :size="18" />
+                    </button>
+                    <button class="text-red-500 hover:text-red-600" @click="deleteAdresse(adresse)">
+                      <Trash2 :size="18" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -162,7 +167,7 @@ File: src/views/Profil.vue
       <div class="bg-white w-full max-w-2xl rounded-elegant shadow-card overflow-hidden">
         <div class="p-4 border-b border-gray-100 flex items-center justify-between">
           <h2 class="font-display text-xl font-bold text-gray-800">
-            Ajouter une adresse
+            {{ isEditingAddress ? 'Modifier une adresse' : 'Ajouter une adresse' }}
           </h2>
           <button class="text-sm text-gray-500 hover:text-gray-700" @click="closeAddAddress">
             Fermer
@@ -236,7 +241,7 @@ File: src/views/Profil.vue
 
           <div class="md:col-span-2 flex gap-3">
             <Button type="submit" variant="primary" :loading="savingAddress">
-              Enregistrer
+              {{ isEditingAddress ? 'Mettre à jour' : 'Enregistrer' }}
             </Button>
             <Button type="button" variant="outline" @click="closeAddAddress">
               Annuler
@@ -249,13 +254,13 @@ File: src/views/Profil.vue
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
-import { User, MapPin, Lock, LogOut, Trash2 } from 'lucide-vue-next'
+import { User, MapPin, Lock, LogOut, Trash2, Pencil } from 'lucide-vue-next'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -264,6 +269,8 @@ const activeTab = ref('infos')
 const updating = ref(false)
 const updatingPassword = ref(false)
 const showAddAddress = ref(false)
+const editingAddressId = ref(null)
+const preserveZoneSelectionOnCityChange = ref(false)
 const adresses = ref([])
 const zones = ref([])
 const savingAddress = ref(false)
@@ -306,6 +313,7 @@ const initiales = computed(() => {
     .toUpperCase()
     .slice(0, 2) || 'U'
 })
+const isEditingAddress = computed(() => editingAddressId.value !== null)
 
 const sanitizeLocalTelephone = (value) => {
   const digits = (value || '').replace(/\D/g, '')
@@ -388,6 +396,8 @@ const deleteAdresse = async (adresse) => {
 }
 
 const resetAddressForm = () => {
+  editingAddressId.value = null
+  preserveZoneSelectionOnCityChange.value = false
   addressForm.value = {
     libelle: '',
     quartier: '',
@@ -406,8 +416,31 @@ const openAddAddress = () => {
   showAddAddress.value = true
 }
 
+const openEditAddress = (adresse) => {
+  if (!adresse) return
+
+  const zoneId = adresse.zone_livraison_id || adresse.zone_livraison?.id || ''
+  editingAddressId.value = adresse.id
+  preserveZoneSelectionOnCityChange.value = true
+  addressError.value = ''
+
+  addressForm.value = {
+    libelle: adresse.libelle || '',
+    quartier: adresse.quartier || '',
+    ville: adresse.ville || '',
+    zone_livraison_id: zoneId,
+    telephone_contact: adresse.telephone_contact || authStore.user?.telephone || '',
+    point_repere: adresse.point_repere || '',
+    complement_adresse: adresse.complement_adresse || '',
+    est_principale: Boolean(adresse.est_principale),
+  }
+
+  showAddAddress.value = true
+}
+
 const closeAddAddress = () => {
   showAddAddress.value = false
+  resetAddressForm()
 }
 
 const submitAddress = async () => {
@@ -415,15 +448,18 @@ const submitAddress = async () => {
   addressError.value = ''
 
   try {
-    const response = await api.adresses.create(addressForm.value)
+    const response = isEditingAddress.value
+      ? await api.adresses.update(editingAddressId.value, addressForm.value)
+      : await api.adresses.create(addressForm.value)
+
     if (response.data.success) {
-      showAddAddress.value = false
-      fetchAdresses()
+      closeAddAddress()
+      await fetchAdresses()
     } else {
-      addressError.value = response.data?.message || 'Erreur lors de la création de l\'adresse.'
+      addressError.value = response.data?.message || 'Erreur lors de l\'enregistrement de l\'adresse.'
     }
   } catch (error) {
-    addressError.value = error.response?.data?.message || 'Erreur lors de la création de l\'adresse.'
+    addressError.value = error.response?.data?.message || 'Erreur lors de l\'enregistrement de l\'adresse.'
   } finally {
     savingAddress.value = false
   }
@@ -466,13 +502,23 @@ watch(
     const trimmed = (ville || '').trim()
     if (!trimmed) {
       zones.value = []
-      addressForm.value.zone_livraison_id = ''
+      if (!preserveZoneSelectionOnCityChange.value) {
+        addressForm.value.zone_livraison_id = ''
+      }
+      preserveZoneSelectionOnCityChange.value = false
       return
     }
-    addressForm.value.zone_livraison_id = ''
+    if (!preserveZoneSelectionOnCityChange.value) {
+      addressForm.value.zone_livraison_id = ''
+    }
     zoneSearchTimeout = setTimeout(() => {
       fetchZonesByVille(trimmed)
+      preserveZoneSelectionOnCityChange.value = false
     }, 300)
   }
 )
+
+onBeforeUnmount(() => {
+  clearTimeout(zoneSearchTimeout)
+})
 </script>

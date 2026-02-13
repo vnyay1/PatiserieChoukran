@@ -18,10 +18,16 @@ File: src/components/layout/Header.vue
             v-for="item in desktopNavItems"
             :key="item.name"
             :to="item.to"
-            class="font-medium hover:text-gold-600 transition-colors"
+            class="relative inline-flex items-center gap-2 font-medium hover:text-gold-600 transition-colors"
             :class="isActiveRoute(item.name) ? 'text-gold-600' : 'text-gray-700'"
           >
-            {{ item.label }}
+            <span>{{ item.label }}</span>
+            <span
+              v-if="showLivreurCommandesBadge(item.name)"
+              class="bg-gold-600 text-white text-xs rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
+            >
+              {{ formatBadgeCount(livreurCommandesCount) }}
+            </span>
           </router-link>
         </nav>
 
@@ -82,11 +88,13 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
+import { useLivreurCommandesBadge } from '@/composables/useLivreurCommandesBadge'
 import { ShoppingCart, User } from 'lucide-vue-next'
 
 const route = useRoute()
 const authStore = useAuthStore()
 const panierStore = usePanierStore()
+const { livreurCommandesCount, formatBadgeCount, showLivreurCommandesBadge } = useLivreurCommandesBadge()
 
 const panierCount = computed(() => panierStore.itemCount)
 
@@ -133,4 +141,5 @@ const isActiveRoute = (name) => {
   if (name === 'admin-zones') return route.name === 'admin-zones'
   return false
 }
+
 </script>

@@ -15,6 +15,15 @@ class CommandeController extends Controller
     {
         $query = Commande::with(['user', 'ligneCommandes', 'livreur']);
 
+        // Historique admin:
+        // - historique=1 -> commandes archivées (annulées ou livrées+payées)
+        // - défaut -> commandes opérationnelles uniquement
+        if ($request->boolean('historique')) {
+            $query->archivee();
+        } else {
+            $query->visibleDansListes();
+        }
+
         // Filtre par statut
         if ($request->has('statut')) {
             $query->where('statut', $request->statut);
@@ -85,10 +94,10 @@ class CommandeController extends Controller
 
         $commande = Commande::findOrFail($id);
 
-        if ($commande->statut === 'annulee') {
+        if ($commande->isArchivee()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Cette commande est annulée et ne peut plus être modifiée.',
+                'message' => 'Cette commande est archivée et ne peut plus être modifiée.',
             ], 400);
         }
         
@@ -159,10 +168,10 @@ class CommandeController extends Controller
 
         $commande = Commande::findOrFail($id);
 
-        if ($commande->statut === 'annulee') {
+        if ($commande->isArchivee()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Impossible de confirmer le paiement d\'une commande annulée.',
+                'message' => 'Cette commande est archivée et ne peut plus être modifiée.',
             ], 400);
         }
         

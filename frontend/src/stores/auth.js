@@ -24,6 +24,12 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
+    clearSession() {
+      this.user = null
+      this.token = null
+      localStorage.removeItem('token')
+    },
+
     // Connexion
     async login(credentials) {
       this.loading = true
@@ -79,20 +85,22 @@ export const useAuthStore = defineStore('auth', {
         }
       } catch (error) {
         console.error('Erreur récupération utilisateur:', error)
-        this.logout()
+        this.clearSession()
       }
     },
 
     // Déconnexion
-    async logout() {
+    async logout(options = {}) {
+      const { callApi = true } = options
+
       try {
-        await api.auth.logout()
+        if (callApi && this.token) {
+          await api.auth.logout()
+        }
       } catch (error) {
         console.error('Erreur déconnexion:', error)
       } finally {
-        this.user = null
-        this.token = null
-        localStorage.removeItem('token')
+        this.clearSession()
       }
     },
 

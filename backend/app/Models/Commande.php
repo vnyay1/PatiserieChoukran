@@ -94,6 +94,36 @@ class Commande extends Model
         return $query->where('statut_paiement', 'en_attente');
     }
 
+    /**
+     * Commandes considérées comme archivées pour les listes opérationnelles.
+     * - annulée
+     * - livrée et paiement confirmé
+     */
+    public function scopeArchivee($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('statut', 'annulee')
+                ->orWhere(function ($sub) {
+                    $sub->where('statut', 'livree')
+                        ->where('statut_paiement', 'paye');
+                });
+        });
+    }
+
+    /**
+     * Commandes visibles dans les listes opérationnelles (admin/livreur).
+     */
+    public function scopeVisibleDansListes($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('statut', '!=', 'annulee')
+                ->where(function ($sub) {
+                    $sub->where('statut', '!=', 'livree')
+                        ->orWhere('statut_paiement', '!=', 'paye');
+                });
+        });
+    }
+
     // Méthodes utiles
     public function genererNumeroCommande()
     {
@@ -131,6 +161,11 @@ class Commande extends Model
     public function isAnnulee()
     {
         return $this->statut === 'annulee';
+    }
+
+    public function isArchivee(): bool
+    {
+        return $this->isAnnulee() || ($this->isLivree() && $this->isPaid());
     }
 
     // Events

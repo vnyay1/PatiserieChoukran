@@ -14,6 +14,7 @@ const api = axios.create({
     'Accept': 'application/json'
   }
 })
+let isHandlingUnauthorized = false
 
 // Intercepteur de requête - Ajouter le token
 api.interceptors.request.use(
@@ -34,13 +35,29 @@ api.interceptors.response.use(
   (response) => {
     return response
   },
-  (error) => {
+  async (error) => {
     if (error.response) {
       // Erreur 401 - Non authentifié
       if (error.response.status === 401) {
         const authStore = useAuthStore()
-        authStore.logout()
-        router.push({ name: 'login' })
+        const requestUrl = String(error.config?.url || '')
+        const isAuthRequest =
+          requestUrl.includes('/auth/login') ||
+          requestUrl.includes('/auth/register') ||
+          requestUrl.includes('/auth/logout')
+
+        if (!isAuthRequest && authStore.token && !isHandlingUnauthorized) {
+          isHandlingUnauthorized = true
+          try {
+            await authStore.logout({ callApi: false })
+
+            if (router.currentRoute.value.name !== 'login') {
+              await router.push({ name: 'login' })
+            }
+          } finally {
+            isHandlingUnauthorized = false
+          }
+        }
       }
 
       // Erreur 403 - Non autorisé
@@ -138,6 +155,7 @@ export default {
   zones: {
     getAll: () => api.get('/zones-livraison'),
     byCity: (ville) => api.get(`/zones-livraison/ville/${ville}`),
+    byCityForCommande: (ville) => api.get(`/zones-livraison/ville/${ville}/commande`),
     search: (data) => api.post('/zones-livraison/search', data),
   },
 

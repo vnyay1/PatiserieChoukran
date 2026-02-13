@@ -12,7 +12,7 @@ File: src/views/admin/AdminCategories.vue
             Administration Catégories
           </h1>
           <p class="text-gray-600 text-sm">
-            Créer, modifier et organiser les catégories de produits.
+            Voir toutes les catégories disponibles et en ajouter de nouvelles.
           </p>
         </div>
         <Button variant="primary" :icon="Plus" :icon-size="18" @click="openCreate">
@@ -155,6 +155,9 @@ File: src/views/admin/AdminCategories.vue
                     <div>
                       <div class="font-semibold text-gray-800">{{ categorie.nom }}</div>
                       <div class="text-xs text-gray-500">{{ categorie.slug }}</div>
+                      <div v-if="categorie.createur?.nom_complet" class="text-xs text-gray-400">
+                        Ajoutée par: {{ categorie.createur.nom_complet }}
+                      </div>
                     </div>
                   </div>
                 </td>
@@ -166,12 +169,27 @@ File: src/views/admin/AdminCategories.vue
                 </td>
                 <td class="px-4 py-3">
                   <div class="flex items-center justify-end gap-2">
-                    <Button variant="outline" size="sm" :icon="Pencil" :icon-size="16" @click="openEdit(categorie)">
+                    <Button
+                      v-if="canManageCategorie(categorie)"
+                      variant="outline"
+                      size="sm"
+                      :icon="Pencil"
+                      :icon-size="16"
+                      @click="openEdit(categorie)"
+                    >
                       Modifier
                     </Button>
-                    <Button variant="danger" size="sm" :icon="Trash2" :icon-size="16" @click="deleteCategorie(categorie)">
+                    <Button
+                      v-if="canManageCategorie(categorie)"
+                      variant="danger"
+                      size="sm"
+                      :icon="Trash2"
+                      :icon-size="16"
+                      @click="deleteCategorie(categorie)"
+                    >
                       Supprimer
                     </Button>
+                    <span v-else class="text-xs text-gray-400">Lecture seule</span>
                   </div>
                 </td>
               </tr>
@@ -199,11 +217,13 @@ File: src/views/admin/AdminCategories.vue
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-vue-next'
 
+const authStore = useAuthStore()
 const categories = ref([])
 const loading = ref(false)
 const saving = ref(false)
@@ -247,6 +267,11 @@ const resolveImageUrl = (path) => {
   if (!path) return '/placeholder-product.jpg'
   if (path.startsWith('http') || path.startsWith('/')) return path
   return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
+}
+
+const canManageCategorie = (categorie) => {
+  if (authStore.isAdmin) return true
+  return Number(categorie?.created_by_user_id || 0) === Number(authStore.user?.id || 0)
 }
 
 const fetchCategories = async () => {
@@ -312,6 +337,10 @@ const openCreate = () => {
 }
 
 const openEdit = (categorie) => {
+  if (!canManageCategorie(categorie)) {
+    return
+  }
+
   form.value = {
     id: categorie.id,
     nom: categorie.nom,
@@ -381,6 +410,10 @@ const submitForm = async () => {
 }
 
 const deleteCategorie = async (categorie) => {
+  if (!canManageCategorie(categorie)) {
+    return
+  }
+
   const confirmed = confirm(`Supprimer "${categorie.nom}" ?`)
   if (!confirmed) return
 

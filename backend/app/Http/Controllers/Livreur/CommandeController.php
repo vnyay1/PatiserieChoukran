@@ -14,7 +14,23 @@ class CommandeController extends Controller
     public function index(Request $request)
     {
         $query = $this->queryForLivreur($request->user()->id)
-            ->with(['user', 'ligneCommandes', 'adresseLivraison']);
+            ->visibleDansListes();
+
+        // Utilisé pour le badge du menu livreur :
+        // ne compter que les commandes encore à traiter.
+        if ($request->boolean('badge_only')) {
+            $count = (clone $query)
+                ->where('statut', '!=', 'annulee')
+                ->where('statut_paiement', '!=', 'paye')
+                ->count();
+
+            return response()->json([
+                'success' => true,
+                'data' => ['total' => $count],
+            ]);
+        }
+
+        $query->with(['user', 'ligneCommandes', 'adresseLivraison']);
 
         if ($request->has('statut')) {
             $query->where('statut', $request->statut);
@@ -192,6 +208,7 @@ class CommandeController extends Controller
     private function findForLivreur(int $livreurId, int|string $commandeId): Commande
     {
         return $this->queryForLivreur($livreurId)
+            ->visibleDansListes()
             ->where('id', $commandeId)
             ->firstOrFail();
     }

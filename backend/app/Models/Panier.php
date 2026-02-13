@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
 use App\Models\ParametreSite;
-use Ramsey\Uuid\Type\Decimal;
 
 class Panier extends Model
 {
