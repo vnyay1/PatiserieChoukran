@@ -33,6 +33,15 @@ File: src/components/layout/Header.vue
 
         <!-- Actions -->
         <div class="flex items-center space-x-4">
+          <router-link
+            to="/infos-pratiques"
+            class="touch-target h-10 w-10 rounded-full border border-gold-200 bg-gold-50 text-gold-700 flex items-center justify-center md:hidden"
+            aria-label="Infos pratiques"
+            title="Infos pratiques"
+          >
+            <Info :size="20" :class="route.name === 'infos-pratiques' ? 'text-gold-600' : 'text-gold-700'" />
+          </router-link>
+
           <!-- Panier (visible sur mobile aussi) -->
           <router-link
             v-if="authStore.isClient"
@@ -89,7 +98,7 @@ import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
 import { useLivreurCommandesBadge } from '@/composables/useLivreurCommandesBadge'
-import { ShoppingCart, User } from 'lucide-vue-next'
+import { ShoppingCart, User, Info } from 'lucide-vue-next'
 
 const route = useRoute()
 const authStore = useAuthStore()

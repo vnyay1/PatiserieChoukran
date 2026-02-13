@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/auth'
 // Lazy loading des composants
 const Home = () => import('@/views/Home.vue')
 const Produits = () => import('@/views/Produits.vue')
+const InfosPratiques = () => import('@/views/InfosPratiques.vue')
 const ProduitDetail = () => import('@/views/ProduitDetail.vue')
 const Panier = () => import('@/views/Panier.vue')
 const Checkout = () => import('@/views/Checkout.vue')
@@ -37,6 +38,12 @@ const routes = [
     name: 'produits',
     component: Produits,
     meta: { title: 'Nos Produits' }
+  },
+  {
+    path: '/infos-pratiques',
+    name: 'infos-pratiques',
+    component: InfosPratiques,
+    meta: { title: 'Nous Contacter & Horaires', mobileOnly: true }
   },
   {
     path: '/produits/:slug',
@@ -195,6 +202,12 @@ router.beforeEach(async (to, from, next) => {
 
   // Routes réservées aux invités
   if (to.meta.guest && isAuthenticated) {
+    next({ name: 'home' })
+    return
+  }
+
+  // Page mobile uniquement
+  if (to.meta.mobileOnly && typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches) {
     next({ name: 'home' })
     return
   }

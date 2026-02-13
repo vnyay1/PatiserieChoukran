@@ -8,8 +8,7 @@ File: src/views/Produits.vue
     <!-- Header avec recherche -->
     <div class="bg-white sticky top-16 md:top-20 z-30 shadow-sm">
       <div class="container mx-auto px-4 py-4">
-        <div class="flex items-center gap-3">
-          <!-- Recherche -->
+        <div class="flex items-center gap-2">
           <div class="flex-1 relative">
             <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" :size="20" />
             <input
@@ -20,13 +19,12 @@ File: src/views/Produits.vue
               @input="handleSearch"
             />
           </div>
-
-          <!-- Bouton filtres (mobile) -->
           <button
-            class="md:hidden touch-target flex items-center justify-center bg-gold-500 text-white rounded-xl px-4"
+            class="md:hidden h-12 min-w-12 px-3 rounded-xl bg-gold-500 text-white flex items-center justify-center gap-2 shadow-sm"
             @click="showFilters = true"
           >
-            <SlidersHorizontal :size="20" />
+            <SlidersHorizontal :size="18" />
+            <span v-if="activeFiltersCount > 0" class="text-xs font-bold">{{ activeFiltersCount }}</span>
           </button>
         </div>
       </div>
@@ -64,7 +62,7 @@ File: src/views/Produits.vue
             <!-- Tri -->
             <select
               v-model="sortBy"
-              class="px-4 py-2 rounded-lg border border-gray-200 focus:border-gold-500 focus:ring-2 focus:ring-gold-200 outline-none"
+              class="hidden md:block px-4 py-2 rounded-lg border border-gray-200 focus:border-gold-500 focus:ring-2 focus:ring-gold-200 outline-none"
               @change="applyFilters"
             >
               <option value="recent">Plus récents</option>
@@ -185,6 +183,19 @@ File: src/views/Produits.vue
             </button>
           </div>
 
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Tri</label>
+            <select
+              v-model="sortBy"
+              class="input"
+            >
+              <option value="recent">Plus récents</option>
+              <option value="price_asc">Prix croissant</option>
+              <option value="price_desc">Prix décroissant</option>
+              <option value="popular">Populaires</option>
+            </select>
+          </div>
+
           <FiltersSidebar
             v-model:selectedCategory="selectedCategory"
             v-model:priceRange="priceRange"
@@ -258,6 +269,9 @@ const displayedPages = computed(() => {
 
 const hasActiveFilters = computed(() => {
   return selectedCategory.value || showPromo.value || showVedette.value
+})
+const activeFiltersCount = computed(() => {
+  return [selectedCategory.value, showPromo.value, showVedette.value].filter(Boolean).length
 })
 
 // Méthodes
