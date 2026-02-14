@@ -149,6 +149,8 @@ export default {
     markAsRead: (id) => api.post(`/notifications/${id}/mark-read`),
     markAllAsRead: () => api.post('/notifications/mark-all-read'),
     unreadCount: () => api.get('/notifications/unread-count'),
+    remove: (id) => api.delete(`/notifications/${id}`),
+    clearRead: () => api.delete('/notifications/clear-read'),
   },
 
   // Zones de livraison

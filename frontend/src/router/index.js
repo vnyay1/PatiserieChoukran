@@ -15,6 +15,7 @@ const Panier = () => import('@/views/Panier.vue')
 const Checkout = () => import('@/views/Checkout.vue')
 const MesCommandes = () => import('@/views/MesCommandes.vue')
 const CommandeDetail = () => import('@/views/CommandeDetail.vue')
+const Notifications = () => import('@/views/Notifications.vue')
 const Profil = () => import('@/views/Profil.vue')
 const Login = () => import('@/views/Login.vue')
 const Register = () => import('@/views/Register.vue')
@@ -74,6 +75,12 @@ const routes = [
     name: 'commande-detail',
     component: CommandeDetail,
     meta: { title: 'Détail Commande', requiresAuth: true }
+  },
+  {
+    path: '/notifications',
+    name: 'notifications',
+    component: Notifications,
+    meta: { title: 'Notifications', requiresAuth: true }
   },
   {
     path: '/profil',

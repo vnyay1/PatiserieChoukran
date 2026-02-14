@@ -34,6 +34,22 @@ File: src/components/layout/Header.vue
         <!-- Actions -->
         <div class="flex items-center space-x-4">
           <router-link
+            v-if="authStore.isAuthenticated"
+            to="/notifications"
+            class="relative touch-target h-10 w-10 rounded-full border border-gold-200 bg-gold-50 text-gold-700 flex items-center justify-center md:hidden"
+            aria-label="Notifications"
+            title="Notifications"
+          >
+            <Bell :size="20" :class="route.name === 'notifications' ? 'text-gold-600' : 'text-gold-700'" />
+            <span
+              v-if="unreadNotificationsCount > 0"
+              class="absolute -top-1 -right-1 bg-gold-600 text-white text-[10px] rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
+            >
+              {{ formatNotificationBadgeCount(unreadNotificationsCount) }}
+            </span>
+          </router-link>
+
+          <router-link
             to="/infos-pratiques"
             class="touch-target h-10 w-10 rounded-full border border-gold-200 bg-gold-50 text-gold-700 flex items-center justify-center md:hidden"
             aria-label="Infos pratiques"
@@ -51,6 +67,19 @@ File: src/components/layout/Header.vue
                 class="absolute -top-1 -right-1 bg-gold-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold"
               >
                 {{ panierCount }}
+              </span>
+            </router-link>
+
+            <router-link to="/notifications" class="relative">
+              <Bell
+                :size="24"
+                :class="route.name === 'notifications' ? 'text-gold-600' : 'text-gray-700 hover:text-gold-600'"
+              />
+              <span
+                v-if="unreadNotificationsCount > 0"
+                class="absolute -top-1 -right-1 bg-gold-600 text-white text-xs rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
+              >
+                {{ formatNotificationBadgeCount(unreadNotificationsCount) }}
               </span>
             </router-link>
 
@@ -78,19 +107,22 @@ File: src/components/layout/Header.vue
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
+import { useNotificationsStore } from '@/stores/notifications'
 import { useLivreurCommandesBadge } from '@/composables/useLivreurCommandesBadge'
-import { ShoppingCart, User, Info } from 'lucide-vue-next'
+import { ShoppingCart, User, Info, Bell } from 'lucide-vue-next'
 
 const route = useRoute()
 const authStore = useAuthStore()
 const panierStore = usePanierStore()
+const notificationsStore = useNotificationsStore()
 const { livreurCommandesCount, formatBadgeCount, showLivreurCommandesBadge } = useLivreurCommandesBadge()
 
 const panierCount = computed(() => panierStore.itemCount)
+const unreadNotificationsCount = computed(() => notificationsStore.unreadCount)
 
 const desktopNavItems = computed(() => {
   const items = [
@@ -135,5 +167,40 @@ const isActiveRoute = (name) => {
   if (name === 'admin-zones') return route.name === 'admin-zones'
   return false
 }
+
+const formatNotificationBadgeCount = (count) => {
+  return count > 99 ? '99+' : count
+}
+
+const syncNotificationsState = async () => {
+  if (!authStore.isAuthenticated) {
+    notificationsStore.stopPolling()
+    notificationsStore.reset()
+    return
+  }
+
+  await notificationsStore.startPolling()
+}
+
+onMounted(() => {
+  syncNotificationsState()
+})
+
+watch(
+  () => authStore.isAuthenticated,
+  (isAuthenticated) => {
+    if (isAuthenticated) {
+      syncNotificationsState()
+      return
+    }
+
+    notificationsStore.stopPolling()
+    notificationsStore.reset()
+  }
+)
+
+onBeforeUnmount(() => {
+  notificationsStore.stopPolling()
+})
 
 </script>
