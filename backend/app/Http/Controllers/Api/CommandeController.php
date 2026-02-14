@@ -245,11 +245,11 @@ class CommandeController extends Controller
         }
 
         $commande = Commande::where('user_id', $request->user()->id)
-            ->where('id', $id)
+            ->where( 'id', $id)
             ->firstOrFail();
 
         // Vérifier si la commande peut être annulée
-        if (!in_array($commande->statut, ['en_attente', 'confirmee'])) {
+        if (!in_array($commande->statut, ['en_attente'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Cette commande ne peut plus être annulée',
@@ -612,22 +612,15 @@ class CommandeController extends Controller
 
         try {
             Mail::raw(
-                "{$message}\n\nMontant total: {$commande->montant_total} {$commande->devise}\nDate: {$commande->created_at?->format('d/m/Y H:i')}\n",
+                "{$message}\n\nMontant total: {$commande->montant_total}fcfa \nDate: {$commande->created_at?->format('d/m/Y H:i')}\nRendez-vous dans votre espace pour plus de détails.",
                 function ($mail) use ($livreur, $commande, $title) {
                     $mail->to($livreur->email, $livreur->nom_complet)
                         ->subject("{$title} - {$commande->numero_commande}");
                 }
             );
-
-            Notification::create([
-                'user_id' => $livreur->id,
-                'titre' => $title,
-                'message' => "Email envoyé au livreur pour {$commande->numero_commande}.",
-                'type' => 'commande',
-                'canal' => 'email',
-                'est_lu' => false,
-                'url_action' => $actionUrl,
-                'date_envoi' => now(),
+            Log::info('Notification email livreur envoyée', [
+                'commande_id' => $commande->id,
+                'livreur_id' => $livreur->id,
             ]);
         } catch (\Throwable $e) {
             Log::warning('Echec envoi notification email livreur', [

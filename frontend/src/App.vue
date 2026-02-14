@@ -5,8 +5,8 @@ File: src/App.vue
 
 <template>
   <div id="app" class="min-h-screen bg-cream">
-    <!-- Header (desktop) -->
-    <Header v-if="!isMobile" />
+    <!-- Header -->
+    <Header />
 
     <!-- Contenu principal -->
     <main :class="mainClasses">

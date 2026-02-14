@@ -197,6 +197,6 @@ class AdresseController extends Controller
         $pays = env('GEOCODING_COUNTRY', 'Cameroun');
         $query = trim(implode(', ', array_filter([$quartier, $ville, $pays])));
 
-        return $this->geocoding->geocode($query);
+        return app(GeocodingService::class)->geocode($query);
     }
 }

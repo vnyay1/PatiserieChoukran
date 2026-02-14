@@ -42,23 +42,8 @@ File: src/components/layout/Header.vue
             <Info :size="20" :class="route.name === 'infos-pratiques' ? 'text-gold-600' : 'text-gold-700'" />
           </router-link>
 
-          <!-- Panier (visible sur mobile aussi) -->
-          <router-link
-            v-if="authStore.isClient"
-            to="/panier"
-            class="relative touch-target flex items-center justify-center md:hidden"
-          >
-            <ShoppingCart :size="24" :class="route.name === 'panier' ? 'text-gold-600' : 'text-gray-700'" />
-            <span
-              v-if="authStore.isAuthenticated && panierCount > 0"
-              class="absolute -top-1 -right-1 bg-gold-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold"
-            >
-              {{ panierCount }}
-            </span>
-          </router-link>
-
           <!-- Authentification Desktop -->
-        <div v-if="authStore.isAuthenticated" class="hidden md:flex items-center space-x-4">
+          <div v-if="authStore.isAuthenticated" class="hidden md:flex items-center space-x-4">
             <router-link v-if="authStore.isClient" to="/panier" class="relative">
               <ShoppingCart :size="24" class="text-gray-700 hover:text-gold-600" />
               <span
