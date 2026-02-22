@@ -135,9 +135,30 @@ class AuthController extends Controller
             ]);
         }
 
+        if ($request->has('email')) {
+            $email = trim((string) $request->email);
+            $request->merge([
+                'email' => $email === '' ? null : $email,
+            ]);
+        }
+
+        if ($user->role === 'client') {
+            $telephoneChanged = $request->has('telephone')
+                && $request->input('telephone') !== $user->telephone;
+            $emailChanged = $request->has('email')
+                && $request->input('email') !== $user->email;
+
+            if ($telephoneChanged || $emailChanged) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Les clients ne peuvent pas modifier leur email ou numéro de téléphone.',
+                ], 422);
+            }
+        }
+
         $validated = $request->validate([
             'nom_complet' => 'sometimes|string|max:255',
-            'email' => 'sometimes|email|unique:users,email,' . $user->id,
+            'email' => 'sometimes|nullable|email|unique:users,email,' . $user->id,
             'telephone' => 'sometimes|string|unique:users,telephone,' . $user->id . '|regex:/^\+237[0-9]{9}$/',
             'adresse_principale' => 'nullable|string',
             'photo_profil' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',

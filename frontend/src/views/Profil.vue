@@ -72,17 +72,31 @@ File: src/views/Profil.vue
                       v-model="profileTelephoneInput"
                       type="tel"
                       class="input rounded-l-none border-l-0"
+                      :class="{ 'bg-gray-100 text-gray-500 cursor-not-allowed': isClientProfileLocked }"
                       placeholder="699123456"
                       required
+                      :disabled="isClientProfileLocked"
                     />
                   </div>
                   <p class="text-xs text-gray-500 mt-1">Indicatif non modifiable</p>
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                  <input v-model="profileForm.email" type="email" class="input" />
+                  <input
+                    v-model="profileForm.email"
+                    type="email"
+                    class="input"
+                    :class="{ 'bg-gray-100 text-gray-500 cursor-not-allowed': isClientProfileLocked }"
+                    :disabled="isClientProfileLocked"
+                  />
                 </div>
               </div>
+              <p v-if="isClientProfileLocked" class="text-xs text-gray-500 mb-4">
+                Pour les comptes clients, l'email et le numéro de téléphone ne sont pas modifiables.
+              </p>
+              <p v-if="profileError" class="text-sm text-red-600 mb-4">
+                {{ profileError }}
+              </p>
               <Button type="submit" variant="primary" :loading="updating">
                 Enregistrer les modifications
               </Button>
@@ -275,6 +289,7 @@ const adresses = ref([])
 const zones = ref([])
 const savingAddress = ref(false)
 const addressError = ref('')
+const profileError = ref('')
 
 const addressForm = ref({
   libelle: '',
@@ -314,6 +329,7 @@ const initiales = computed(() => {
     .slice(0, 2) || 'U'
 })
 const isEditingAddress = computed(() => editingAddressId.value !== null)
+const isClientProfileLocked = computed(() => authStore.user?.role === 'client')
 
 const sanitizeLocalTelephone = (value) => {
   const digits = (value || '').replace(/\D/g, '')
@@ -326,8 +342,6 @@ const buildTelephone = (value) => {
   return local ? `+237${local}` : ''
 }
 
-profileForm.value.telephone = sanitizeLocalTelephone(authStore.user?.telephone || '')
-
 const profileTelephoneInput = computed({
   get: () => profileForm.value.telephone,
   set: (value) => {
@@ -336,16 +350,59 @@ const profileTelephoneInput = computed({
 })
 
 const updateProfile = async () => {
+  profileError.value = ''
+
+  const nomComplet = (profileForm.value.nom_complet || '').trim()
+  const localTelephone = sanitizeLocalTelephone(profileForm.value.telephone)
+  const telephone = buildTelephone(localTelephone)
+  const email = (profileForm.value.email || '').trim()
+
+  if (!nomComplet) {
+    profileError.value = 'Le nom complet est requis.'
+    return
+  }
+
+  if (!isClientProfileLocked.value && localTelephone.length !== 9) {
+    profileError.value = 'Le numéro de téléphone doit contenir 9 chiffres.'
+    return
+  }
+
   updating.value = true
   try {
     const payload = {
-      ...profileForm.value,
-      telephone: buildTelephone(profileForm.value.telephone)
+      nom_complet: nomComplet,
     }
-    await api.auth.updateProfile(payload)
+    if (!isClientProfileLocked.value) {
+      payload.telephone = telephone
+      payload.email = email || null
+    }
+
+    const response = await api.auth.updateProfile(payload)
+    const updatedUser = response.data?.data
+
+    if (updatedUser) {
+      authStore.user = {
+        ...authStore.user,
+        ...updatedUser,
+      }
+    } else {
+      await authStore.fetchUser()
+    }
+
+    profileForm.value.nom_complet = authStore.user?.nom_complet || nomComplet
+    profileForm.value.telephone = sanitizeLocalTelephone(authStore.user?.telephone || telephone)
+    profileForm.value.email = authStore.user?.email || ''
+
     alert('Profil mis à jour')
   } catch (error) {
-    console.error('Erreur:', error)
+    const validationErrors = error.response?.data?.errors || {}
+    profileError.value =
+      validationErrors.nom_complet?.[0] ||
+      validationErrors.telephone?.[0] ||
+      validationErrors.email?.[0] ||
+      error.response?.data?.message ||
+      'Erreur lors de la mise à jour du profil.'
+    console.error('Erreur mise à jour profil:', error)
   } finally {
     updating.value = false
   }
@@ -493,6 +550,17 @@ const formatPrice = (value) => {
 onMounted(() => {
   fetchAdresses()
 })
+
+watch(
+  () => authStore.user,
+  (user) => {
+    if (!user) return
+    profileForm.value.nom_complet = user.nom_complet || ''
+    profileForm.value.telephone = sanitizeLocalTelephone(user.telephone || '')
+    profileForm.value.email = user.email || ''
+  },
+  { immediate: true }
+)
 
 let zoneSearchTimeout = null
 watch(

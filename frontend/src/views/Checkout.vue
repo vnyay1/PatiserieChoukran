@@ -146,9 +146,14 @@ File: src/views/Checkout.vue
                 <input
                   v-model="formData.heure_livraison_souhaitee"
                   type="time"
+                  :min="deliveryStartTime"
+                  :max="deliveryEndTime"
                   class="input"
                   required
                 />
+                <p v-if="showDeliveryTimeError" class="text-xs text-red-600 mt-1">
+                  {{ deliveryTimeError }}
+                </p>
               </div>
             </div>
 
@@ -179,7 +184,7 @@ File: src/views/Checkout.vue
             ></textarea>
           </div>
 
-          <Button type="submit" variant="primary" size="lg" full-width>
+          <Button type="submit" variant="primary" size="lg" full-width :disabled="isStep1Blocked">
             Continuer vers le paiement
           </Button>
         </form>
@@ -418,6 +423,8 @@ const paymentMethods = [
   { value: 'mtn_momo', label: 'MTN Mobile Money', description: 'Paiement instantané', icon: Smartphone, color: 'text-yellow-500' },
   { value: 'especes', label: 'Espèces à la livraison', description: 'Payer en liquide', icon: Banknote, color: 'text-green-500' },
 ]
+const deliveryStartTime = '09:00'
+const deliveryEndTime = '18:00'
 
 const minDate = computed(() => {
   const tomorrow = new Date()
@@ -425,8 +432,38 @@ const minDate = computed(() => {
   return tomorrow.toISOString().split('T')[0]
 })
 
+const deliveryTimeError = computed(() => {
+  if (formData.value.type_livraison !== 'livraison') {
+    return ''
+  }
+
+  const requestedTime = formData.value.heure_livraison_souhaitee
+  if (!requestedTime) {
+    return ''
+  }
+
+  const isTimeFormatValid = /^([01]\d|2[0-3]):[0-5]\d$/.test(requestedTime)
+  if (!isTimeFormatValid) {
+    return 'Format d\'heure invalide.'
+  }
+
+  if (requestedTime < deliveryStartTime || requestedTime > deliveryEndTime) {
+    return `L'heure de livraison doit être comprise entre ${deliveryStartTime} et ${deliveryEndTime}.`
+  }
+
+  return ''
+})
+const hasDeliveryTimeError = computed(() => Boolean(deliveryTimeError.value))
+const showDeliveryTimeError = computed(() => hasDeliveryTimeError.value)
 const totalGeneral = computed(() => {
   return panierStore.total + (formData.value.type_livraison === 'livraison' ? fraisLivraison.value : 0)
+})
+const isStep1Blocked = computed(() => {
+  if (formData.value.type_livraison !== 'livraison') {
+    return false
+  }
+
+  return Boolean(shippingError.value || fraisLivraison.value <= 0 || hasDeliveryTimeError.value)
 })
 const isEditingAddress = computed(() => editingAddressId.value !== null)
 const selectedAdresse = computed(() => {
@@ -579,6 +616,10 @@ const refreshShipping = async () => {
 }
 
 const goToStep2 = () => {
+  if (hasDeliveryTimeError.value) {
+    return
+  }
+
   if (formData.value.type_livraison === 'livraison' && (shippingError.value || fraisLivraison.value <= 0)) {
     alert('Merci d\'ajouter une adresse valide pour calculer les frais de livraison.')
     return
@@ -590,6 +631,11 @@ const submitOrder = async () => {
   submitting.value = true
 
   try {
+    if (formData.value.type_livraison === 'livraison' && hasDeliveryTimeError.value) {
+      currentStep.value = 1
+      return
+    }
+
     if (formData.value.type_livraison === 'livraison' && (shippingError.value || fraisLivraison.value <= 0)) {
       alert('Adresse de livraison invalide. Merci de vérifier votre adresse.')
       return
