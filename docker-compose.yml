@@ -1,0 +1,128 @@
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-patiserie}
+      MYSQL_USER: ${MYSQL_USER:-patiserie}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-patiserie_password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+      MYSQL_ROOT_HOST: "%"
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - app_net
+
+  phpmyadmin:
+    image: phpmyadmin:5.2-apache
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+      UPLOAD_LIMIT: 64M
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PHPMYADMIN_PORT:-8081}:80"
+    restart: unless-stopped
+    networks:
+      - app_net
+
+  backend-app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: app
+    env_file:
+      - ./.env.docker
+    environment:
+      RUN_MIGRATIONS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - backend_storage:/var/www/html/storage
+    restart: unless-stopped
+    networks:
+      - app_net
+
+  backend-web:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: web
+    depends_on:
+      backend-app:
+        condition: service_started
+    volumes:
+      - backend_storage:/var/www/html/storage:ro
+    ports:
+      - "${BACKEND_PORT:-8000}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/up || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - app_net
+
+  queue-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: app
+    env_file:
+      - ./.env.docker
+    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--max-time=3600"]
+    depends_on:
+      db:
+        condition: service_healthy
+      backend-app:
+        condition: service_started
+    volumes:
+      - backend_storage:/var/www/html/storage
+    restart: unless-stopped
+    networks:
+      - app_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api/v1}
+    depends_on:
+      backend-web:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - app_net
+
+volumes:
+  mysql_data:
+  backend_storage:
+
+networks:
+  app_net:
+    driver: bridge
