@@ -27,18 +27,28 @@ RUN npm run build
 FROM php:8.2-fpm-alpine AS app
 WORKDIR /var/www/html
 
-RUN apk add --no-cache \
+RUN set -eux; \
+    apk add --no-cache \
         bash \
         fcgi \
+        icu-libs \
+        libzip \
+        oniguruma \
+        libpng \
+        libjpeg-turbo \
+        freetype \
+        libwebp; \
+    apk add --no-cache --virtual .build-deps \
+        $PHPIZE_DEPS \
         icu-dev \
         libzip-dev \
         oniguruma-dev \
         libpng-dev \
         libjpeg-turbo-dev \
         freetype-dev \
-        libwebp-dev \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
-    && docker-php-ext-install -j"$(nproc)" \
+        libwebp-dev; \
+    docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp; \
+    docker-php-ext-install -j"$(nproc)" \
         bcmath \
         exif \
         gd \
@@ -46,15 +56,8 @@ RUN apk add --no-cache \
         mbstring \
         opcache \
         pdo_mysql \
-        zip \
-    && apk del \
-        icu-dev \
-        libzip-dev \
-        oniguruma-dev \
-        libpng-dev \
-        libjpeg-turbo-dev \
-        freetype-dev \
-        libwebp-dev
+        zip; \
+    apk del .build-deps
 
 COPY --from=vendor --chown=www-data:www-data /var/www/html /var/www/html
 COPY --from=assets --chown=www-data:www-data /var/www/html/public/build /var/www/html/public/build
