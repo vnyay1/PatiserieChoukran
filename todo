@@ -1,0 +1,10 @@
+traiter "unread-count" qui tourne sans arret
+
+
+Si aucun utilisateur est connecté et qu'il clique sur ajouter un produit au panier ça doit le rediriger vers la page de connection
+
+
+Traiter L'erreur Sql qui s'affiche sur l'interface graphique quand un utilisateur ajoute une adresse qui n'est pas prise en charge 
+
+
+Si une commande est annulé l'étiquette "a payé" doit être retiré

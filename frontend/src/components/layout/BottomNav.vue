@@ -4,14 +4,14 @@ File: src/components/layout/BottomNav.vue
 =================================== -->
 
 <template>
-  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 safe-bottom z-50 md:hidden">
-    <div class="flex justify-around items-center h-16">
+  <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-gray-100 safe-bottom z-50 md:hidden">
+    <div class="flex justify-around items-center h-16 px-2">
       <router-link
         v-for="item in navItems"
         :key="item.name"
         :to="item.to"
         class="flex flex-col items-center justify-center flex-1 h-full touch-target relative"
-        :class="isActive(item.name) ? 'text-gold-600' : 'text-gray-400'"
+        :class="isActive(item.name) ? 'text-gold-600' : 'text-gray-500'"
       >
         <!-- Badge pour le panier -->
         <span
@@ -28,7 +28,7 @@ File: src/components/layout/BottomNav.vue
         </span>
 
         <component :is="item.icon" :size="24" :stroke-width="isActive(item.name) ? 2.5 : 2" />
-        <span class="text-xs mt-1 font-medium">{{ item.label }}</span>
+        <span class="text-[11px] mt-1 font-semibold">{{ item.label }}</span>
       </router-link>
     </div>
   </nav>

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,6 +8,10 @@
    BASE STYLES
 =================================== */
 @layer base {
+  :root {
+    --page-padding: 1rem;
+  }
+
   * {
     @apply box-border;
   }
@@ -18,18 +22,19 @@
 
   body {
     @apply font-body text-text-dark bg-cream antialiased;
+    padding: 0;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display;
+    @apply font-display text-text-dark;
   }
 
   h1 {
-    @apply text-4xl md:text-5xl font-bold;
+    @apply text-4xl md:text-5xl font-bold leading-tight;
   }
 
   h2 {
-    @apply text-3xl md:text-4xl font-bold;
+    @apply text-3xl md:text-4xl font-bold leading-snug;
   }
 
   h3 {
@@ -38,6 +43,10 @@
 
   h4 {
     @apply text-xl md:text-2xl font-semibold;
+  }
+
+  img {
+    @apply max-w-full h-auto;
   }
 }
 
@@ -148,6 +157,19 @@
    UTILITIES
 =================================== */
 @layer utilities {
+  /* Containers & layout helpers */
+  .section {
+    @apply py-10 px-4 md:py-14;
+  }
+
+  .grid-responsive {
+    @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6;
+  }
+
+  .content-narrow {
+    @apply max-w-5xl mx-auto px-4;
+  }
+
   /* Ornement doré */
   .ornament {
     @apply text-gold-400;
@@ -195,6 +217,11 @@
   /* Touch target (min 44x44px pour mobile) */
   .touch-target {
     @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* Aspect ratios helpers */
+  .ratio-card {
+    @apply aspect-[4/5] overflow-hidden rounded-elegant bg-white;
   }
 }
 
@@ -246,7 +273,6 @@
    RESPONSIVE
 =================================== */
 @media (max-width: 640px) {
-  /* Ajuster les tailles de police sur mobile */
   h1 {
     @apply text-3xl;
   }

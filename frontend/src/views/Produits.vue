@@ -98,12 +98,12 @@ File: src/views/Produits.vue
           </div>
 
           <!-- Loading -->
-          <div v-if="loading" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div v-if="loading" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             <div v-for="n in 8" :key="n" class="skeleton h-80 rounded-elegant"></div>
           </div>
 
           <!-- Produits -->
-          <div v-else-if="produits.length > 0" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div v-else-if="produits.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             <ProduitCard
               v-for="produit in produits"
               :key="produit.id"
@@ -176,6 +176,7 @@ File: src/views/Produits.vue
           class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl p-6 max-h-[80vh] overflow-y-auto animate-slideUp"
           @click.stop
         >
+          <div class="mx-auto mb-4 h-1 w-12 rounded-full bg-gray-300"></div>
           <div class="flex items-center justify-between mb-6">
             <h2 class="font-display text-xl font-bold text-gray-800">Filtres</h2>
             <button @click="showFilters = false">

@@ -9,7 +9,7 @@ File: src/App.vue
     <Header />
 
     <!-- Contenu principal -->
-    <main :class="mainClasses">
+    <main class="min-h-screen pt-16 md:pt-20 pb-20 md:pb-0">
       <RouterView v-slot="{ Component }">
         <Transition name="fade" mode="out-in">
           <component :is="Component" />
@@ -18,15 +18,15 @@ File: src/App.vue
     </main>
 
     <!-- Bottom Navigation (mobile) -->
-    <BottomNav v-if="isMobile && !hideBottomNav" />
+    <BottomNav v-if="!hideBottomNav" class="md:hidden" />
 
-    <!-- Footer (desktop) -->
-    <Footer v-if="!isMobile" />
+    <!-- Footer -->
+    <Footer />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, watch } from 'vue'
+import { onMounted, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
@@ -38,19 +38,9 @@ const route = useRoute()
 const authStore = useAuthStore()
 const panierStore = usePanierStore()
 
-// Détecter si mobile
-const isMobile = computed(() => window.innerWidth < 768)
-
 // Cacher la bottom nav sur certaines pages
 const hideBottomNav = computed(() => {
   return ['login', 'register'].includes(route.name)
-})
-
-// Classes pour le main
-const mainClasses = computed(() => {
-  const base = 'min-h-screen'
-  const padding = isMobile.value ? 'pb-20' : 'pt-20'
-  return `${base} ${padding}`
 })
 
 // Initialiser l'app

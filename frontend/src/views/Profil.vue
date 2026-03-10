@@ -178,7 +178,7 @@ File: src/views/Profil.vue
       v-if="showAddAddress"
       class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6"
     >
-      <div class="bg-white w-full max-w-2xl rounded-elegant shadow-card overflow-hidden">
+      <div class="bg-white w-full max-w-2xl rounded-elegant shadow-card overflow-hidden flex flex-col max-h-[90vh] md:max-h-none">
         <div class="p-4 border-b border-gray-100 flex items-center justify-between">
           <h2 class="font-display text-xl font-bold text-gray-800">
             {{ isEditingAddress ? 'Modifier une adresse' : 'Ajouter une adresse' }}
@@ -188,7 +188,10 @@ File: src/views/Profil.vue
           </button>
         </div>
 
-        <form class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4" @submit.prevent="submitAddress">
+        <form
+            class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto md:overflow-visible max-h-[70vh] md:max-h-none scrollbar-hide"
+            @submit.prevent="submitAddress"
+          >
           <div class="md:col-span-2">
             <label class="block text-sm font-medium text-gray-700 mb-2">Libellé (optionnel)</label>
             <input v-model="addressForm.libelle" type="text" class="input" placeholder="Maison, Bureau..." />

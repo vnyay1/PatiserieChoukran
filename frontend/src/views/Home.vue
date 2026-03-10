@@ -16,13 +16,14 @@ File: src/views/Home.vue
           L'art de sublimer vos moments gourmands
         </p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button variant="primary" size="lg" @click="$router.push('/produits')">
+          <Button variant="primary" size="lg" full-width @click="$router.push('/produits')">
             Découvrir nos créations
           </Button>
           <Button
             v-if="!authStore.isAuthenticated"
             variant="secondary"
             size="lg"
+            full-width
             @click="$router.push('/inscription')"
           >
             Créer un compte
@@ -39,11 +40,11 @@ File: src/views/Home.vue
           <p class="text-gray-600">Des créations pour tous les goûts</p>
         </div>
 
-        <div v-if="loadingCategories" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div v-if="loadingCategories" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div v-for="n in 4" :key="n" class="skeleton h-32 rounded-elegant"></div>
         </div>
 
-        <div v-else class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <router-link
             v-for="categorie in categories"
             :key="categorie.id"
@@ -65,11 +66,11 @@ File: src/views/Home.vue
           <p class="text-gray-600">Découvrez nos meilleures créations</p>
         </div>
 
-        <div v-if="loadingProduits" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div v-if="loadingProduits" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div v-for="n in 4" :key="n" class="skeleton h-64 rounded-elegant"></div>
         </div>
 
-        <div v-else class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <ProduitCard
             v-for="produit in produitsFeatured"
             :key="produit.id"

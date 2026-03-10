@@ -1,15 +1,73 @@
 <!-- ===================================
-3. FOOTER (Desktop)
+3. FOOTER (Responsive)
 File: src/components/layout/Footer.vue
 =================================== -->
 
 <template>
-  <footer class="bg-white border-t border-gray-100 mt-20 hidden md:block">
-    <div class="container mx-auto px-4 py-12">
+  <footer class="bg-white border-t border-gray-100 mt-12">
+    <!-- Mobile accordions -->
+    <div class="md:hidden px-4 py-8 space-y-4">
+      <div class="flex items-center gap-3">
+        <img src="/logo.png" alt="Choukrane" class="h-10 w-auto" loading="lazy" />
+        <p class="text-sm text-gray-600">Chaque création est une promesse de douceur.</p>
+      </div>
+
+      <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 overflow-hidden">
+        <details v-for="section in mobileSections" :key="section.title" class="group">
+          <summary class="flex items-center justify-between px-4 py-3 bg-white cursor-pointer">
+            <span class="font-semibold text-gray-800">{{ section.title }}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 9l6 6 6-6" />
+            </svg>
+          </summary>
+          <div class="px-4 pb-4 space-y-2">
+            <template v-if="section.type === 'links'">
+              <router-link
+                v-for="item in footerNavItems"
+                :key="item.to"
+                :to="item.to"
+                class="block text-sm text-gray-600 hover:text-gold-600"
+              >
+                {{ item.label }}
+              </router-link>
+            </template>
+            <template v-else-if="section.type === 'contact'">
+              <div class="flex items-center gap-2 text-sm text-gray-600">
+                <Phone :size="16" class="text-gold-500" />
+                <span>658555600</span>
+              </div>
+              <div class="flex items-center gap-2 text-sm text-gray-600">
+                <MapPin :size="16" class="text-gold-500" />
+                <span>Yaoundé - Olembé Échangeur</span>
+              </div>
+              <div class="flex items-center gap-2 text-sm text-gray-600">
+                <Instagram :size="16" class="text-gold-500" />
+                <a href="https://instagram.com/Choukran.Patisserie" target="_blank" class="hover:text-gold-600">
+                  @Choukran.Patisserie
+                </a>
+              </div>
+            </template>
+            <template v-else-if="section.type === 'hours'">
+              <p class="text-sm text-gray-600">Lun - Ven: 8h - 18h</p>
+              <p class="text-sm text-gray-600">Samedi: 9h - 17h</p>
+              <p class="text-sm text-gray-600">Dimanche: Fermé</p>
+            </template>
+          </div>
+        </details>
+      </div>
+
+      <div class="text-center text-xs text-gray-500 pt-2">
+        <p>&copy; {{ currentYear }} Choukrane Pâtisserie. Tous droits réservés.</p>
+        <p class="mt-1 ornament">✦ L'art de sublimer vos moments gourmands ✦</p>
+      </div>
+    </div>
+
+    <!-- Desktop grid -->
+    <div class="hidden md:block container mx-auto px-4 py-12">
       <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
         <!-- À propos -->
         <div>
-          <img src="/logo.png" alt="Choukrane" class="h-12 w-auto mb-4" />
+          <img src="/logo.png" alt="Choukrane" class="h-12 w-auto mb-4" loading="lazy" />
           <p class="text-sm text-gray-600 leading-relaxed">
             Chez Choukrane, chaque création est une promesse de douceur.
           </p>
@@ -62,10 +120,8 @@ File: src/components/layout/Footer.vue
         </div>
       </div>
 
-      <!-- Divider ornement -->
       <div class="divider-ornament"></div>
 
-      <!-- Copyright -->
       <div class="text-center text-sm text-gray-500">
         <p>&copy; {{ currentYear }} Choukrane Pâtisserie. Tous droits réservés.</p>
         <p class="mt-1 ornament">✦ L'art de sublimer vos moments gourmands ✦</p>
@@ -85,5 +141,11 @@ const footerNavItems = [
   { label: 'Nos Produits', to: '/produits' },
   { label: 'Mon Compte', to: '/profil' },
   { label: 'Mes Commandes', to: '/mes-commandes' },
+]
+
+const mobileSections = [
+  { title: 'Navigation', type: 'links' },
+  { title: 'Contact', type: 'contact' },
+  { title: 'Horaires', type: 'hours' },
 ]
 </script>

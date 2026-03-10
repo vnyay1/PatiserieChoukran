@@ -5,6 +5,14 @@ export default {
     "./src/**/*.{vue,js,ts,jsx,tsx}",
   ],
   theme: {
+    container: {
+      center: true,
+      padding: {
+        DEFAULT: '1rem',
+        sm: '1.25rem',
+        lg: '2rem',
+      },
+    },
     extend: {
       colors: {
         primary: {
@@ -33,7 +41,7 @@ export default {
       },
       fontFamily: {
         display: ['Playfair Display', 'serif'],
-        body: ['Poppins', 'sans-serif'],
+        body: ['Manrope', 'sans-serif'],
       },
       boxShadow: {
         'elegant': '0 4px 20px rgba(212, 175, 55, 0.15)',

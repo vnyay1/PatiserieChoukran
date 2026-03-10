@@ -28,11 +28,12 @@ File: src/views/ProduitDetail.vue
         <!-- Galerie d'images -->
         <div>
           <!-- Image principale -->
-          <div class="relative aspect-square rounded-elegant overflow-hidden bg-white shadow-card mb-4">
+          <div class="relative aspect-[4/5] rounded-elegant overflow-hidden bg-white shadow-card mb-4">
             <img
               :src="currentImage"
               :alt="produit.nom"
               class="w-full h-full object-cover"
+              loading="lazy"
             />
 
             <!-- Badge vedette -->
@@ -64,11 +65,22 @@ File: src/views/ProduitDetail.vue
           </div>
 
           <!-- Images secondaires -->
-          <div v-if="allImages.length > 1" class="grid grid-cols-4 gap-2">
+          <div v-if="allImages.length > 1" class="hidden sm:grid grid-cols-4 gap-2">
             <button
               v-for="(image, index) in allImages"
               :key="index"
               class="aspect-square rounded-lg overflow-hidden border-2 transition-all"
+              :class="currentImage === image ? 'border-gold-500' : 'border-transparent'"
+              @click="currentImage = image"
+            >
+              <img :src="image" :alt="`${produit.nom} - ${index + 1}`" class="w-full h-full object-cover" />
+            </button>
+          </div>
+          <div v-if="allImages.length > 1" class="sm:hidden flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            <button
+              v-for="(image, index) in allImages"
+              :key="index"
+              class="min-w-[80px] h-20 rounded-lg overflow-hidden border-2 transition-all flex-shrink-0"
               :class="currentImage === image ? 'border-gold-500' : 'border-transparent'"
               @click="currentImage = image"
             >
@@ -221,6 +233,28 @@ File: src/views/ProduitDetail.vue
             :key="produit.id"
             :produit="produit"
           />
+        </div>
+      </div>
+
+      <!-- CTA sticky mobile -->
+      <div
+        v-if="produit && produit.est_disponible"
+        class="md:hidden fixed left-0 right-0 bottom-16 z-40 px-4 safe-bottom"
+      >
+        <div class="bg-white border border-gold-100 shadow-elegant rounded-2xl p-4 flex items-center gap-3">
+          <div class="flex-1">
+            <p class="text-xs text-gray-500">Total</p>
+            <p class="font-display text-xl text-gold-700">{{ formatPrice(sousTotal) }} FCFA</p>
+          </div>
+          <Button
+            variant="primary"
+            size="md"
+            :disabled="isRestrictedRole || !produit.est_disponible || produit.stock_disponible === 0"
+            :loading="addingToCart"
+            @click="addToCart"
+          >
+            Ajouter
+          </Button>
         </div>
       </div>
     </div>
