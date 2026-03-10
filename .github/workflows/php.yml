@@ -69,7 +69,7 @@ jobs:
           CACHE_STORE: file
           SESSION_DRIVER: file
           QUEUE_CONNECTION: sync
-        run: php artisan test --no-interaction
+        run: php artisan test
 
   frontend-build:
     name: Frontend Build (Node 22)
