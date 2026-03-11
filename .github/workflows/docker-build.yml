@@ -46,15 +46,15 @@ jobs:
         include:
           - image_name: backend-app
             context: backend
-            dockerfile: backend/Dockerfile
+            dockerfile: Dockerfile
             target: app
           - image_name: backend-web
             context: backend
-            dockerfile: backend/Dockerfile
+            dockerfile: Dockerfile
             target: web
           - image_name: frontend
             context: frontend
-            dockerfile: frontend/Dockerfile
+            dockerfile: Dockerfile
             target: runtime
 
     steps:

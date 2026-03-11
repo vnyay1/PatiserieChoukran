@@ -8,3 +8,6 @@ Traiter L'erreur Sql qui s'affiche sur l'interface graphique quand un utilisateu
 
 
 Si une commande est annulé l'étiquette "a payé" doit être retiré
+
+
+il faut modifier le checkout pour que la date_souhaité soit supérieur ou égal a la date système 
