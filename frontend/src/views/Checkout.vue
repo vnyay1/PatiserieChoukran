@@ -302,17 +302,22 @@ File: src/views/Checkout.vue
               <input v-model="addressForm.quartier" type="text" class="input" required />
             </div>
 
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Ville *</label>
-              <input v-model="addressForm.ville" type="text" class="input" required />
-            </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Ville *</label>
+            <select v-model="addressForm.ville" class="input" required>
+              <option value="">Sélectionner une ville</option>
+              <option v-for="ville in villes" :key="ville.id" :value="ville.id">
+                {{ ville.nom_ville }}
+              </option>
+            </select>
+          </div>
 
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-gray-700 mb-2">Zone de livraison *</label>
               <select v-model="addressForm.zone_livraison_id" class="input" required>
                 <option value="">Sélectionner une zone</option>
                 <option v-for="zone in zones" :key="zone.id" :value="zone.id">
-                  {{ zone.ville }} - {{ zone.nom_zone }} ({{ formatPrice(zone.tarif_livraison) }} FCFA)
+                  {{ zone.nom_zone }}
                 </option>
               </select>
               <p v-if="addressForm.ville && zones.length === 0" class="text-xs text-red-600 mt-1">
@@ -394,6 +399,7 @@ const preserveZoneSelectionOnCityChange = ref(false)
 
 const adresses = ref([])
 const zones = ref([])
+const villes = ref([])
 const fraisLivraison = ref(0)
 const shippingError = ref('')
 const savingAddress = ref(false)
@@ -490,6 +496,25 @@ const fetchAdresses = async () => {
     }
   } catch (error) {
     console.error('Erreur chargement adresses:', error)
+  }
+}
+
+const fetchVilles = async () => {
+  try {
+    const response = await api.zones.getAll()
+    if (response.data.success) {
+      const groupedByVille = response.data.data || {}
+      const cityNames = Object.keys(groupedByVille)
+        .map((name) => (name || '').trim())
+        .filter((name) => !!name)
+
+      villes.value = cityNames.map((villeName) => ({
+        id: villeName,
+        nom_ville: villeName,
+      }))
+    }
+  } catch (error) {
+    console.error('Erreur chargement villes:', error)
   }
 }
 
@@ -665,6 +690,7 @@ onMounted(() => {
     return
   }
   fetchAdresses()
+  fetchVilles()
 })
 
 watch(

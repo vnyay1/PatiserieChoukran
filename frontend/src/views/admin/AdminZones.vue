@@ -88,12 +88,12 @@ File: src/views/admin/AdminZones.vue
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Délai min (h) *</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Délai min (h) </label>
             <input v-model.number="form.delai_livraison_min" type="number" min="0" class="input" required />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Délai max (h) *</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Délai max (h) </label>
             <input v-model.number="form.delai_livraison_max" type="number" min="0" class="input" required />
           </div>
 
