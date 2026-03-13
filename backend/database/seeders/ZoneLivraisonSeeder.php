@@ -9,66 +9,53 @@ class ZoneLivraisonSeeder extends Seeder
 {
     public function run(): void
     {
-        $zones = [
-            // Douala
-            [
-                'nom_zone' => 'Akwa',
-                'ville' => 'Douala',
-                'tarif_livraison' => 500,
-                'delai_livraison_min' => 1,
-                'delai_livraison_max' => 2,
-                'est_active' => true,
-            ],
-            [
-                'nom_zone' => 'Bonanjo',
-                'ville' => 'Douala',
-                'tarif_livraison' => 500,
-                'delai_livraison_min' => 1,
-                'delai_livraison_max' => 2,
-                'est_active' => true,
-            ],
-            [
-                'nom_zone' => 'Bonapriso',
-                'ville' => 'Douala',
-                'tarif_livraison' => 800,
-                'delai_livraison_min' => 2,
-                'delai_livraison_max' => 3,
-                'est_active' => true,
-            ],
-            [
-                'nom_zone' => 'Bepanda',
-                'ville' => 'Douala',
-                'tarif_livraison' => 1000,
-                'delai_livraison_min' => 2,
-                'delai_livraison_max' => 4,
-                'est_active' => true,
-            ],
-            [
-                'nom_zone' => 'Makepe',
-                'ville' => 'Douala',
-                'tarif_livraison' => 1500,
-                'delai_livraison_min' => 3,
-                'delai_livraison_max' => 5,
-                'est_active' => true,
-            ],
-            // Yaoundé
-            [
-                'nom_zone' => 'Centre-ville',
-                'ville' => 'Yaoundé',
-                'tarif_livraison' => 1000,
-                'delai_livraison_min' => 2,
-                'delai_livraison_max' => 3,
-                'est_active' => true,
-            ],
-            [
-                'nom_zone' => 'Bastos',
-                'ville' => 'Yaoundé',
-                'tarif_livraison' => 1500,
-                'delai_livraison_min' => 2,
-                'delai_livraison_max' => 4,
-                'est_active' => true,
-            ],
-        ];
+        $zones = [];
+
+        // Zones de Yaoundé depuis le fichier quartiersYaounde.txt (backend/database/data/)
+        $yaoundeFilePath = database_path('data/quartiersYaounde.txt');
+        if (file_exists($yaoundeFilePath)) {
+            $yaoundeZones = file($yaoundeFilePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+
+            foreach ($yaoundeZones as $zoneName) {
+                $zoneName = trim($zoneName);
+
+                if ($zoneName === '') {
+                    continue;
+                }
+
+                $zones[] = [
+                    'nom_zone' => $zoneName,
+                    'ville' => 'Yaoundé',
+                    'tarif_livraison' => 1000,
+                    'delai_livraison_min' => 0,
+                    'delai_livraison_max' => 0,
+                    'est_active' => true,
+                ];
+            }
+        }
+
+        // Zones de Douala depuis le fichier quartiersDouala.txt (backend/database/data/)
+        $doualaFilePath = database_path('data/quartiersDouala.txt');
+        if (file_exists($doualaFilePath)) {
+            $doualaZones = file($doualaFilePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+
+            foreach ($doualaZones as $zoneName) {
+                $zoneName = trim($zoneName);
+
+                if ($zoneName === '') {
+                    continue;
+                }
+
+                $zones[] = [
+                    'nom_zone' => $zoneName,
+                    'ville' => 'Douala',
+                    'tarif_livraison' => 1000,
+                    'delai_livraison_min' => 0,
+                    'delai_livraison_max' => 0,
+                    'est_active' => true,
+                ];
+            }
+        }
 
         foreach ($zones as $zone) {
             ZoneLivraison::create($zone);

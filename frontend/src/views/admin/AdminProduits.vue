@@ -191,6 +191,7 @@ File: src/views/admin/AdminProduits.vue
             <thead class="bg-gray-50 text-gray-600">
               <tr>
                 <th class="text-left font-semibold px-4 py-3">Produit</th>
+                <th class="text-left font-semibold px-4 py-3">Créé par</th>
                 <th class="text-left font-semibold px-4 py-3">Prix</th>
                 <th class="text-left font-semibold px-4 py-3">Stock</th>
                 <th class="text-left font-semibold px-4 py-3">Statut</th>
@@ -219,6 +220,9 @@ File: src/views/admin/AdminProduits.vue
                     <div>
                       <div class="font-semibold text-gray-800">{{ produit.nom }}</div>
                       <div class="text-xs text-gray-500">{{ produit.categorie?.nom || 'Sans catégorie' }}</div>
+                    </div>
+                    <div v-if="isAdmin && produit.createur?.nom_complet" class="font-semibold text-gray-400">
+                      {{ produit.createur.nom_complet }}
                     </div>
                   </div>
                 </td>
@@ -275,6 +279,7 @@ File: src/views/admin/AdminProduits.vue
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '@/services/api'
+import { useAuthStore } from '@/stores/auth'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-vue-next'
@@ -289,6 +294,9 @@ const formError = ref('')
 const currentPage = ref(1)
 const perPage = ref(12)
 const totalProduits = ref(0)
+
+const authStore = useAuthStore()
+const isAdmin = computed(() => authStore.isAdmin)
 
 const totalPages = computed(() => {
   return Math.max(1, Math.ceil(totalProduits.value / perPage.value))
