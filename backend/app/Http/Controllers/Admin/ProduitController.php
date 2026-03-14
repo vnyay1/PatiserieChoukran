@@ -14,7 +14,7 @@ class ProduitController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Produit::with('categorie');
+        $query = Produit::with(['categorie', 'createur']);
 
         if ($this->isLivreur($request)) {
             $query->where('created_by_user_id', $request->user()->id);
@@ -109,7 +109,7 @@ class ProduitController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $produit = $this->findProduitForManagement($request, $id)->load('categorie');
+        $produit = $this->findProduitForManagement($request, $id)->load(['categorie', 'createur']);
 
         return response()->json([
             'success' => true,

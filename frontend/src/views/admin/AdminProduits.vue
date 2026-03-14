@@ -191,7 +191,6 @@ File: src/views/admin/AdminProduits.vue
             <thead class="bg-gray-50 text-gray-600">
               <tr>
                 <th class="text-left font-semibold px-4 py-3">Produit</th>
-                <th class="text-left font-semibold px-4 py-3">Créé par</th>
                 <th class="text-left font-semibold px-4 py-3">Prix</th>
                 <th class="text-left font-semibold px-4 py-3">Stock</th>
                 <th class="text-left font-semibold px-4 py-3">Statut</th>

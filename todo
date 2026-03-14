@@ -13,9 +13,11 @@ Si une commande est annulé l'étiquette "a payé" doit être retiré
 il faut modifier le checkout pour que la date_souhaité soit supérieur ou égal a la date système 
 
 
-💡 Conseil
-integrer Overpass API (OpenStreetMap) //pour pouvoir géocoder les adresses init sur claude 
-OSM (Overpass) est la meilleure option pour le Cameroun. Les données sont communautaires et assez complètes pour Yaoundé et Douala. Si les résultats sont insuffisants, tu peux ajuster les admin_level (7 à 10) dans la requête Overpass pour capturer plus ou moins de granularité.
-
-
 Traiter le problème image de la catégorie qui ne veux pas être uploader dans le backend
+
+
+
+@quartiersYaounde.txt  @quartiersDouala.txt sont des données des villes que j'ai récuperé je veux que tu me les intègre dans de champs 'nom_zone' du seeder @backend/database/seeders/ZoneLivraisonSeeder.php  avec pour ville respective "Yaoundé" pour le premier fichier et "Douala" le deuxieme fichier ; le champs est_actif est true , delai min et max sont a 0 et le tarif_livraison est 1000 par défaut pour tous les champs 
+
+
+fixer le probleme du panier qui ne peut que contenir des produits d'un seul livreur

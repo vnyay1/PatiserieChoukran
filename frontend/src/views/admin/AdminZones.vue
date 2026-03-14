@@ -38,7 +38,10 @@ File: src/views/admin/AdminZones.vue
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Ville</label>
-            <input v-model="filters.ville" type="text" class="input" placeholder="Yaoundé" />
+            <select v-model="filters.ville" class="input">
+              <option value="">Toutes</option>
+              <option v-for="v in villesDisponibles" :key="v" :value="v">{{ v }}</option>
+            </select>
           </div>
 
           <div>
@@ -208,6 +211,7 @@ import Button from '@/components/common/Button.vue'
 import { Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-vue-next'
 
 const zones = ref([])
+const villesDisponibles = ref([])
 const loading = ref(false)
 const saving = ref(false)
 const showForm = ref(false)
@@ -239,6 +243,21 @@ const form = ref({
 
 const formatPrice = (value) => {
   return new Intl.NumberFormat('fr-FR').format(value || 0)
+}
+
+const fetchVilles = async () => {
+  try {
+    const response = await api.zones.getAll()
+    if (response.data.success) {
+      const groupedByVille = response.data.data || {}
+      villesDisponibles.value = Object.keys(groupedByVille)
+        .map((name) => (name || '').trim())
+        .filter((name) => !!name)
+        .sort()
+    }
+  } catch (error) {
+    console.error('Erreur chargement villes:', error)
+  }
 }
 
 const fetchZones = async () => {
@@ -370,6 +389,7 @@ const changePage = (page) => {
 }
 
 onMounted(() => {
+  fetchVilles()
   fetchZones()
 })
 </script>

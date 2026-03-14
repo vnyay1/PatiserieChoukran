@@ -127,13 +127,13 @@ File: src/views/Panier.vue
               <p class="text-xs text-gray-600 text-center mb-2">Moyens de paiement acceptés</p>
               <div class="flex items-center justify-center gap-3">
                 <div class="px-3 py-2 bg-orange-100 rounded text-xs font-semibold text-orange-700">
-                  Orange Money
+                  <img src="../../public/Orange-Money-logo.png" alt="LogoOrangeMoney" height="40px" width="60px">
                 </div>
                 <div class="px-3 py-2 bg-yellow-100 rounded text-xs font-semibold text-yellow-700">
-                  MTN MoMo
+                  <img src="../../public/Momo-logo.png" alt="LogoMobileMoney" height="42px" width="60px">
                 </div>
                 <div class="px-3 py-2 bg-green-100 rounded text-xs font-semibold text-green-700">
-                  Espèces
+                  <img src="../../public/argent.png" alt="LogoArgent" height="40px" width="42px">
                 </div>
               </div>
             </div>
