@@ -50,7 +50,10 @@ File: src/components/commande/CommandeCard.vue
 
         <div class="flex gap-2">
           <!-- Badge paiement -->
-          <div :class="['badge', getPaymentBadgeClass(commande.statut_paiement)]">
+          <div
+            v-if="commande.statut !== 'annulee'"
+            :class="['badge', getPaymentBadgeClass(commande.statut_paiement)]"
+          >
             {{ getPaymentLabel(commande.statut_paiement) }}
           </div>
 

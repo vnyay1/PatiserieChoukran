@@ -153,7 +153,11 @@ File: src/views/admin/AdminCommandes.vue
                 </td>
                 <td class="px-4 py-3">
                   <div class="flex flex-col gap-2">
-                    <span class="badge" :class="getPaymentBadgeClass(commande.statut_paiement)">
+                    <span
+                      v-if="commande.statut !== 'annulee'"
+                      class="badge"
+                      :class="getPaymentBadgeClass(commande.statut_paiement)"
+                    >
                       {{ getPaymentLabel(commande.statut_paiement) }}
                     </span>
                     <Button
