@@ -12,8 +12,6 @@ class Adresse extends Model
         'quartier',
         'ville',
         'zone_livraison_id',
-        'latitude',
-        'longitude',
         'telephone_contact',
         'point_repere',
         'complement_adresse',
@@ -22,8 +20,6 @@ class Adresse extends Model
 
     protected $casts = [
         'est_principale' => 'boolean',
-        'latitude' => 'float',
-        'longitude' => 'float',
     ];
 
     // Relations

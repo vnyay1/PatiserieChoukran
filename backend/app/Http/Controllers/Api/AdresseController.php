@@ -9,8 +9,6 @@ use Illuminate\Http\Request;
 
 class AdresseController extends Controller
 {
-    private GeocodingService $geocoding;
-
     /**
      * Liste des adresses de l'utilisateur
      */
@@ -38,8 +36,6 @@ class AdresseController extends Controller
             'quartier' => 'required|string|max:255',
             'ville' => 'required|string|max:255',
             'zone_livraison_id' => 'required|exists:zone_livraisons,id,est_active,1',
-            'latitude' => 'nullable|numeric|between:-90,90',
-            'longitude' => 'nullable|numeric|between:-180,180',
             'telephone_contact' => 'required|string|regex:/^\+237[0-9]{9}$/',
             'point_repere' => 'nullable|string',
             'complement_adresse' => 'nullable|string',
@@ -47,15 +43,6 @@ class AdresseController extends Controller
         ]);
 
         $validated['user_id'] = $request->user()->id;
-
-        if (!array_key_exists('latitude', $validated) || $validated['latitude'] === null
-            || !array_key_exists('longitude', $validated) || $validated['longitude'] === null) {
-            $coords = $this->geocodeAdresse($validated['quartier'], $validated['ville']);
-            if ($coords) {
-                $validated['latitude'] = $coords['lat'];
-                $validated['longitude'] = $coords['lng'];
-            }
-        }
 
         $adresse = Adresse::create($validated);
 
@@ -106,8 +93,6 @@ class AdresseController extends Controller
             'quartier' => 'sometimes|string|max:255',
             'ville' => 'sometimes|string|max:255',
             'zone_livraison_id' => 'sometimes|exists:zone_livraisons,id,est_active,1',
-            'latitude' => 'nullable|numeric|between:-90,90',
-            'longitude' => 'nullable|numeric|between:-180,180',
             'telephone_contact' => 'sometimes|string|regex:/^\+237[0-9]{9}$/',
             'point_repere' => 'nullable|string',
             'complement_adresse' => 'nullable|string',
@@ -126,11 +111,6 @@ class AdresseController extends Controller
             || !array_key_exists('longitude', $validated) || $validated['longitude'] === null)) {
             $quartier = $validated['quartier'] ?? $adresse->quartier;
             $ville = $validated['ville'] ?? $adresse->ville;
-            $coords = $this->geocodeAdresse($quartier, $ville);
-            if ($coords) {
-                $validated['latitude'] = $coords['lat'];
-                $validated['longitude'] = $coords['lng'];
-            }
         }
 
         $adresse->update($validated);
@@ -190,13 +170,5 @@ class AdresseController extends Controller
             'message' => 'Adresse définie comme principale',
             'data' => $adresse,
         ]);
-    }
-
-    private function geocodeAdresse(string $quartier, string $ville): ?array
-    {
-        $pays = env('GEOCODING_COUNTRY', 'Cameroun');
-        $query = trim(implode(', ', array_filter([$quartier, $ville, $pays])));
-
-        return app(GeocodingService::class)->geocode($query);
     }
 }
