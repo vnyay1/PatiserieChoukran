@@ -55,7 +55,7 @@ File: src/views/CommandeDetail.vue
             <div class="text-right">
               <div class="text-sm text-gray-600 mb-1">Montant total</div>
               <div class="price text-2xl">{{ formatPrice(commande.montant_total) }} FCFA</div>
-              <div :class="['badge mt-2', getPaymentBadgeClass(commande.statut_paiement)]">
+              <div v-if="commande.statut !== 'annulee'" :class="['badge mt-2', getPaymentBadgeClass(commande.statut_paiement)]">
                 {{ getPaymentLabel(commande.statut_paiement) }}
               </div>
             </div>
