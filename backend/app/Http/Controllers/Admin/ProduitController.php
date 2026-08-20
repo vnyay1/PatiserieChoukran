@@ -16,7 +16,7 @@ class ProduitController extends Controller
     {
         $query = Produit::with(['categorie', 'createur']);
 
-        if ($this->isLivreur($request)) {
+        if ($this->isVendeur($request)) {
             $query->where('created_by_user_id', $request->user()->id);
         }
 
@@ -238,15 +238,15 @@ class ProduitController extends Controller
     private function findProduitForManagement(Request $request, $id): Produit
     {
         return Produit::query()
-            ->when($this->isLivreur($request), function ($query) use ($request) {
+            ->when($this->isVendeur($request), function ($query) use ($request) {
                 $query->where('created_by_user_id', $request->user()->id);
             })
             ->findOrFail($id);
     }
 
-    private function isLivreur(Request $request): bool
+    private function isVendeur(Request $request): bool
     {
-        return $request->user()?->role === 'livreur';
+        return $request->user()?->role === 'vendeur';
     }
 
     protected function generateUniqueSlug(string $nom, ?int $ignoreId = null): string

@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 class CategorieController extends Controller
 {
     /**
-     * Liste des catégories (admin + livreur)
+     * Liste des catégories (admin + vendeur)
      */
     public function index(Request $request)
     {
@@ -154,14 +154,14 @@ class CategorieController extends Controller
     private function findCategorieForManagement(Request $request, $id): Categorie
     {
         return Categorie::query()
-            ->when($this->isLivreur($request), function ($query) use ($request) {
+            ->when($this->isVendeur($request), function ($query) use ($request) {
                 $query->where('created_by_user_id', $request->user()->id);
             })
             ->findOrFail($id);
     }
 
-    private function isLivreur(Request $request): bool
+    private function isVendeur(Request $request): bool
     {
-        return $request->user()?->role === 'livreur';
+        return $request->user()?->role === 'vendeur';
     }
 }

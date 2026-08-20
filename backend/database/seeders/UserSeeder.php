@@ -21,12 +21,12 @@ class UserSeeder extends Seeder
             'email_verified_at' => now(),
         ]);
 
-        // Livreur test
+        // Vendeur test
         User::create([
-            'nom_complet' => 'Jean Livreur',
+            'nom_complet' => 'Jean Vendeur',
             'telephone' => '+237699000002',
             'mot_de_passe' => 'password123',
-            'role' => 'livreur',
+            'role' => 'vendeur',
             'statut' => 'actif',
         ]);
 

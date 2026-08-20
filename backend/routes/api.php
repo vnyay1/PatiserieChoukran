@@ -24,8 +24,10 @@ use App\Http\Controllers\Admin\ParametreSiteController as AdminParametreSiteCont
 use App\Http\Controllers\Admin\ProduitController as AdminProduitController;
 use App\Http\Controllers\Admin\CommandeController as AdminCommandeController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Admin\QuartierController as AdminQuartierController;
 use App\Http\Controllers\Admin\ZoneLivraisonController as AdminZoneLivraisonController;
-use App\Http\Controllers\Livreur\CommandeController as LivreurCommandeController;
+use App\Http\Controllers\Vendeur\CommandeController as VendeurCommandeController;
+use App\Http\Controllers\Vendeur\TarifLivraisonController as VendeurTarifLivraisonController;
 
 /*
 |--------------------------------------------------------------------------
@@ -66,6 +68,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/search', [ZoneLivraisonController::class, 'search']);
     });
 
+    Route::get('livraison/quartiers', [ZoneLivraisonController::class, 'allQuartiers']);
+    Route::get('livraison/quartiers/vendeur/{vendeur}', [ZoneLivraisonController::class, 'quartiersByVendeur']);
+
     // ===================================
     // ROUTES PROTÉGÉES (authentification requise)
     // ===================================
@@ -81,7 +86,7 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::middleware('client')->group(function () {
-            // Zones filtrées pour la commande client (par livreur du panier)
+            // Zones filtrées pour la commande client (par vendeur du panier)
             Route::get('zones-livraison/ville/{ville}/commande', [ZoneLivraisonController::class, 'byCityForCommande']);
 
             // Panier (client uniquement)
@@ -170,6 +175,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/{id}', [AdminCommandeController::class, 'show']);
             Route::patch('/{id}/status', [AdminCommandeController::class, 'updateStatus']);
             Route::post('/{id}/assign-livreur', [AdminCommandeController::class, 'assignLivreur']);
+            Route::post('/{id}/assign-vendeur', [AdminCommandeController::class, 'assignLivreur']);
             Route::post('/{id}/confirm-payment', [AdminCommandeController::class, 'confirmPayment']);
         });
 
@@ -189,35 +195,39 @@ Route::prefix('v1')->group(function () {
             Route::put('/{id}', [AdminZoneLivraisonController::class, 'update']);
             Route::delete('/{id}', [AdminZoneLivraisonController::class, 'destroy']);
         });
+
+        Route::apiResource('quartiers', AdminQuartierController::class);
     });
 
     // ===================================
-    // ROUTES LIVREUR (authentification + rôle livreur)
+    // ROUTES VENDEUR (authentification + rôle vendeur)
     // ===================================
     
-    Route::middleware(['auth:sanctum', 'livreur'])->prefix('livreur')->group(function () {
+    Route::middleware(['auth:sanctum', 'vendeur'])->prefix('vendeur')->group(function () {
+        Route::get('tarifs-livraison/quartiers', [VendeurTarifLivraisonController::class, 'quartiers']);
+        Route::apiResource('tarifs-livraison', VendeurTarifLivraisonController::class);
 
-        // Gestion des commandes du livreur (uniquement ses propres produits)
+        // Gestion des commandes du vendeur (uniquement ses propres produits)
         Route::prefix('commandes')->group(function () {
-            Route::get('/', [LivreurCommandeController::class, 'index']);
-            Route::get('/en-cours', [LivreurCommandeController::class, 'enCours']);
-            Route::get('/stats', [LivreurCommandeController::class, 'stats']);
-            Route::get('/{id}', [LivreurCommandeController::class, 'show']);
-            Route::patch('/{id}/status', [LivreurCommandeController::class, 'updateStatus']);
-            Route::post('/{id}/confirm-payment', [LivreurCommandeController::class, 'confirmPayment']);
+            Route::get('/', [VendeurCommandeController::class, 'index']);
+            Route::get('/en-cours', [VendeurCommandeController::class, 'enCours']);
+            Route::get('/stats', [VendeurCommandeController::class, 'stats']);
+            Route::get('/{id}', [VendeurCommandeController::class, 'show']);
+            Route::patch('/{id}/status', [VendeurCommandeController::class, 'updateStatus']);
+            Route::post('/{id}/confirm-payment', [VendeurCommandeController::class, 'confirmPayment']);
         });
 
         // Alias historiques "livraisons" (compatibilité)
-        Route::get('livraisons', [LivreurCommandeController::class, 'index']);
-        Route::get('livraisons/en-cours', [LivreurCommandeController::class, 'enCours']);
-        Route::get('livraisons/{id}', [LivreurCommandeController::class, 'show']);
-        Route::patch('livraisons/{id}/status', [LivreurCommandeController::class, 'updateStatus']);
-        Route::post('livraisons/{id}/confirm-payment', [LivreurCommandeController::class, 'confirmPayment']);
+        Route::get('livraisons', [VendeurCommandeController::class, 'index']);
+        Route::get('livraisons/en-cours', [VendeurCommandeController::class, 'enCours']);
+        Route::get('livraisons/{id}', [VendeurCommandeController::class, 'show']);
+        Route::patch('livraisons/{id}/status', [VendeurCommandeController::class, 'updateStatus']);
+        Route::post('livraisons/{id}/confirm-payment', [VendeurCommandeController::class, 'confirmPayment']);
 
-        // Statistiques du livreur
-        Route::get('stats', [LivreurCommandeController::class, 'stats']);
+        // Statistiques du vendeur
+        Route::get('stats', [VendeurCommandeController::class, 'stats']);
 
-        // Ajouts catalogue autorisés pour le livreur
+        // Ajouts catalogue autorisés pour le vendeur
         Route::prefix('catalogue')->group(function () {
             Route::get('categories', [AdminCategorieController::class, 'index']);
             Route::get('categories/{id}', [AdminCategorieController::class, 'show']);

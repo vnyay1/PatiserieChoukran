@@ -4,11 +4,60 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Panier;
+use App\Models\Quartier;
+use App\Models\VendeurTarifLivraison;
 use App\Models\ZoneLivraison;
 use Illuminate\Http\Request;
 
 class ZoneLivraisonController extends Controller
 {
+    public function allQuartiers(Request $request)
+    {
+        $validated = $request->validate([
+            'ville' => 'nullable|in:yaoundé,douala',
+        ]);
+
+        $quartiers = Quartier::where('actif', true)
+            ->when(isset($validated['ville']), fn ($query) => $query->where('ville', $validated['ville']))
+            ->orderBy('ville')
+            ->orderBy('nom')
+            ->get()
+            ->groupBy('ville');
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'yaoundé' => $quartiers->get('yaoundé', collect())->values(),
+                'douala' => $quartiers->get('douala', collect())->values(),
+            ],
+        ]);
+    }
+
+    public function quartiersByVendeur(Request $request, int $vendeurId)
+    {
+        $tarifs = VendeurTarifLivraison::where('vendeur_id', $vendeurId)
+            ->where('actif', true)
+            ->with(['quartier' => fn ($query) => $query->where('actif', true)])
+            ->get()
+            ->filter(fn (VendeurTarifLivraison $tarif) => $tarif->quartier !== null)
+            ->map(function (VendeurTarifLivraison $tarif) {
+                return [
+                    'id' => $tarif->quartier->id,
+                    'nom' => $tarif->quartier->nom,
+                    'ville' => $tarif->quartier->ville,
+                    'tarif' => (float) $tarif->tarif,
+                    'delai_min' => $tarif->delai_min,
+                    'delai_max' => $tarif->delai_max,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $tarifs,
+        ]);
+    }
+
     /**
      * Liste des zones de livraison actives
      */

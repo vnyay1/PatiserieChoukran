@@ -37,9 +37,9 @@ class User extends Authenticatable
         return $this->hasMany(Commande::class);
     }
 
-    public function commandesLivrees()
+    public function commandesVendues()
     {
-        return $this->hasMany(Commande::class, 'livreur_id');
+        return $this->hasMany(Commande::class, 'vendeur_id');
     }
 
     public function adresses()
@@ -73,9 +73,9 @@ class User extends Authenticatable
         return $query->where('role', 'admin');
     }
 
-    public function scopeLivreurs($query)
+    public function scopeVendeurs($query)
     {
-        return $query->where('role', 'livreur');
+        return $query->where('role', 'vendeur');
     }
 
     public function scopeActifs($query)
@@ -100,9 +100,9 @@ class User extends Authenticatable
         return $this->role === 'client';
     }
 
-    public function isLivreur()
+    public function isVendeur()
     {
-        return $this->role === 'livreur';
+        return $this->role === 'vendeur';
     }
 
     public function isActif()

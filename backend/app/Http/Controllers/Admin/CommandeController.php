@@ -115,7 +115,7 @@ class CommandeController extends Controller
     }
 
     /**
-     * Assigner un livreur
+     * Assigner un vendeur.
      */
     public function assignLivreur(Request $request, $id)
     {
@@ -125,12 +125,12 @@ class CommandeController extends Controller
 
         $commande = Commande::findOrFail($id);
         
-        // Vérifier que c'est bien un livreur
+        // Vérifier que c'est bien un vendeur.
         $livreur = \App\Models\User::find($validated['livreur_id']);
-        if ($livreur->role !== 'livreur') {
+        if ($livreur->role !== 'vendeur') {
             return response()->json([
                 'success' => false,
-                'message' => 'L\'utilisateur n\'est pas un livreur',
+                'message' => 'L\'utilisateur n\'est pas un vendeur',
             ], 400);
         }
 
@@ -144,7 +144,7 @@ class CommandeController extends Controller
         if ($hasForeignProducts) {
             return response()->json([
                 'success' => false,
-                'message' => 'Ce livreur ne peut pas être assigné: la commande contient des produits ajoutés par un autre utilisateur.',
+                'message' => 'Ce vendeur ne peut pas être assigné: la commande contient des produits ajoutés par un autre utilisateur.',
             ], 422);
         }
 
@@ -152,7 +152,7 @@ class CommandeController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Livreur assigné',
+            'message' => 'Vendeur assigné',
             'data' => $commande->load('livreur'),
         ]);
     }

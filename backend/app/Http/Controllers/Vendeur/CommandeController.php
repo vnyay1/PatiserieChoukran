@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Livreur;
+namespace App\Http\Controllers\Vendeur;
 
 use App\Http\Controllers\Controller;
 use App\Models\Commande;
@@ -9,14 +9,14 @@ use Illuminate\Http\Request;
 class CommandeController extends Controller
 {
     /**
-     * Liste des commandes du livreur (uniquement ses produits).
+     * Liste des commandes du vendeur (uniquement ses produits).
      */
     public function index(Request $request)
     {
-        $query = $this->queryForLivreur($request->user()->id)
+        $query = $this->queryForVendeur($request->user()->id)
             ->visibleDansListes();
 
-        // Utilisé pour le badge du menu livreur :
+        // Utilisé pour le badge du menu vendeur :
         // ne compter que les commandes encore à traiter.
         if ($request->boolean('badge_only')) {
             $count = (clone $query)
@@ -69,11 +69,11 @@ class CommandeController extends Controller
     }
 
     /**
-     * Commandes en cours du livreur.
+     * Commandes en cours du vendeur.
      */
     public function enCours(Request $request)
     {
-        $commandes = $this->queryForLivreur($request->user()->id)
+        $commandes = $this->queryForVendeur($request->user()->id)
             ->whereIn('statut', ['confirmee', 'en_preparation', 'prete', 'en_livraison'])
             ->with(['user', 'ligneCommandes', 'adresseLivraison'])
             ->orderBy('created_at', 'desc')
@@ -86,11 +86,11 @@ class CommandeController extends Controller
     }
 
     /**
-     * Détail d'une commande du livreur.
+     * Détail d'une commande du vendeur.
      */
     public function show(Request $request, $id)
     {
-        $commande = $this->findForLivreur($request->user()->id, $id)
+        $commande = $this->findForVendeur($request->user()->id, $id)
             ->load([
                 'user',
                 'ligneCommandes.produit',
@@ -105,7 +105,7 @@ class CommandeController extends Controller
     }
 
     /**
-     * Changer le statut d'une commande du livreur.
+     * Changer le statut d'une commande du vendeur.
      */
     public function updateStatus(Request $request, $id)
     {
@@ -114,8 +114,8 @@ class CommandeController extends Controller
             'commentaire' => 'nullable|string|max:500',
         ]);
 
-        $livreur = $request->user();
-        $commande = $this->findForLivreur($livreur->id, $id);
+        $vendeur = $request->user();
+        $commande = $this->findForVendeur($vendeur->id, $id);
 
         if ($commande->statut === 'annulee') {
             return response()->json([
@@ -126,7 +126,7 @@ class CommandeController extends Controller
 
         $commande->changerStatut(
             $validated['statut'],
-            $livreur->id,
+            $vendeur->id,
             $validated['commentaire'] ?? null
         );
 
@@ -138,7 +138,7 @@ class CommandeController extends Controller
     }
 
     /**
-     * Confirmer le paiement d'une commande du livreur.
+     * Confirmer le paiement d'une commande du vendeur.
      */
     public function confirmPayment(Request $request, $id)
     {
@@ -146,7 +146,7 @@ class CommandeController extends Controller
             'reference_paiement' => 'nullable|string|max:255',
         ]);
 
-        $commande = $this->findForLivreur($request->user()->id, $id);
+        $commande = $this->findForVendeur($request->user()->id, $id);
 
         if ($commande->statut === 'annulee') {
             return response()->json([
@@ -169,11 +169,11 @@ class CommandeController extends Controller
     }
 
     /**
-     * Statistiques du livreur.
+     * Statistiques du vendeur.
      */
     public function stats(Request $request)
     {
-        $query = $this->queryForLivreur($request->user()->id);
+        $query = $this->queryForVendeur($request->user()->id);
 
         $stats = [
             'livraisons_total' => (clone $query)->count(),
@@ -191,23 +191,23 @@ class CommandeController extends Controller
         ]);
     }
 
-    private function queryForLivreur(int $livreurId)
+    private function queryForVendeur(int $vendeurId)
     {
         return Commande::query()
-            ->whereHas('ligneCommandes.produit', function ($q) use ($livreurId) {
-                $q->where('created_by_user_id', $livreurId);
+            ->whereHas('ligneCommandes.produit', function ($q) use ($vendeurId) {
+                $q->where('created_by_user_id', $vendeurId);
             })
-            ->whereDoesntHave('ligneCommandes.produit', function ($q) use ($livreurId) {
-                $q->where(function ($sub) use ($livreurId) {
+            ->whereDoesntHave('ligneCommandes.produit', function ($q) use ($vendeurId) {
+                $q->where(function ($sub) use ($vendeurId) {
                     $sub->whereNull('created_by_user_id')
-                        ->orWhere('created_by_user_id', '!=', $livreurId);
+                        ->orWhere('created_by_user_id', '!=', $vendeurId);
                 });
             });
     }
 
-    private function findForLivreur(int $livreurId, int|string $commandeId): Commande
+    private function findForVendeur(int $vendeurId, int|string $commandeId): Commande
     {
-        return $this->queryForLivreur($livreurId)
+        return $this->queryForVendeur($vendeurId)
             ->visibleDansListes()
             ->where('id', $commandeId)
             ->firstOrFail();

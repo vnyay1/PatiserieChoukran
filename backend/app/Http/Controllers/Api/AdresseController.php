@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Adresse;
-use App\Services\GeocodingService;
+use App\Models\Quartier;
 use Illuminate\Http\Request;
 
 class AdresseController extends Controller
@@ -15,7 +15,7 @@ class AdresseController extends Controller
     public function index(Request $request)
     {
         $adresses = Adresse::where('user_id', $request->user()->id)
-            ->with('zoneLivraison')
+            ->with(['zoneLivraison', 'quartier'])
             ->orderBy('est_principale', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
@@ -33,15 +33,19 @@ class AdresseController extends Controller
     {
         $validated = $request->validate([
             'libelle' => 'nullable|string|max:100',
-            'quartier' => 'required|string|max:255',
-            'ville' => 'required|string|max:255',
-            'zone_livraison_id' => 'required|exists:zone_livraisons,id,est_active,1',
+            'quartier_id' => 'required|exists:quartiers,id',
+            'quartier' => 'nullable|string|max:255',
+            'ville' => 'nullable|string|max:255',
+            'zone_livraison_id' => 'nullable|exists:zone_livraisons,id,est_active,1',
             'telephone_contact' => 'required|string|regex:/^\+237[0-9]{9}$/',
             'point_repere' => 'nullable|string',
             'complement_adresse' => 'nullable|string',
             'est_principale' => 'boolean',
         ]);
 
+        $quartier = Quartier::findOrFail($validated['quartier_id']);
+        $validated['quartier'] = $validated['quartier'] ?? $quartier->nom;
+        $validated['ville'] = $validated['ville'] ?? $quartier->ville;
         $validated['user_id'] = $request->user()->id;
 
         $adresse = Adresse::create($validated);
@@ -59,7 +63,7 @@ class AdresseController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Adresse ajoutée avec succès',
-            'data' => $adresse,
+            'data' => $adresse->load(['zoneLivraison', 'quartier']),
         ], 201);
     }
 
@@ -70,7 +74,7 @@ class AdresseController extends Controller
     {
         $adresse = Adresse::where('user_id', $request->user()->id)
             ->where('id', $id)
-            ->with('zoneLivraison')
+            ->with(['zoneLivraison', 'quartier'])
             ->firstOrFail();
 
         return response()->json([
@@ -90,14 +94,21 @@ class AdresseController extends Controller
 
         $validated = $request->validate([
             'libelle' => 'sometimes|string|max:100',
-            'quartier' => 'sometimes|string|max:255',
-            'ville' => 'sometimes|string|max:255',
-            'zone_livraison_id' => 'sometimes|exists:zone_livraisons,id,est_active,1',
+            'quartier_id' => 'sometimes|exists:quartiers,id',
+            'quartier' => 'nullable|string|max:255',
+            'ville' => 'nullable|string|max:255',
+            'zone_livraison_id' => 'nullable|exists:zone_livraisons,id,est_active,1',
             'telephone_contact' => 'sometimes|string|regex:/^\+237[0-9]{9}$/',
             'point_repere' => 'nullable|string',
             'complement_adresse' => 'nullable|string',
             'est_principale' => 'boolean',
         ]);
+
+        if (isset($validated['quartier_id'])) {
+            $quartier = Quartier::findOrFail($validated['quartier_id']);
+            $validated['quartier'] = $validated['quartier'] ?? $quartier->nom;
+            $validated['ville'] = $validated['ville'] ?? $quartier->ville;
+        }
 
         $shouldGeocode = false;
         if (array_key_exists('quartier', $validated) && $validated['quartier'] !== $adresse->quartier) {
@@ -122,7 +133,7 @@ class AdresseController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Adresse mise à jour',
-            'data' => $adresse,
+            'data' => $adresse->load(['zoneLivraison', 'quartier']),
         ]);
     }
 

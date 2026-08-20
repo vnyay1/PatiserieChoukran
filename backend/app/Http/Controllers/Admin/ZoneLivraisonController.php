@@ -15,7 +15,7 @@ class ZoneLivraisonController extends Controller
     {
         $query = ZoneLivraison::query();
 
-        if ($this->isLivreur($request)) {
+        if ($this->isVendeur($request)) {
             $query->where('created_by_user_id', $request->user()->id);
         }
 
@@ -137,14 +137,14 @@ class ZoneLivraisonController extends Controller
     private function findZoneForManagement(Request $request, $id): ZoneLivraison
     {
         return ZoneLivraison::query()
-            ->when($this->isLivreur($request), function ($query) use ($request) {
+            ->when($this->isVendeur($request), function ($query) use ($request) {
                 $query->where('created_by_user_id', $request->user()->id);
             })
             ->findOrFail($id);
     }
 
-    private function isLivreur(Request $request): bool
+    private function isVendeur(Request $request): bool
     {
-        return $request->user()?->role === 'livreur';
+        return $request->user()?->role === 'vendeur';
     }
 }

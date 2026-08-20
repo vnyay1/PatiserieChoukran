@@ -559,13 +559,13 @@ class CommandeController extends Controller
         }
 
         $livreur = User::where('id', $livreurId)
-            ->where('role', 'livreur')
+            ->where('role', 'vendeur')
             ->first();
 
         if (!$livreur) {
             return [
                 'livreur' => null,
-                'error' => 'Aucun livreur valide n\'est associé aux produits sélectionnés.',
+                'error' => 'Aucun vendeur valide n\'est associé aux produits sélectionnés.',
             ];
         }
 

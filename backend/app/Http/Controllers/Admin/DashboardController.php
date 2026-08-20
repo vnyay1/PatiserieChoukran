@@ -25,14 +25,23 @@ class DashboardController extends Controller
                 'nullable',
                 'integer',
                 Rule::exists('users', 'id')->where(function ($query) {
-                    $query->where('role', 'livreur');
+                    $query->where('role', 'vendeur');
+                }),
+            ],
+            'vendeur_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where(function ($query) {
+                    $query->where('role', 'vendeur');
                 }),
             ],
         ]);
 
         // Période (par défaut: ce mois)
         $periode = $validated['periode'] ?? 'mois';
-        $livreurId = isset($validated['livreur_id']) ? (int) $validated['livreur_id'] : null;
+        $vendeurId = isset($validated['vendeur_id'])
+            ? (int) $validated['vendeur_id']
+            : (isset($validated['livreur_id']) ? (int) $validated['livreur_id'] : null);
         
         $dateDebut = match($periode) {
             'aujourd_hui' => Carbon::today(),
@@ -42,11 +51,11 @@ class DashboardController extends Controller
             default => Carbon::now()->startOfMonth(),
         };
 
-        $commandesQuery = $this->queryCommandesForDashboard($livreurId);
+        $commandesQuery = $this->queryCommandesForDashboard($vendeurId);
         $commandesPeriodeQuery = (clone $commandesQuery)->where('created_at', '>=', $dateDebut);
 
-        $statsClients = $this->buildClientsStats($dateDebut, $livreurId, $commandesQuery);
-        $statsProduits = $this->buildProduitsStats($livreurId);
+        $statsClients = $this->buildClientsStats($dateDebut, $vendeurId, $commandesQuery);
+        $statsProduits = $this->buildProduitsStats($vendeurId);
 
         // Statistiques générales
         $stats = [
@@ -88,8 +97,8 @@ class DashboardController extends Controller
             ->get();
 
         $produitsQuery = Produit::query();
-        if ($livreurId !== null) {
-            $produitsQuery->where('created_by_user_id', $livreurId);
+        if ($vendeurId !== null) {
+            $produitsQuery->where('created_by_user_id', $vendeurId);
         }
 
         // Top 5 produits les plus vendus
@@ -105,7 +114,7 @@ class DashboardController extends Controller
             ->limit(10)
             ->get();
 
-        $livreurs = User::livreurs()
+        $vendeurs = User::vendeurs()
             ->orderBy('nom_complet')
             ->get(['id', 'nom_complet', 'email', 'telephone', 'statut']);
 
@@ -116,35 +125,37 @@ class DashboardController extends Controller
                 'ventes_par_jour' => $ventesParJour,
                 'top_produits' => $topProduits,
                 'dernieres_commandes' => $dernieresCommandes,
-                'livreurs' => $livreurs,
-                'selected_livreur_id' => $livreurId,
+                'vendeurs' => $vendeurs,
+                'livreurs' => $vendeurs,
+                'selected_vendeur_id' => $vendeurId,
+                'selected_livreur_id' => $vendeurId,
             ]
         ]);
     }
 
-    private function queryCommandesForDashboard(?int $livreurId): Builder
+    private function queryCommandesForDashboard(?int $vendeurId): Builder
     {
         $query = Commande::query();
 
-        if ($livreurId === null) {
+        if ($vendeurId === null) {
             return $query;
         }
 
         return $query
-            ->whereHas('ligneCommandes.produit', function ($q) use ($livreurId) {
-                $q->where('created_by_user_id', $livreurId);
+            ->whereHas('ligneCommandes.produit', function ($q) use ($vendeurId) {
+                $q->where('created_by_user_id', $vendeurId);
             })
-            ->whereDoesntHave('ligneCommandes.produit', function ($q) use ($livreurId) {
-                $q->where(function ($sub) use ($livreurId) {
+            ->whereDoesntHave('ligneCommandes.produit', function ($q) use ($vendeurId) {
+                $q->where(function ($sub) use ($vendeurId) {
                     $sub->whereNull('created_by_user_id')
-                        ->orWhere('created_by_user_id', '!=', $livreurId);
+                        ->orWhere('created_by_user_id', '!=', $vendeurId);
                 });
             });
     }
 
-    private function buildClientsStats(Carbon $dateDebut, ?int $livreurId, Builder $commandesQuery): array
+    private function buildClientsStats(Carbon $dateDebut, ?int $vendeurId, Builder $commandesQuery): array
     {
-        if ($livreurId === null) {
+        if ($vendeurId === null) {
             return [
                 'total_clients' => User::clients()->actifs()->count(),
                 'nouveaux_clients' => User::clients()
@@ -162,12 +173,12 @@ class DashboardController extends Controller
         ];
     }
 
-    private function buildProduitsStats(?int $livreurId): array
+    private function buildProduitsStats(?int $vendeurId): array
     {
         $query = Produit::disponible();
 
-        if ($livreurId !== null) {
-            $query->where('created_by_user_id', $livreurId);
+        if ($vendeurId !== null) {
+            $query->where('created_by_user_id', $vendeurId);
         }
 
         return [

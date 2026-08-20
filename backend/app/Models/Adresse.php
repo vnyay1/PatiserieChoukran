@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Adresse extends Model
 {
@@ -12,6 +13,7 @@ class Adresse extends Model
         'quartier',
         'ville',
         'zone_livraison_id',
+        'quartier_id',
         'telephone_contact',
         'point_repere',
         'complement_adresse',
@@ -31,6 +33,11 @@ class Adresse extends Model
     public function zoneLivraison()
     {
         return $this->belongsTo(ZoneLivraison::class, 'zone_livraison_id');
+    }
+
+    public function quartier(): BelongsTo
+    {
+        return $this->belongsTo(Quartier::class, 'quartier_id');
     }
 
     // Méthodes utiles

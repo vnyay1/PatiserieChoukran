@@ -35,7 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => \App\Http\Middleware\IsAdmin::class,
             'client' => \App\Http\Middleware\IsClient::class,
-            'livreur' => \App\Http\Middleware\IsLivreur::class,
+            'vendeur' => \App\Http\Middleware\VendeurMiddleware::class,
         ]);
 
         // Throttle API (utilise le rate limiter 'api' défini ci-dessus)
