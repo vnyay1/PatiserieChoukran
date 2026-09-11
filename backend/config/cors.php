@@ -1,11 +1,16 @@
 <?php
 
 return [
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api/*'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'], // En production: mettre les domaines autorisés
+    // Origines autorisées, séparées par des virgules (ex. https://choukrane.cm).
+    // En Docker, le SPA et l'API partagent la même origine : aucune requête cross-origin.
+    'allowed_origins' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', env('CORS_ALLOWED_ORIGINS', '*'))
+    ))),
 
     'allowed_origins_patterns' => [],
 
@@ -15,5 +20,6 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => true,
+    // Authentification par token Bearer (en-tête), pas par cookie
+    'supports_credentials' => false,
 ];

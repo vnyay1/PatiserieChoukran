@@ -39,8 +39,8 @@ Route::prefix('v1')->group(function () {
     // ROUTES PUBLIQUES (sans authentification)
     // ===================================
 
-    // Authentication
-    Route::prefix('auth')->group(function () {
+    // Authentication (limiteur 'auth' défini dans bootstrap/app.php)
+    Route::prefix('auth')->middleware('throttle:auth')->group(function () {
         Route::post('register', [AuthController::class, 'register']);
         Route::post('login', [AuthController::class, 'login']);
     });

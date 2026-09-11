@@ -27,6 +27,7 @@ class PanierController extends Controller
 
         $panier->each(function (Panier $panierItem) {
             $this->syncVendeurFromProduit($panierItem);
+            $this->syncPrixFromProduit($panierItem);
         });
 
         $total = $panier->sum('sous_total');
@@ -249,6 +250,17 @@ class PanierController extends Controller
             $panierItem->vendeur_id = $vendeurId;
             $panierItem->save();
             $panierItem->load('vendeur');
+        }
+    }
+
+    // Le checkout facture au prix actuel du produit : le panier affiche donc le même prix
+    private function syncPrixFromProduit(Panier $panierItem): void
+    {
+        $prixActuel = $panierItem->produit?->prix_actuel;
+
+        if ($prixActuel !== null && (float) $panierItem->prix_unitaire_actuel !== (float) $prixActuel) {
+            $panierItem->prix_unitaire_actuel = $prixActuel;
+            $panierItem->calculerSousTotal();
         }
     }
 }

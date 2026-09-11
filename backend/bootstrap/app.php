@@ -23,13 +23,25 @@ return Application::configure(basePath: dirname(__DIR__))
             RateLimiter::for('api', function (Request $request) {
                 return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
             });
+
+            // Connexion / inscription : protection contre la force brute
+            RateLimiter::for('auth', function (Request $request) {
+                $trop = fn () => response()->json([
+                    'success' => false,
+                    'message' => 'Trop de tentatives. Veuillez patienter une minute avant de réessayer.',
+                ], 429);
+
+                return [
+                    Limit::perMinute(10)->by($request->ip().'|'.$request->input('telephone'))->response($trop),
+                    Limit::perMinute(30)->by($request->ip())->response($trop),
+                ];
+            });
         }
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Middleware global
-        $middleware->api(prepend: [
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-        ]);
+        // Pas de EnsureFrontendRequestsAreStateful : le SPA s'authentifie uniquement par
+        // token Bearer. Avec ce middleware, les requêtes venant d'un domaine listé dans
+        // SANCTUM_STATEFUL_DOMAINS (cas du Docker) exigeaient un jeton CSRF -> erreurs 419.
 
         // Middleware avec alias
         $middleware->alias([

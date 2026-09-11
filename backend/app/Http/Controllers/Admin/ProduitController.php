@@ -203,6 +203,16 @@ class ProduitController extends Controller
     {
         $produit = $this->findProduitForManagement($request, $id);
 
+        // La clé étrangère ligne_commandes.produit_id est en cascade : supprimer un produit
+        // déjà commandé effacerait les lignes des commandes passées.
+        if ($produit->ligneCommandes()->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => "« {$produit->nom} » figure dans des commandes passées : le supprimer effacerait leur historique.",
+                'peut_desactiver' => true,
+            ], 422);
+        }
+
         // Supprimer les images
         if ($produit->image_principale) {
             \Storage::disk('public')->delete($produit->image_principale);

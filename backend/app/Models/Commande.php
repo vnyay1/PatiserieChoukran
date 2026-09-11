@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Commande extends Model
 {
@@ -135,27 +136,53 @@ class Commande extends Model
     }
 
     // Méthodes utiles
-    public function genererNumeroCommande()
+
+    /**
+     * Numéro lisible CMD-AAAAMMJJ-NNNN. La séquence part du plus grand numéro du jour
+     * (un count() produisait des doublons après une suppression ou lors de commandes
+     * simultanées, rejetés par l'index unique) et l'unicité est vérifiée.
+     */
+    public function genererNumeroCommande(): void
     {
-        $date = now()->format('Ymd');
-        $count = static::whereDate('created_at', today())->count() + 1;
-        $this->numero_commande = 'CMD-'.$date.'-'.str_pad($count, 4, '0', STR_PAD_LEFT);
+        $prefixe = 'CMD-'.now()->format('Ymd').'-';
+
+        $dernier = static::where('numero_commande', 'like', $prefixe.'%')
+            ->orderByDesc('numero_commande')
+            ->value('numero_commande');
+
+        $sequence = $dernier ? ((int) substr($dernier, strlen($prefixe))) + 1 : 1;
+
+        do {
+            $numero = $prefixe.str_pad((string) $sequence++, 4, '0', STR_PAD_LEFT);
+        } while (static::where('numero_commande', $numero)->exists());
+
+        $this->numero_commande = $numero;
     }
 
     public function changerStatut($nouveauStatut, $userId = null, $commentaire = null)
     {
-        $ancienStatut = $this->statut;
-        $this->statut = $nouveauStatut;
-        $this->save();
+        DB::transaction(function () use ($nouveauStatut, $userId, $commentaire) {
+            $ancienStatut = $this->statut;
+            $this->statut = $nouveauStatut;
+            $this->save();
 
-        // Enregistrer dans l'historique
-        HistoriqueStatutCommande::create([
-            'commande_id' => $this->id,
-            'ancien_statut' => $ancienStatut,
-            'nouveau_statut' => $nouveauStatut,
-            'commentaire' => $commentaire,
-            'modifie_par_user_id' => $userId,
-        ]);
+            // Annulation (client, vendeur ou admin) : les produits reviennent en stock
+            if ($nouveauStatut === 'annulee' && $ancienStatut !== 'annulee') {
+                $this->loadMissing('ligneCommandes.produit');
+                foreach ($this->ligneCommandes as $ligne) {
+                    $ligne->produit?->augmenterStock($ligne->quantite);
+                }
+            }
+
+            // Enregistrer dans l'historique
+            HistoriqueStatutCommande::create([
+                'commande_id' => $this->id,
+                'ancien_statut' => $ancienStatut,
+                'nouveau_statut' => $nouveauStatut,
+                'commentaire' => $commentaire,
+                'modifie_par_user_id' => $userId,
+            ]);
+        });
     }
 
     public function isPaid()

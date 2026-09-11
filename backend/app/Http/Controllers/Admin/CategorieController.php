@@ -125,6 +125,17 @@ class CategorieController extends Controller
     {
         $categorie = $this->findCategorieForManagement($request, $id);
 
+        // produits.categorie_id est en cascade : supprimer la catégorie supprimerait tous
+        // ses produits, y compris ceux d'autres vendeurs et ceux déjà commandés.
+        $nombreProduits = $categorie->produits()->count();
+        if ($nombreProduits > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => "Impossible de supprimer « {$categorie->nom} » : {$nombreProduits} produit(s) y sont rattachés. "
+                    .'Déplacez-les dans une autre catégorie ou désactivez plutôt la catégorie.',
+            ], 422);
+        }
+
         if ($categorie->image) {
             \Storage::disk('public')->delete($categorie->image);
         }

@@ -8,6 +8,7 @@ use App\Models\HistoriqueStatutCommande;
 use App\Models\LigneCommande;
 use App\Models\Notification;
 use App\Models\Panier;
+use App\Models\Produit;
 use App\Models\User;
 use App\Models\VendeurTarifLivraison;
 use Illuminate\Http\Request;
@@ -156,6 +157,13 @@ class CommandeController extends Controller
 
         try {
             DB::transaction(function () use ($panierItems, $validated, $adresse, $operateurMobile, $request, &$commandes, &$vendeursANotifier) {
+                // Verrou sur les produits : deux clients ne peuvent pas acheter la dernière unité
+                // en même temps (le stock est relu et vérifié à l'intérieur de la transaction).
+                $produits = Produit::whereIn('id', $panierItems->pluck('produit_id'))
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
+
                 $groupes = $panierItems->groupBy(fn (Panier $item) => $item->vendeur_id);
 
                 foreach ($groupes as $vendeurId => $items) {
@@ -166,7 +174,37 @@ class CommandeController extends Controller
                         throw new \InvalidArgumentException('Certains produits du panier ne sont associés à aucun vendeur.');
                     }
 
-                    $montantProduits = $items->sum('sous_total');
+                    if (! $vendeur || ! $vendeur->isVendeur() || ! $vendeur->isActif()) {
+                        $nomVendeur = $vendeur?->nom_complet ?? "Vendeur #{$vendeurId}";
+                        throw new \InvalidArgumentException(
+                            "Le vendeur « {$nomVendeur} » n'accepte plus de commandes pour le moment : retirez ses produits du panier."
+                        );
+                    }
+
+                    // Disponibilité, stock et prix relus au moment de la commande (pas ceux de l'ajout au panier)
+                    $lignes = [];
+                    foreach ($items as $item) {
+                        $produit = $produits->get($item->produit_id);
+                        $nomProduit = $produit?->nom ?? $item->produit?->nom ?? 'Un produit';
+
+                        if (! $produit || ! $produit->est_disponible) {
+                            throw new \InvalidArgumentException("« {$nomProduit} » n'est plus disponible : retirez-le de votre panier.");
+                        }
+
+                        if ($produit->stock_disponible < $item->quantite) {
+                            throw new \InvalidArgumentException(
+                                "Stock insuffisant pour « {$nomProduit} » : il en reste {$produit->stock_disponible}."
+                            );
+                        }
+
+                        $lignes[] = [
+                            'produit' => $produit,
+                            'quantite' => $item->quantite,
+                            'prix_unitaire' => (float) $produit->prix_actuel,
+                        ];
+                    }
+
+                    $montantProduits = collect($lignes)->sum(fn ($ligne) => $ligne['prix_unitaire'] * $ligne['quantite']);
                     $montantLivraison = 0;
 
                     if ($validated['type_livraison'] === 'livraison') {
@@ -209,17 +247,19 @@ class CommandeController extends Controller
                         'statut_paiement' => 'en_attente',
                     ]);
 
-                    foreach ($items as $item) {
+                    foreach ($lignes as $ligne) {
                         LigneCommande::create([
                             'commande_id' => $commande->id,
-                            'produit_id' => $item->produit_id,
-                            'nom_produit' => $item->produit->nom,
-                            'quantite' => $item->quantite,
-                            'prix_unitaire' => $item->prix_unitaire_actuel,
-                            'sous_total' => $item->sous_total,
+                            'produit_id' => $ligne['produit']->id,
+                            'nom_produit' => $ligne['produit']->nom,
+                            'quantite' => $ligne['quantite'],
+                            'prix_unitaire' => $ligne['prix_unitaire'],
+                            'sous_total' => $ligne['prix_unitaire'] * $ligne['quantite'],
                         ]);
 
-                        $item->produit->diminuerStock($item->quantite);
+                        $ligne['produit']->diminuerStock($ligne['quantite']);
+                        // Alimente le tri « Populaires » et le top produits du tableau de bord
+                        $ligne['produit']->incrementerCommandes();
                     }
 
                     HistoriqueStatutCommande::create([
@@ -296,12 +336,8 @@ class CommandeController extends Controller
             ], 400);
         }
 
+        // changerStatut remet aussi le stock des produits (voir Commande::changerStatut)
         $commande->changerStatut('annulee', $request->user()->id, 'Annulée par le client');
-
-        // Remettre le stock
-        foreach ($commande->ligneCommandes as $ligne) {
-            $ligne->produit->augmenterStock($ligne->quantite);
-        }
 
         return response()->json([
             'success' => true,
