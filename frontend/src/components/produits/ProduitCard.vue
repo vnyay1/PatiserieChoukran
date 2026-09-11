@@ -13,7 +13,7 @@ File: src/components/produits/ProduitCard.vue
     <!-- Image -->
     <div class="relative aspect-square overflow-hidden">
       <img
-        :src="resolveImageUrl(produit.image_principale)"
+        :src="resolveImageUrl(produit.image_principale)" @error="onImageError"
         :alt="produit.nom"
         class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
       />
@@ -87,6 +87,7 @@ import { usePanierStore } from '@/stores/panier'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { ShoppingCart, Star } from 'lucide-vue-next'
+import { resolveImageUrl, onImageError } from '@/utils/images'
 
 const props = defineProps({
   produit: {
@@ -106,21 +107,6 @@ const reductionPercent = computed(() => {
   const reduction = ((props.produit.prix_unitaire - props.produit.prix_promo) / props.produit.prix_unitaire) * 100
   return Math.round(reduction)
 })
-
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
-const apiOrigin = (() => {
-  try {
-    return new URL(apiBase).origin
-  } catch {
-    return ''
-  }
-})()
-
-const resolveImageUrl = (path) => {
-  if (!path) return '/placeholder-product.jpg'
-  if (path.startsWith('http') || path.startsWith('/')) return path
-  return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
-}
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR').format(price)

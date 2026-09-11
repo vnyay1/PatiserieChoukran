@@ -34,6 +34,7 @@ File: src/views/ProduitDetail.vue
               :alt="produit.nom"
               class="w-full h-full object-cover"
               loading="lazy"
+              @error="onImageError"
             />
 
             <!-- Badge vedette -->
@@ -73,7 +74,7 @@ File: src/views/ProduitDetail.vue
               :class="currentImage === image ? 'border-gold-500' : 'border-transparent'"
               @click="currentImage = image"
             >
-              <img :src="image" :alt="`${produit.nom} - ${index + 1}`" class="w-full h-full object-cover" />
+              <img :src="image" :alt="`${produit.nom} - ${index + 1}`" class="w-full h-full object-cover" @error="onImageError" />
             </button>
           </div>
           <div v-if="allImages.length > 1" class="sm:hidden flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
@@ -84,7 +85,7 @@ File: src/views/ProduitDetail.vue
               :class="currentImage === image ? 'border-gold-500' : 'border-transparent'"
               @click="currentImage = image"
             >
-              <img :src="image" :alt="`${produit.nom} - ${index + 1}`" class="w-full h-full object-cover" />
+              <img :src="image" :alt="`${produit.nom} - ${index + 1}`" class="w-full h-full object-cover" @error="onImageError" />
             </button>
           </div>
         </div>
@@ -186,28 +187,18 @@ File: src/views/ProduitDetail.vue
               </div>
             </div>
 
-            <!-- Boutons d'action -->
-            <div class="flex gap-3">
-              <Button
-                variant="primary"
-                size="lg"
-                full-width
-                :disabled="isRestrictedRole || !produit.est_disponible || produit.stock_disponible === 0"
-                :loading="addingToCart"
-                @click="addToCart"
-              >
-                <ShoppingCart :size="20" />
-                <span class="ml-2">Ajouter au panier</span>
-              </Button>
-
-              <button
-                class="touch-target flex items-center justify-center w-14 h-14 rounded-full border-2 border-gold-500 text-gold-600 hover:bg-gold-50"
-                :class="{ 'bg-gold-100': isFavorite }"
-                @click="toggleFavorite"
-              >
-                <Heart :size="24" :fill="isFavorite ? 'currentColor' : 'none'" />
-              </button>
-            </div>
+            <!-- Bouton d'action -->
+            <Button
+              variant="primary"
+              size="lg"
+              full-width
+              :disabled="isRestrictedRole || !produit.est_disponible || produit.stock_disponible === 0"
+              :loading="addingToCart"
+              @click="addToCart"
+            >
+              <ShoppingCart :size="20" />
+              <span class="ml-2">Ajouter au panier</span>
+            </Button>
 
             <!-- Total -->
             <div class="bg-gold-50 border-2 border-gold-200 rounded-lg p-4">
@@ -283,7 +274,8 @@ import { usePanierStore } from '@/stores/panier'
 import api from '@/services/api'
 import ProduitCard from '@/components/produits/ProduitCard.vue'
 import Button from '@/components/common/Button.vue'
-import { ArrowLeft, Star, ShoppingCart, Heart, Minus, Plus, AlertTriangle } from 'lucide-vue-next'
+import { resolveImageUrl, onImageError } from '@/utils/images'
+import { ArrowLeft, Star, ShoppingCart, Minus, Plus, AlertTriangle } from 'lucide-vue-next'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -295,23 +287,7 @@ const loading = ref(true)
 const addingToCart = ref(false)
 const quantite = ref(1)
 const currentImage = ref('')
-const isFavorite = ref(false)
 const isRestrictedRole = computed(() => authStore.isAdmin || authStore.isVendeur)
-
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
-const apiOrigin = (() => {
-  try {
-    return new URL(apiBase).origin
-  } catch {
-    return ''
-  }
-})()
-
-const resolveImageUrl = (path, { placeholder = true } = {}) => {
-  if (!path) return placeholder ? '/placeholder-product.jpg' : null
-  if (path.startsWith('http') || path.startsWith('/')) return path
-  return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
-}
 
 const allImages = computed(() => {
   if (!produit.value) return []
@@ -390,11 +366,6 @@ const addToCart = async () => {
   }
 
   addingToCart.value = false
-}
-
-const toggleFavorite = () => {
-  isFavorite.value = !isFavorite.value
-  // TODO: Implémenter l'API des favoris
 }
 
 onMounted(() => {

@@ -29,7 +29,7 @@ class ProduitSeeder extends Seeder
                 'slug' => 'gateau-au-chocolat',
                 'description' => 'Délicieux gâteau au chocolat noir avec ganache',
                 'prix_unitaire' => 15000,
-                'image_principale' => '/images/produits/gateau-chocolat.jpg',
+                'image_principale' => null, // pas d'image fournie : le frontend affiche le placeholder
                 'stock_disponible' => 10,
                 'est_disponible' => true,
                 'est_vedette' => true,
@@ -42,7 +42,7 @@ class ProduitSeeder extends Seeder
                 'description' => 'Gâteau à la vanille avec fraises fraîches',
                 'prix_unitaire' => 12000,
                 'prix_promo' => 10000,
-                'image_principale' => '/images/produits/gateau-fraise.jpg',
+                'image_principale' => null, // pas d'image fournie : le frontend affiche le placeholder
                 'stock_disponible' => 8,
                 'est_disponible' => true,
                 'est_vedette' => false,
@@ -55,7 +55,7 @@ class ProduitSeeder extends Seeder
                 'slug' => 'coupe-glacee-3-boules',
                 'description' => 'Coupe avec 3 boules de glace au choix',
                 'prix_unitaire' => 2000,
-                'image_principale' => '/images/produits/coupe-glace.jpg',
+                'image_principale' => null, // pas d'image fournie : le frontend affiche le placeholder
                 'stock_disponible' => 50,
                 'est_disponible' => true,
                 'est_vedette' => true,
@@ -67,7 +67,7 @@ class ProduitSeeder extends Seeder
                 'slug' => 'cornet-simple',
                 'description' => 'Cornet avec 1 boule de glace',
                 'prix_unitaire' => 500,
-                'image_principale' => '/images/produits/cornet.jpg',
+                'image_principale' => null, // pas d'image fournie : le frontend affiche le placeholder
                 'stock_disponible' => 100,
                 'est_disponible' => true,
                 'est_vedette' => false,
@@ -80,7 +80,7 @@ class ProduitSeeder extends Seeder
                 'slug' => 'croissant',
                 'description' => 'Croissant pur beurre',
                 'prix_unitaire' => 500,
-                'image_principale' => '/images/produits/croissant.jpg',
+                'image_principale' => null, // pas d'image fournie : le frontend affiche le placeholder
                 'stock_disponible' => 30,
                 'est_disponible' => true,
                 'est_vedette' => false,
@@ -92,7 +92,7 @@ class ProduitSeeder extends Seeder
                 'slug' => 'pain-au-chocolat',
                 'description' => 'Pain au chocolat artisanal',
                 'prix_unitaire' => 600,
-                'image_principale' => '/images/produits/pain-chocolat.jpg',
+                'image_principale' => null, // pas d'image fournie : le frontend affiche le placeholder
                 'stock_disponible' => 25,
                 'est_disponible' => true,
                 'est_vedette' => false,

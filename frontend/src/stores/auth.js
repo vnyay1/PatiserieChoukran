@@ -37,13 +37,16 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         const response = await api.auth.login(credentials)
-        
+
         if (response.data.success) {
           this.token = response.data.data.token
           this.user = response.data.data.user
           localStorage.setItem('token', this.token)
           return { success: true }
         }
+
+        this.error = response.data?.message || 'Erreur de connexion'
+        return { success: false, error: this.error }
       } catch (error) {
         this.error = error.response?.data?.message || 'Erreur de connexion'
         return { success: false, error: this.error }
@@ -59,13 +62,16 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         const response = await api.auth.register(userData)
-        
+
         if (response.data.success) {
           this.token = response.data.data.token
           this.user = response.data.data.user
           localStorage.setItem('token', this.token)
           return { success: true }
         }
+
+        this.error = response.data?.message || 'Erreur d\'inscription'
+        return { success: false, error: this.error }
       } catch (error) {
         this.error = error.response?.data?.message || 'Erreur d\'inscription'
         return { success: false, error: this.error }
@@ -104,9 +110,10 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    // Initialiser l'authentification au démarrage
+    // Initialiser l'authentification au démarrage (la garde du router a
+    // généralement déjà chargé l'utilisateur : pas de second appel)
     async initialize() {
-      if (this.token) {
+      if (this.token && !this.user) {
         await this.fetchUser()
       }
     }

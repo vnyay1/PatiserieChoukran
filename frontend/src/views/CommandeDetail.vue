@@ -78,7 +78,7 @@ File: src/views/CommandeDetail.vue
             >
               <div class="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                 <img
-                  :src="resolveImageUrl(ligne.produit?.image_principale)"
+                  :src="resolveImageUrl(ligne.produit?.image_principale)" @error="onImageError"
                   :alt="ligne.nom_produit"
                   class="w-full h-full object-cover"
                 />
@@ -325,6 +325,7 @@ import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { useLivraisonVendeurs, formatVille } from '@/composables/useLivraisonVendeurs'
 import { ArrowLeft, MapPin, Clock, Phone, Pencil, Trash2, Truck, Store } from 'lucide-vue-next'
+import { resolveImageUrl, onImageError } from '@/utils/images'
 
 const route = useRoute()
 const router = useRouter()
@@ -360,21 +361,6 @@ const form = ref({
 })
 
 const canEdit = computed(() => commande.value?.statut === 'en_attente')
-
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
-const apiOrigin = (() => {
-  try {
-    return new URL(apiBase).origin
-  } catch {
-    return ''
-  }
-})()
-
-const resolveImageUrl = (path) => {
-  if (!path) return '/placeholder-product.jpg'
-  if (path.startsWith('http') || path.startsWith('/')) return path
-  return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
-}
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR').format(price)

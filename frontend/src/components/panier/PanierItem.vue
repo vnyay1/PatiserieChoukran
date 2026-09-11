@@ -12,7 +12,7 @@ File: src/components/panier/PanierItem.vue
         class="flex-shrink-0 w-24 h-24 md:w-32 md:h-32 rounded-lg overflow-hidden bg-gray-100"
       >
         <img
-          :src="resolveImageUrl(item.produit.image_principale)"
+          :src="resolveImageUrl(item.produit.image_principale)" @error="onImageError"
           :alt="item.produit.nom"
           class="w-full h-full object-cover hover:scale-110 transition-transform"
         />
@@ -148,6 +148,7 @@ File: src/components/panier/PanierItem.vue
 import { ref } from 'vue'
 import Card from '@/components/common/Card.vue'
 import { Minus, Plus, Trash2 } from 'lucide-vue-next'
+import { resolveImageUrl, onImageError } from '@/utils/images'
 
 const props = defineProps({
   item: {
@@ -159,21 +160,6 @@ const props = defineProps({
 const emit = defineEmits(['update-quantity', 'remove'])
 
 const updating = ref(false)
-
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
-const apiOrigin = (() => {
-  try {
-    return new URL(apiBase).origin
-  } catch {
-    return ''
-  }
-})()
-
-const resolveImageUrl = (path) => {
-  if (!path) return '/placeholder-product.jpg'
-  if (path.startsWith('http') || path.startsWith('/')) return path
-  return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
-}
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR').format(price)

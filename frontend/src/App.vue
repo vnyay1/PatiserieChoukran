@@ -51,7 +51,11 @@ onMounted(async () => {
 watch(
   () => authStore.user?.id,
   async (userId) => {
-    if (!userId) return
+    // Déconnexion : ne pas garder le panier (et son badge) du compte précédent
+    if (!userId) {
+      panierStore.reset()
+      return
+    }
     if (!authStore.isClient) {
       panierStore.reset()
       return

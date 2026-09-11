@@ -212,7 +212,7 @@ File: src/views/admin/AdminProduits.vue
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-3">
                     <img
-                      :src="resolveImageUrl(produit.image_principale)"
+                      :src="resolveImageUrl(produit.image_principale)" @error="onImageError"
                       :alt="produit.nom"
                       class="h-12 w-12 rounded-lg object-cover border"
                     />
@@ -282,6 +282,7 @@ import { useAuthStore } from '@/stores/auth'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-vue-next'
+import { resolveImageUrl, onImageError } from '@/utils/images'
 
 const produits = ref([])
 const categories = ref([])
@@ -323,21 +324,6 @@ const filters = ref({
 const imagePrincipale = ref(null)
 const imagesSecondaires = ref([])
 const fileInputKey = ref(0)
-
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
-const apiOrigin = (() => {
-  try {
-    return new URL(apiBase).origin
-  } catch {
-    return ''
-  }
-})()
-
-const resolveImageUrl = (path) => {
-  if (!path) return '/placeholder-product.jpg'
-  if (path.startsWith('http') || path.startsWith('/')) return path
-  return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
-}
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR').format(price || 0)

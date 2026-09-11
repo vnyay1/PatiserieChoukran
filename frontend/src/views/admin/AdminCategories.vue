@@ -148,7 +148,7 @@ File: src/views/admin/AdminCategories.vue
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-3">
                     <img
-                      :src="resolveImageUrl(categorie.image)"
+                      :src="resolveImageUrl(categorie.image)" @error="onImageError"
                       :alt="categorie.nom"
                       class="h-12 w-12 rounded-lg object-cover border"
                     />
@@ -222,6 +222,7 @@ import api from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-vue-next'
+import { resolveImageUrl, onImageError } from '@/utils/images'
 
 const authStore = useAuthStore()
 const categories = ref([])
@@ -253,21 +254,6 @@ const form = ref({
 
 const imageFile = ref(null)
 const fileInputKey = ref(0)
-
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
-const apiOrigin = (() => {
-  try {
-    return new URL(apiBase).origin
-  } catch {
-    return ''
-  }
-})()
-
-const resolveImageUrl = (path) => {
-  if (!path) return '/placeholder-product.jpg'
-  if (path.startsWith('http') || path.startsWith('/')) return path
-  return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
-}
 
 const canManageCategorie = (categorie) => {
   if (authStore.isAdmin) return true

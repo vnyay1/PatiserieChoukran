@@ -160,7 +160,7 @@ File: src/views/admin/AdminDashboard.vue
             <div v-else class="space-y-3">
               <div v-for="produit in topProduits" :key="produit.id" class="flex items-center gap-3">
                 <img
-                  :src="resolveImageUrl(produit.image_principale)"
+                  :src="resolveImageUrl(produit.image_principale)" @error="onImageError"
                   :alt="produit.nom"
                   class="h-12 w-12 rounded-lg object-cover border"
                 />
@@ -228,6 +228,7 @@ import { ref, computed, onMounted } from 'vue'
 import api from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import { resolveImageUrl, onImageError } from '@/utils/images'
 
 const loading = ref(false)
 const error = ref('')
@@ -317,21 +318,6 @@ const maxMontant = computed(() => {
   if (chartData.value.length === 0) return 0
   return Math.max(...chartData.value.map((item) => item.montant))
 })
-
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
-const apiOrigin = (() => {
-  try {
-    return new URL(apiBase).origin
-  } catch {
-    return ''
-  }
-})()
-
-const resolveImageUrl = (path) => {
-  if (!path) return '/placeholder-product.jpg'
-  if (path.startsWith('http') || path.startsWith('/')) return path
-  return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
-}
 
 const getBarHeight = (value) => {
   if (!maxMontant.value || value <= 0) return 0

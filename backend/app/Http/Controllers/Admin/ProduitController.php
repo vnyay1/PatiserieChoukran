@@ -20,10 +20,13 @@ class ProduitController extends Controller
             $query->where('created_by_user_id', $request->user()->id);
         }
 
-        // Recherche
-        if ($request->has('search')) {
+        // Recherche (nom ou description, comme l'annonce le champ de recherche)
+        if ($request->filled('search')) {
             $search = $request->search;
-            $query->where('nom', 'like', "%{$search}%");
+            $query->where(function ($q) use ($search) {
+                $q->where('nom', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
         }
 
         // Filtre par catégorie

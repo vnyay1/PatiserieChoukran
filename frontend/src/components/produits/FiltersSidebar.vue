@@ -57,7 +57,6 @@ File: src/components/produits/FiltersSidebar.vue
             @change="$emit('update:showPromo', !showPromo)"
           />
           <span class="text-gray-700">En promotion</span>
-          <span class="badge badge-danger ml-auto">-50%</span>
         </label>
 
         <label class="flex items-center space-x-3 cursor-pointer hover:bg-gold-50 p-2 rounded-lg transition-colors">

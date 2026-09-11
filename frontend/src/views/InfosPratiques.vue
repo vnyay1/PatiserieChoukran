@@ -21,7 +21,7 @@ File: src/views/InfosPratiques.vue
       <section class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         <Card padding="lg" class="border border-gold-100 bg-gold-50/40">
           <h2 class="font-display text-lg font-semibold text-gray-900 mb-2">Téléphone</h2>
-          <a href="tel:658555600" class="text-gold-700 font-semibold hover:text-gold-800">658555600</a>
+          <a href="tel:+237658555600" class="text-gold-700 font-semibold hover:text-gold-800">+237 658 55 56 00</a>
         </Card>
 
         <Card padding="lg" class="border border-gray-100">

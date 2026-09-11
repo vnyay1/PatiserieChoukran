@@ -34,7 +34,7 @@ File: src/components/layout/Footer.vue
             <template v-else-if="section.type === 'contact'">
               <div class="flex items-center gap-2 text-sm text-gray-600">
                 <Phone :size="16" class="text-gold-500" />
-                <span>658555600</span>
+                <a href="tel:+237658555600" class="hover:text-gold-600">+237 658 55 56 00</a>
               </div>
               <div class="flex items-center gap-2 text-sm text-gray-600">
                 <MapPin :size="16" class="text-gold-500" />
@@ -42,7 +42,7 @@ File: src/components/layout/Footer.vue
               </div>
               <div class="flex items-center gap-2 text-sm text-gray-600">
                 <Instagram :size="16" class="text-gold-500" />
-                <a href="https://instagram.com/Choukran.Patisserie" target="_blank" class="hover:text-gold-600">
+                <a href="https://instagram.com/Choukran.Patisserie" target="_blank" rel="noopener noreferrer" class="hover:text-gold-600">
                   @Choukran.Patisserie
                 </a>
               </div>
@@ -94,7 +94,7 @@ File: src/components/layout/Footer.vue
           <ul class="space-y-2 text-sm text-gray-600">
             <li class="flex items-center space-x-2">
               <Phone :size="16" class="text-gold-500" />
-              <span>658555600</span>
+              <a href="tel:+237658555600" class="hover:text-gold-600">+237 658 55 56 00</a>
             </li>
             <li class="flex items-center space-x-2">
               <MapPin :size="16" class="text-gold-500" />
@@ -102,7 +102,7 @@ File: src/components/layout/Footer.vue
             </li>
             <li class="flex items-center space-x-2">
               <Instagram :size="16" class="text-gold-500" />
-              <a href="https://instagram.com/Choukran.Patisserie" target="_blank" class="hover:text-gold-600">
+              <a href="https://instagram.com/Choukran.Patisserie" target="_blank" rel="noopener noreferrer" class="hover:text-gold-600">
                 @Choukran.Patisserie
               </a>
             </li>
@@ -132,16 +132,33 @@ File: src/components/layout/Footer.vue
 
 <script setup>
 import { computed } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import { Phone, MapPin, Instagram } from 'lucide-vue-next'
 
+const authStore = useAuthStore()
 const currentYear = computed(() => new Date().getFullYear())
 
-const footerNavItems = [
-  { label: 'Accueil', to: '/' },
-  { label: 'Nos Produits', to: '/produits' },
-  { label: 'Mon Compte', to: '/profil' },
-  { label: 'Mes Commandes', to: '/mes-commandes' },
-]
+// Liens adaptés au profil : pas de lien vers des pages qui redirigeraient
+const footerNavItems = computed(() => {
+  const items = [
+    { label: 'Accueil', to: '/' },
+    { label: 'Nos Produits', to: '/produits' },
+  ]
+
+  if (!authStore.isAuthenticated) {
+    items.push({ label: 'Connexion', to: '/connexion' })
+    items.push({ label: 'Créer un compte', to: '/inscription' })
+    return items
+  }
+
+  items.push({ label: 'Mon Compte', to: '/profil' })
+  if (authStore.isClient) {
+    items.push({ label: 'Mes Commandes', to: '/mes-commandes' })
+  } else {
+    items.push({ label: 'Gestion des commandes', to: '/admin/commandes' })
+  }
+  return items
+})
 
 const mobileSections = [
   { title: 'Navigation', type: 'links' },

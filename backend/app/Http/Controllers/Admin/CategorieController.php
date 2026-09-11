@@ -54,6 +54,8 @@ class CategorieController extends Controller
 
         $validated['slug'] = $this->generateUniqueSlug($validated['nom']);
         $validated['created_by_user_id'] = $request->user()->id;
+        // Colonne non nullable (défaut 0) : un champ vide ne doit pas provoquer d'erreur SQL
+        $validated['ordre_affichage'] = $validated['ordre_affichage'] ?? 0;
 
         $categorie = Categorie::create($validated);
 
@@ -101,6 +103,10 @@ class CategorieController extends Controller
 
         if (isset($validated['nom']) && $validated['nom'] !== $categorie->nom) {
             $validated['slug'] = $this->generateUniqueSlug($validated['nom'], $categorie->id);
+        }
+
+        if (array_key_exists('ordre_affichage', $validated) && $validated['ordre_affichage'] === null) {
+            $validated['ordre_affichage'] = 0;
         }
 
         $categorie->update($validated);

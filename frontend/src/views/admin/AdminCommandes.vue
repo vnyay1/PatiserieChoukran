@@ -207,7 +207,7 @@ File: src/views/admin/AdminCommandes.vue
         v-if="showDetail"
         class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6"
       >
-        <div class="bg-white w-full max-w-4xl rounded-elegant shadow-card overflow-hidden">
+        <div class="bg-white w-full max-w-4xl rounded-elegant shadow-card overflow-hidden flex flex-col max-h-full">
           <div class="p-4 border-b border-gray-100 flex items-center justify-between">
             <h2 class="font-display text-xl font-bold text-gray-800">
               Détails commande
@@ -227,7 +227,7 @@ File: src/views/admin/AdminCommandes.vue
             {{ detailError }}
           </div>
 
-          <div v-else-if="selectedCommande" class="p-6 space-y-6">
+          <div v-else-if="selectedCommande" class="p-6 space-y-6 overflow-y-auto">
             <Card padding="md">
               <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
@@ -260,7 +260,7 @@ File: src/views/admin/AdminCommandes.vue
                 >
                   <div class="flex items-center gap-3">
                     <img
-                      :src="resolveImageUrl(ligne.produit?.image_principale)"
+                      :src="resolveImageUrl(ligne.produit?.image_principale)" @error="onImageError"
                       :alt="ligne.nom_produit"
                       class="h-12 w-12 rounded-lg object-cover border"
                     />
@@ -312,6 +312,7 @@ import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import { resolveImageUrl, onImageError } from '@/utils/images'
 
 const authStore = useAuthStore()
 const commandes = ref([])
@@ -342,21 +343,6 @@ const showDetail = ref(false)
 const detailLoading = ref(false)
 const detailError = ref('')
 const selectedCommande = ref(null)
-
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
-const apiOrigin = (() => {
-  try {
-    return new URL(apiBase).origin
-  } catch {
-    return ''
-  }
-})()
-
-const resolveImageUrl = (path) => {
-  if (!path) return '/placeholder-product.jpg'
-  if (path.startsWith('http') || path.startsWith('/')) return path
-  return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
-}
 
 const formatPrice = (value) => new Intl.NumberFormat('fr-FR').format(value || 0)
 

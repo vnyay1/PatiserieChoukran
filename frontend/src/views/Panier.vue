@@ -119,29 +119,6 @@ File: src/views/Panier.vue
                 </p>
               </div>
 
-              <!-- Code promo -->
-              <div class="mb-6">
-                <button
-                  class="flex items-center gap-2 text-gold-600 hover:text-gold-700 text-sm font-medium"
-                  @click="showPromoInput = !showPromoInput"
-                >
-                  <Tag :size="16" />
-                  <span>Ajouter un code promo</span>
-                </button>
-
-                <div v-if="showPromoInput" class="mt-3 flex gap-2">
-                  <input
-                    v-model="codePromo"
-                    type="text"
-                    placeholder="CODE PROMO"
-                    class="input text-sm"
-                  />
-                  <Button variant="outline" size="sm" @click="applyPromo">
-                    Appliquer
-                  </Button>
-                </div>
-              </div>
-
               <!-- Bouton commander -->
               <p v-if="aDesProduitsSansVendeur" class="text-sm text-red-600 mb-3">
                 Retirez les produits sans vendeur pour pouvoir commander.
@@ -226,13 +203,11 @@ import PanierItem from '@/components/panier/PanierItem.vue'
 import Button from '@/components/common/Button.vue'
 import Card from '@/components/common/Card.vue'
 import { useLivraisonVendeurs, grouperParVendeur, formatDelai } from '@/composables/useLivraisonVendeurs'
-import { Tag, Shield } from 'lucide-vue-next'
+import { Shield } from 'lucide-vue-next'
 
 const panierStore = usePanierStore()
 const { chargerQuartiersVendeurs, livraisonDesGroupes } = useLivraisonVendeurs()
 
-const showPromoInput = ref(false)
-const codePromo = ref('')
 const showClearConfirm = ref(false)
 // Sert à estimer les frais de livraison (l'adresse reste modifiable au checkout)
 const adressePrincipale = ref(null)
@@ -310,11 +285,6 @@ const removeItem = async (itemId) => {
 const clearCart = async () => {
   await panierStore.clear()
   showClearConfirm.value = false
-}
-
-const applyPromo = () => {
-  // TODO: Implémenter l'application du code promo
-  console.log('Code promo:', codePromo.value)
 }
 </script>
 
