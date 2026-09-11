@@ -415,8 +415,8 @@ const getPaymentBadgeClass = (statut) => {
   return classes[statut] || 'bg-gray-100 text-gray-700'
 }
 
-const notifyLivreurBadgeRefresh = () => {
-  window.dispatchEvent(new CustomEvent('livreur-commandes-updated'))
+const notifyVendeurBadgeRefresh = () => {
+  window.dispatchEvent(new CustomEvent('vendeur-commandes-updated'))
 }
 
 const isCommandeArchivee = (commande) => {
@@ -532,7 +532,7 @@ const onStatusChange = async (commande, event) => {
       }
 
       await fetchCommandes()
-      notifyLivreurBadgeRefresh()
+      notifyVendeurBadgeRefresh()
     }
   } catch (err) {
     event.target.value = commande.statut
@@ -562,7 +562,7 @@ const confirmPayment = async (commande) => {
       }
 
       await fetchCommandes()
-      notifyLivreurBadgeRefresh()
+      notifyVendeurBadgeRefresh()
     }
   } catch (err) {
     alert(err.response?.data?.message || 'Erreur lors de la confirmation du paiement')

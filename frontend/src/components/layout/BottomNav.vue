@@ -21,10 +21,10 @@ File: src/components/layout/BottomNav.vue
           {{ panierCount }}
         </span>
         <span
-          v-if="showLivreurCommandesBadge(item.name)"
+          v-if="showVendeurCommandesBadge(item.name)"
           class="absolute top-1 right-1/4 bg-gold-600 text-white text-xs rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
         >
-          {{ formatBadgeCount(livreurCommandesCount) }}
+          {{ formatBadgeCount(vendeurCommandesCount) }}
         </span>
 
         <component :is="item.icon" :size="24" :stroke-width="isActive(item.name) ? 2.5 : 2" />
@@ -39,13 +39,13 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { usePanierStore } from '@/stores/panier'
 import { useAuthStore } from '@/stores/auth'
-import { useLivreurCommandesBadge } from '@/composables/useLivreurCommandesBadge'
-import { Home, ShoppingBag, ShoppingCart, Package, User, Shield, Settings } from 'lucide-vue-next'
+import { useVendeurCommandesBadge } from '@/composables/useVendeurCommandesBadge'
+import { Home, ShoppingBag, ShoppingCart, Package, User, Shield, Settings, Truck } from 'lucide-vue-next'
 
 const route = useRoute()
 const panierStore = usePanierStore()
 const authStore = useAuthStore()
-const { livreurCommandesCount, formatBadgeCount, showLivreurCommandesBadge } = useLivreurCommandesBadge()
+const { vendeurCommandesCount, formatBadgeCount, showVendeurCommandesBadge } = useVendeurCommandesBadge()
 
 const panierCount = computed(() => panierStore.itemCount)
 
@@ -60,13 +60,13 @@ const navItems = computed(() => {
     ]
   }
 
-  if (authStore.isLivreur) {
+  if (authStore.isVendeur) {
     return [
       { name: 'home', label: 'Accueil', icon: Home, to: '/' },
       { name: 'produits', label: 'Produits', icon: ShoppingBag, to: '/produits' },
       { name: 'admin-commandes', label: 'Commandes', icon: Package, to: '/admin/commandes' },
       { name: 'admin-produits', label: 'Catalogue', icon: Shield, to: '/admin/produits' },
-      { name: 'admin-zones', label: 'Zones', icon: Settings, to: '/admin/zones-livraison' },
+      { name: 'admin-tarifs', label: 'Tarifs', icon: Truck, to: '/admin/tarifs-livraison' },
     ]
   }
 
@@ -91,6 +91,7 @@ const isActive = (name) => {
   if (name === 'admin-produits') return route.name === 'admin-produits'
   if (name === 'admin-categories') return route.name === 'admin-categories'
   if (name === 'admin-zones') return route.name === 'admin-zones'
+  if (name === 'admin-tarifs') return route.name === 'admin-tarifs'
   if (name === 'admin-commandes') return route.name === 'admin-commandes'
   if (name === 'admin-parametres') return route.name === 'admin-parametres'
   return false

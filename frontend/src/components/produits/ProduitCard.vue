@@ -99,7 +99,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const panierStore = usePanierStore()
 const addingToCart = ref(false)
-const isRestrictedRole = computed(() => authStore.isAdmin || authStore.isLivreur)
+const isRestrictedRole = computed(() => authStore.isAdmin || authStore.isVendeur)
 
 const reductionPercent = computed(() => {
   if (!props.produit.prix_promo) return 0

@@ -11,6 +11,7 @@ class Panier extends Model
     protected $fillable = [
         'user_id',
         'produit_id',
+        'vendeur_id',
         'quantite',
         'prix_unitaire_actuel',
         'sous_total',
@@ -33,6 +34,11 @@ class Panier extends Model
     public function produit()
     {
         return $this->belongsTo(Produit::class);
+    }
+
+    public function vendeur()
+    {
+        return $this->belongsTo(User::class, 'vendeur_id');
     }
 
     // Scopes

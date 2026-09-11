@@ -57,10 +57,10 @@ File: src/components/layout/Header.vue
           >
             <span>{{ item.label }}</span>
             <span
-              v-if="showLivreurCommandesBadge(item.name)"
+              v-if="showVendeurCommandesBadge(item.name)"
               class="bg-gold-600 text-white text-xs rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
             >
-              {{ formatBadgeCount(livreurCommandesCount) }}
+              {{ formatBadgeCount(vendeurCommandesCount) }}
             </span>
           </router-link>
         </nav>
@@ -159,10 +159,10 @@ File: src/components/layout/Header.vue
               >
                 <span>{{ item.label }}</span>
                 <span
-                  v-if="showLivreurCommandesBadge(item.name)"
+                  v-if="showVendeurCommandesBadge(item.name)"
                   class="bg-gold-600 text-white text-[11px] rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
                 >
-                  {{ formatBadgeCount(livreurCommandesCount) }}
+                  {{ formatBadgeCount(vendeurCommandesCount) }}
                 </span>
               </router-link>
             </div>
@@ -212,14 +212,14 @@ import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
 import { useNotificationsStore } from '@/stores/notifications'
-import { useLivreurCommandesBadge } from '@/composables/useLivreurCommandesBadge'
+import { useVendeurCommandesBadge } from '@/composables/useVendeurCommandesBadge'
 import { ShoppingCart, User, Info, Bell } from 'lucide-vue-next'
 
 const route = useRoute()
 const authStore = useAuthStore()
 const panierStore = usePanierStore()
 const notificationsStore = useNotificationsStore()
-const { livreurCommandesCount, formatBadgeCount, showLivreurCommandesBadge } = useLivreurCommandesBadge()
+const { vendeurCommandesCount, formatBadgeCount, showVendeurCommandesBadge } = useVendeurCommandesBadge()
 const mobileOpen = ref(false)
 
 const panierCount = computed(() => panierStore.itemCount)
@@ -242,14 +242,17 @@ const desktopNavItems = computed(() => {
     items.push({ name: 'admin-users', label: 'Utilisateurs', to: '/admin/users' })
   }
 
-  if (authStore.isLivreur) {
+  if (authStore.isVendeur) {
     items.push({ name: 'admin-commandes', label: 'Commandes', to: '/admin/commandes' })
   }
 
   if (authStore.canManageCatalogue) {
     items.push({ name: 'admin-categories', label: 'Catégories', to: '/admin/categories' })
     items.push({ name: 'admin-produits', label: 'Produits', to: '/admin/produits' })
-    items.push({ name: 'admin-zones', label: 'Zones', to: '/admin/zones-livraison' })
+    // Vendeur : tarifs par quartier (utilisés au checkout) ; admin : zones (ancien système)
+    items.push(authStore.isVendeur
+      ? { name: 'admin-tarifs', label: 'Tarifs livraison', to: '/admin/tarifs-livraison' }
+      : { name: 'admin-zones', label: 'Zones', to: '/admin/zones-livraison' })
   }
 
   return items
@@ -268,6 +271,7 @@ const isActiveRoute = (name) => {
   if (name === 'admin-produits') return route.name === 'admin-produits'
   if (name === 'admin-users') return route.name === 'admin-users'
   if (name === 'admin-zones') return route.name === 'admin-zones'
+  if (name === 'admin-tarifs') return route.name === 'admin-tarifs'
   return false
 }
 

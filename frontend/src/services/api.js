@@ -77,12 +77,18 @@ api.interceptors.response.use(
 
 const getCataloguePrefix = () => {
   const authStore = useAuthStore()
-  return authStore.isLivreur ? '/livreur/catalogue' : '/admin'
+  return authStore.isVendeur ? '/vendeur/catalogue' : '/admin'
 }
 
 const getCommandesPrefix = () => {
   const authStore = useAuthStore()
-  return authStore.isLivreur ? '/livreur/commandes' : '/admin/commandes'
+  return authStore.isVendeur ? '/vendeur/commandes' : '/admin/commandes'
+}
+
+// Message lisible d'une erreur API : première erreur de validation, sinon message du backend
+export const messageErreur = (error, fallback = 'Une erreur est survenue.') => {
+  const erreursValidation = Object.values(error?.response?.data?.errors || {})
+  return erreursValidation[0]?.[0] || error?.response?.data?.message || fallback
 }
 
 // Méthodes API
@@ -161,6 +167,23 @@ export default {
     search: (data) => api.post('/zones-livraison/search', data),
   },
 
+  // Livraison par quartier (tarifs définis par chaque vendeur)
+  livraison: {
+    quartiers: (params) => api.get('/livraison/quartiers', { params }),
+    quartiersByVendeur: (vendeurId) => api.get(`/livraison/quartiers/vendeur/${vendeurId}`),
+  },
+
+  // Espace vendeur
+  vendeur: {
+    tarifs: {
+      getAll: () => api.get('/vendeur/tarifs-livraison'),
+      quartiers: () => api.get('/vendeur/tarifs-livraison/quartiers'),
+      create: (data) => api.post('/vendeur/tarifs-livraison', data),
+      update: (id, data) => api.put(`/vendeur/tarifs-livraison/${id}`, data),
+      remove: (id) => api.delete(`/vendeur/tarifs-livraison/${id}`),
+    },
+  },
+
   // Admin
   admin: {
     dashboard: {
@@ -171,7 +194,7 @@ export default {
       getOne: (id) => api.get(`${getCommandesPrefix()}/${id}`),
       updateStatus: (id, data) => api.patch(`${getCommandesPrefix()}/${id}/status`, data),
       confirmPayment: (id, data) => api.post(`${getCommandesPrefix()}/${id}/confirm-payment`, data),
-      assignLivreur: (id, data) => api.post(`/admin/commandes/${id}/assign-livreur`, data),
+      assignVendeur: (id, data) => api.post(`/admin/commandes/${id}/assign-vendeur`, data),
     },
     categories: {
       getAll: (params) => api.get(`${getCataloguePrefix()}/categories`, { params }),

@@ -21,10 +21,18 @@ class UserSeeder extends Seeder
             'email_verified_at' => now(),
         ]);
 
-        // Vendeur test
+        // Vendeurs test (deux vendeurs pour tester le panier multi-vendeur)
         User::create([
             'nom_complet' => 'Jean Vendeur',
             'telephone' => '+237699000002',
+            'mot_de_passe' => 'password123',
+            'role' => 'vendeur',
+            'statut' => 'actif',
+        ]);
+
+        User::create([
+            'nom_complet' => 'Awa Vendeuse',
+            'telephone' => '+237699000004',
             'mot_de_passe' => 'password123',
             'role' => 'vendeur',
             'statut' => 'actif',

@@ -22,8 +22,12 @@ class PanierController extends Controller
 
         $panier = Panier::where('user_id', $request->user()->id)
             ->nonExpire()
-            ->with('produit.categorie')
+            ->with(['produit.categorie', 'produit.createur', 'vendeur'])
             ->get();
+
+        $panier->each(function (Panier $panierItem) {
+            $this->syncVendeurFromProduit($panierItem);
+        });
 
         $total = $panier->sum('sous_total');
 
@@ -80,6 +84,7 @@ class PanierController extends Controller
         if ($panierItem) {
             // Mettre à jour la quantité
             $panierItem->quantite += $validated['quantite'];
+            $panierItem->vendeur_id = $produit->created_by_user_id;
             $panierItem->calculerSousTotal();
             $panierItem->date_expiration = Panier::prochaineExpiration();
             $panierItem->save();
@@ -88,6 +93,7 @@ class PanierController extends Controller
             $panierItem = Panier::create([
                 'user_id' => $request->user()->id,
                 'produit_id' => $validated['produit_id'],
+                'vendeur_id' => $produit->created_by_user_id,
                 'quantite' => $validated['quantite'],
                 'prix_unitaire_actuel' => $produit->prix_actuel,
                 'sous_total' => $produit->prix_actuel * $validated['quantite'],
@@ -98,7 +104,7 @@ class PanierController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Produit ajouté au panier',
-            'data' => $panierItem->load('produit'),
+            'data' => $panierItem->load(['produit.createur', 'vendeur']),
         ], 201);
     }
 
@@ -121,6 +127,8 @@ class PanierController extends Controller
             ->where('id', $id)
             ->firstOrFail();
 
+        $panierItem->loadMissing('produit');
+
         // Vérifier le stock
         if ($panierItem->produit->stock_disponible < $validated['quantite']) {
             return response()->json([
@@ -130,6 +138,7 @@ class PanierController extends Controller
         }
 
         $panierItem->quantite = $validated['quantite'];
+        $panierItem->vendeur_id = $panierItem->produit->created_by_user_id;
         $panierItem->calculerSousTotal();
         $panierItem->date_expiration = Panier::prochaineExpiration();
         $panierItem->save();
@@ -137,7 +146,7 @@ class PanierController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Panier mis à jour',
-            'data' => $panierItem->load('produit'),
+            'data' => $panierItem->load(['produit.createur', 'vendeur']),
         ]);
     }
 
@@ -221,5 +230,17 @@ class PanierController extends Controller
         }
 
         return null;
+    }
+
+    private function syncVendeurFromProduit(Panier $panierItem): void
+    {
+        $panierItem->loadMissing('produit');
+        $vendeurId = $panierItem->produit?->created_by_user_id;
+
+        if ((int) $panierItem->vendeur_id !== (int) $vendeurId) {
+            $panierItem->vendeur_id = $vendeurId;
+            $panierItem->save();
+            $panierItem->load('vendeur');
+        }
     }
 }

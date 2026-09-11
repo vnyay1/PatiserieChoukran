@@ -15,7 +15,7 @@ class AdresseController extends Controller
     public function index(Request $request)
     {
         $adresses = Adresse::where('user_id', $request->user()->id)
-            ->with(['zoneLivraison', 'quartier'])
+            ->with(['zoneLivraison', 'quartierLivraison'])
             ->orderBy('est_principale', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
@@ -63,7 +63,7 @@ class AdresseController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Adresse ajoutée avec succès',
-            'data' => $adresse->load(['zoneLivraison', 'quartier']),
+            'data' => $adresse->load(['zoneLivraison', 'quartierLivraison']),
         ], 201);
     }
 
@@ -74,7 +74,7 @@ class AdresseController extends Controller
     {
         $adresse = Adresse::where('user_id', $request->user()->id)
             ->where('id', $id)
-            ->with(['zoneLivraison', 'quartier'])
+            ->with(['zoneLivraison', 'quartierLivraison'])
             ->firstOrFail();
 
         return response()->json([
@@ -93,7 +93,7 @@ class AdresseController extends Controller
             ->firstOrFail();
 
         $validated = $request->validate([
-            'libelle' => 'sometimes|string|max:100',
+            'libelle' => 'sometimes|nullable|string|max:100',
             'quartier_id' => 'sometimes|exists:quartiers,id',
             'quartier' => 'nullable|string|max:255',
             'ville' => 'nullable|string|max:255',
@@ -133,7 +133,7 @@ class AdresseController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Adresse mise à jour',
-            'data' => $adresse->load(['zoneLivraison', 'quartier']),
+            'data' => $adresse->load(['zoneLivraison', 'quartierLivraison']),
         ]);
     }
 

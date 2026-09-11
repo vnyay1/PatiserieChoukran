@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
             ZoneLivraisonSeeder::class,
             CategorieSeeder::class,
             ProduitSeeder::class,
+            VendeurTarifLivraisonSeeder::class,
         ]);
     }
 }

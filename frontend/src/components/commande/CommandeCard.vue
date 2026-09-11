@@ -31,6 +31,12 @@ File: src/components/commande/CommandeCard.vue
           <span>{{ commande.ligne_commandes_count || commande.ligne_commandes?.length || 0 }} article(s)</span>
         </div>
 
+        <!-- Vendeur (une commande par vendeur) -->
+        <div v-if="commande.vendeur?.nom_complet" class="flex items-center gap-2 mb-3 text-sm text-gray-600">
+          <Store :size="16" />
+          <span>Vendeur : {{ commande.vendeur.nom_complet }}</span>
+        </div>
+
         <!-- Livraison -->
         <div class="flex items-center gap-2 text-sm text-gray-600">
           <component :is="getDeliveryIcon(commande.type_livraison)" :size="16" />

@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Models\Produit;
 use App\Models\Categorie;
+use App\Models\User;
 
 class ProduitSeeder extends Seeder
 {
@@ -14,10 +15,16 @@ class ProduitSeeder extends Seeder
         $glaces = Categorie::where('slug', 'glaces')->first();
         $viennoiseries = Categorie::where('slug', 'viennoiseries')->first();
 
+        // Vendeurs créés par UserSeeder : chaque produit doit appartenir à un vendeur
+        // pour pouvoir être commandé (une commande par vendeur au checkout).
+        $jean = User::where('telephone', '+237699000002')->first();
+        $awa = User::where('telephone', '+237699000004')->first();
+
         $produits = [
             // Gâteaux
             [
                 'categorie_id' => $gateaux->id,
+                'created_by_user_id' => $jean?->id,
                 'nom' => 'Gâteau au Chocolat',
                 'slug' => 'gateau-au-chocolat',
                 'description' => 'Délicieux gâteau au chocolat noir avec ganache',
@@ -29,6 +36,7 @@ class ProduitSeeder extends Seeder
             ],
             [
                 'categorie_id' => $gateaux->id,
+                'created_by_user_id' => $jean?->id,
                 'nom' => 'Gâteau Vanille-Fraise',
                 'slug' => 'gateau-vanille-fraise',
                 'description' => 'Gâteau à la vanille avec fraises fraîches',
@@ -42,6 +50,7 @@ class ProduitSeeder extends Seeder
             // Glaces
             [
                 'categorie_id' => $glaces->id,
+                'created_by_user_id' => $awa?->id,
                 'nom' => 'Coupe Glacée 3 Boules',
                 'slug' => 'coupe-glacee-3-boules',
                 'description' => 'Coupe avec 3 boules de glace au choix',
@@ -53,6 +62,7 @@ class ProduitSeeder extends Seeder
             ],
             [
                 'categorie_id' => $glaces->id,
+                'created_by_user_id' => $awa?->id,
                 'nom' => 'Cornet Simple',
                 'slug' => 'cornet-simple',
                 'description' => 'Cornet avec 1 boule de glace',
@@ -65,6 +75,7 @@ class ProduitSeeder extends Seeder
             // Viennoiseries
             [
                 'categorie_id' => $viennoiseries->id,
+                'created_by_user_id' => $jean?->id,
                 'nom' => 'Croissant',
                 'slug' => 'croissant',
                 'description' => 'Croissant pur beurre',
@@ -76,6 +87,7 @@ class ProduitSeeder extends Seeder
             ],
             [
                 'categorie_id' => $viennoiseries->id,
+                'created_by_user_id' => $jean?->id,
                 'nom' => 'Pain au Chocolat',
                 'slug' => 'pain-au-chocolat',
                 'description' => 'Pain au chocolat artisanal',

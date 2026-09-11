@@ -26,6 +26,7 @@ const AdminParametres = () => import('@/views/admin/AdminParametres.vue')
 const AdminProduits = () => import('@/views/admin/AdminProduits.vue')
 const AdminUsers = () => import('@/views/admin/AdminUsers.vue')
 const AdminZones = () => import('@/views/admin/AdminZones.vue')
+const AdminTarifsLivraison = () => import('@/views/admin/AdminTarifsLivraison.vue')
 
 const routes = [
   {
@@ -146,6 +147,12 @@ const routes = [
     name: 'admin-zones',
     component: AdminZones,
     meta: { title: 'Administration Zones de livraison', requiresAuth: true, requiresCatalogueManager: true }
+  },
+  {
+    path: '/admin/tarifs-livraison',
+    name: 'admin-tarifs',
+    component: AdminTarifsLivraison,
+    meta: { title: 'Mes tarifs de livraison', requiresAuth: true, requiresVendeur: true }
   }
 ]
 
@@ -170,9 +177,9 @@ router.beforeEach(async (to, from, next) => {
 
   const isAuthenticated = authStore.isAuthenticated
   const isAdmin = authStore.isAdmin
-  const isLivreur = authStore.isLivreur
+  const isVendeur = authStore.isVendeur
   const canManageCatalogue = authStore.canManageCatalogue
-  const canManageCommandes = isAdmin || isLivreur
+  const canManageCommandes = isAdmin || isVendeur
 
   // Mettre à jour le titre de la page
   document.title = `${to.meta.title || 'Choukrane'} - Pâtisserie`
@@ -189,20 +196,26 @@ router.beforeEach(async (to, from, next) => {
     return
   }
 
-  // Routes de gestion commandes (admin + livreur)
+  // Routes réservées aux vendeurs
+  if (to.meta.requiresVendeur && !isVendeur) {
+    next({ name: 'home' })
+    return
+  }
+
+  // Routes de gestion commandes (admin + vendeur)
   if (to.meta.requiresCommandesManager && !canManageCommandes) {
     next({ name: 'home' })
     return
   }
 
-  // Routes de gestion catalogue (admin + livreur)
+  // Routes de gestion catalogue (admin + vendeur)
   if (to.meta.requiresCatalogueManager && !canManageCatalogue) {
     next({ name: 'home' })
     return
   }
 
-  // Empêcher admin/livreur d'accéder aux pages client de commande
-  if ((isAdmin || isLivreur) && ['panier', 'checkout', 'mes-commandes', 'commande-detail'].includes(to.name)) {
+  // Empêcher admin/vendeur d'accéder aux pages client de commande
+  if ((isAdmin || isVendeur) && ['panier', 'checkout', 'mes-commandes', 'commande-detail'].includes(to.name)) {
     next({ name: isAdmin ? 'admin-dashboard' : 'admin-commandes' })
     return
   }

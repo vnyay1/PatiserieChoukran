@@ -296,7 +296,7 @@ const addingToCart = ref(false)
 const quantite = ref(1)
 const currentImage = ref('')
 const isFavorite = ref(false)
-const isRestrictedRole = computed(() => authStore.isAdmin || authStore.isLivreur)
+const isRestrictedRole = computed(() => authStore.isAdmin || authStore.isVendeur)
 
 const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
 const apiOrigin = (() => {

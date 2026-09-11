@@ -51,6 +51,9 @@ File: src/views/CommandeDetail.vue
               <p class="text-sm text-gray-600">
                 Créée le {{ formatDate(commande.created_at) }}
               </p>
+              <p v-if="commande.vendeur?.nom_complet" class="text-sm text-gray-600">
+                Vendeur : {{ commande.vendeur.nom_complet }}
+              </p>
             </div>
             <div class="text-right">
               <div class="text-sm text-gray-600 mb-1">Montant total</div>
@@ -114,7 +117,7 @@ File: src/views/CommandeDetail.vue
                   <MapPin :size="16" class="mt-0.5" />
                   <span>
                     {{ commande.adresse_livraison?.libelle || 'Adresse' }} —
-                    {{ commande.adresse_livraison?.quartier }}, {{ commande.adresse_livraison?.ville }}
+                    {{ commande.adresse_livraison?.quartier }}, {{ formatVille(commande.adresse_livraison?.ville) }}
                   </span>
                 </div>
                 <div class="flex items-center gap-2">
@@ -208,7 +211,7 @@ File: src/views/CommandeDetail.vue
               <select v-model="form.adresse_livraison_id" class="input">
                 <option value="">Sélectionner une adresse</option>
                 <option v-for="adresse in adresses" :key="adresse.id" :value="adresse.id">
-                  {{ adresse.libelle }} - {{ adresse.quartier }}, {{ adresse.ville }}
+                  {{ adresse.libelle || 'Adresse' }} - {{ adresse.quartier }}, {{ formatVille(adresse.ville) }}
                 </option>
               </select>
             </div>
@@ -260,6 +263,9 @@ File: src/views/CommandeDetail.vue
             </div>
           </div>
 
+          <p v-if="form.type_livraison === 'livraison' && livraisonPossible" class="text-sm text-gray-700 mt-3">
+            Frais de livraison : {{ fraisLivraison > 0 ? formatPrice(fraisLivraison) + ' FCFA' : 'Gratuit' }}
+          </p>
           <p v-if="shippingError" class="text-sm text-red-600 mt-3">
             {{ shippingError }}
           </p>
@@ -314,9 +320,10 @@ File: src/views/CommandeDetail.vue
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import api from '@/services/api'
+import api, { messageErreur } from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import { useLivraisonVendeurs, formatVille } from '@/composables/useLivraisonVendeurs'
 import { ArrowLeft, MapPin, Clock, Phone, Pencil, Trash2, Truck, Store } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -333,7 +340,13 @@ const showCancelConfirm = ref(false)
 
 const adresses = ref([])
 const fraisLivraison = ref(0)
+const livraisonPossible = ref(false)
 const shippingError = ref('')
+
+const { erreur: erreurTarifs, estCharge, chargerQuartiersVendeurs, tarifPour } = useLivraisonVendeurs()
+
+// Commandes antérieures au sprint : le vendeur n'était enregistré que dans livreur_id
+const vendeurCommandeId = computed(() => commande.value?.vendeur_id ?? commande.value?.livreur_id ?? null)
 
 const form = ref({
   type_livraison: 'livraison',
@@ -459,7 +472,6 @@ const fetchCommande = async () => {
       commande.value = response.data.data
       initFormFromCommande()
       await fetchAdresses()
-      await refreshShipping()
     } else {
       error.value = response.data?.message || 'Erreur lors du chargement'
     }
@@ -481,34 +493,46 @@ const fetchAdresses = async () => {
   }
 }
 
+// Frais recalculés avec le tarif du vendeur de CETTE commande
+// (et non celui du panier, vide une fois la commande passée)
 const refreshShipping = async () => {
   shippingError.value = ''
+  fraisLivraison.value = 0
+  livraisonPossible.value = false
 
-  if (form.value.type_livraison !== 'livraison') {
-    fraisLivraison.value = 0
+  if (form.value.type_livraison !== 'livraison' || !form.value.adresse_livraison_id) {
     return
   }
 
-  if (!form.value.adresse_livraison_id) {
-    fraisLivraison.value = 0
+  const adresse = adresses.value.find((item) => String(item.id) === String(form.value.adresse_livraison_id))
+  if (!adresse) {
     return
   }
 
-  try {
-    const response = await api.commandes.calculateShipping({
-      adresse_id: form.value.adresse_livraison_id
-    })
-    if (response.data.success) {
-      const data = response.data.data || {}
-      fraisLivraison.value = data.frais_livraison || 0
-    } else {
-      fraisLivraison.value = 0
-      shippingError.value = 'Impossible de calculer les frais de livraison.'
-    }
-  } catch (err) {
-    fraisLivraison.value = 0
-    shippingError.value = err.response?.data?.message || 'Erreur lors du calcul des frais de livraison.'
+  if (!adresse.quartier_id) {
+    shippingError.value = 'Cette adresse n\'a pas de quartier reconnu : modifiez-la depuis votre profil.'
+    return
   }
+
+  if (!vendeurCommandeId.value) {
+    shippingError.value = 'Vendeur de la commande introuvable.'
+    return
+  }
+
+  await chargerQuartiersVendeurs([vendeurCommandeId.value])
+  if (!estCharge(vendeurCommandeId.value)) {
+    shippingError.value = erreurTarifs.value || 'Impossible de calculer les frais de livraison.'
+    return
+  }
+
+  const tarif = tarifPour(vendeurCommandeId.value, adresse.quartier_id)
+  if (!tarif) {
+    shippingError.value = 'Le vendeur de cette commande ne livre pas dans ce quartier.'
+    return
+  }
+
+  fraisLivraison.value = Number(tarif.tarif) || 0
+  livraisonPossible.value = true
 }
 
 const toggleEdit = () => {
@@ -520,7 +544,10 @@ const toggleEdit = () => {
 }
 
 const submitUpdate = async () => {
-  if (form.value.type_livraison === 'livraison' && (shippingError.value || fraisLivraison.value <= 0)) {
+  if (form.value.type_livraison === 'livraison' && !livraisonPossible.value) {
+    if (!shippingError.value) {
+      shippingError.value = 'Veuillez sélectionner une adresse de livraison valide.'
+    }
     return
   }
 
@@ -539,7 +566,7 @@ const submitUpdate = async () => {
     }
   } catch (err) {
     console.error('Erreur mise à jour commande:', err)
-    alert(err.response?.data?.message || 'Erreur lors de la mise à jour')
+    alert(messageErreur(err, 'Erreur lors de la mise à jour'))
   } finally {
     updating.value = false
   }

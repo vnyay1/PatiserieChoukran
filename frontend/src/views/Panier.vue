@@ -41,17 +41,44 @@ File: src/views/Panier.vue
 
       <!-- Contenu du panier -->
       <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Liste des articles -->
-        <div class="lg:col-span-2 space-y-4">
-          <TransitionGroup name="list">
-            <PanierItem
-              v-for="item in panierStore.items"
-              :key="item.id"
-              :item="item"
-              @update-quantity="updateQuantity"
-              @remove="removeItem"
-            />
-          </TransitionGroup>
+        <!-- Liste des articles, groupés par vendeur (une commande par vendeur) -->
+        <div class="lg:col-span-2 space-y-6">
+          <p v-if="groupes.length > 1" class="text-sm text-gray-600">
+            Votre panier contient des produits de {{ groupes.length }} vendeurs :
+            une commande sera créée par vendeur.
+          </p>
+
+          <section
+            v-for="groupe in livraisonParGroupe"
+            :key="groupe.vendeurId ?? 'sans-vendeur'"
+            class="space-y-3"
+          >
+            <div class="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 class="font-display text-lg font-bold text-gray-800">
+                  {{ groupe.vendeurNom }}
+                </h2>
+                <p class="text-xs" :class="classeMessageLivraison(groupe)">
+                  {{ messageLivraison(groupe) }}
+                </p>
+              </div>
+              <div class="text-sm text-gray-700">
+                Sous-total : <span class="font-semibold">{{ formatPrice(groupe.sousTotal) }} FCFA</span>
+              </div>
+            </div>
+
+            <div class="space-y-4">
+              <TransitionGroup name="list">
+                <PanierItem
+                  v-for="item in groupe.items"
+                  :key="item.id"
+                  :item="item"
+                  @update-quantity="updateQuantity"
+                  @remove="removeItem"
+                />
+              </TransitionGroup>
+            </div>
+          </section>
         </div>
 
         <!-- Résumé -->
@@ -70,16 +97,26 @@ File: src/views/Panier.vue
                 </div>
 
                 <div class="flex items-center justify-between text-gray-700">
-                  <span>Livraison</span>
-                  <span class="text-sm text-gray-500">À calculer</span>
+                  <span>Livraison{{ livraisonEstimee ? ' estimée' : '' }}</span>
+                  <span v-if="livraisonEstimee" class="font-semibold">
+                    {{ fraisEstimes > 0 ? `${formatPrice(fraisEstimes)} FCFA` : 'Gratuite' }}
+                  </span>
+                  <span v-else class="text-sm text-gray-500">À calculer</span>
                 </div>
+                <p v-if="livraisonEstimee" class="text-xs text-gray-500">
+                  Vers {{ adressePrincipale?.quartier }} (adresse principale), modifiable à l'étape suivante.
+                </p>
 
                 <div class="divider-ornament"></div>
 
                 <div class="flex items-center justify-between text-lg font-bold">
-                  <span>Total</span>
-                  <span class="price text-2xl">{{ formatPrice(panierStore.total) }} FCFA</span>
+                  <span>Total{{ livraisonEstimee ? ' estimé' : '' }}</span>
+                  <span class="price text-2xl">{{ formatPrice(totalEstime) }} FCFA</span>
                 </div>
+
+                <p v-if="groupes.length > 1" class="text-xs text-gray-500">
+                  {{ groupes.length }} commandes seront créées, une par vendeur.
+                </p>
               </div>
 
               <!-- Code promo -->
@@ -106,10 +143,14 @@ File: src/views/Panier.vue
               </div>
 
               <!-- Bouton commander -->
+              <p v-if="aDesProduitsSansVendeur" class="text-sm text-red-600 mb-3">
+                Retirez les produits sans vendeur pour pouvoir commander.
+              </p>
               <Button
                 variant="primary"
                 size="lg"
                 full-width
+                :disabled="aDesProduitsSansVendeur"
                 @click="$router.push('/commander')"
               >
                 Commander
@@ -178,22 +219,85 @@ File: src/views/Panier.vue
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { usePanierStore } from '@/stores/panier'
+import api from '@/services/api'
 import PanierItem from '@/components/panier/PanierItem.vue'
 import Button from '@/components/common/Button.vue'
 import Card from '@/components/common/Card.vue'
+import { useLivraisonVendeurs, grouperParVendeur, formatDelai } from '@/composables/useLivraisonVendeurs'
 import { Tag, Shield } from 'lucide-vue-next'
 
 const panierStore = usePanierStore()
+const { chargerQuartiersVendeurs, livraisonDesGroupes } = useLivraisonVendeurs()
 
 const showPromoInput = ref(false)
 const codePromo = ref('')
 const showClearConfirm = ref(false)
+// Sert à estimer les frais de livraison (l'adresse reste modifiable au checkout)
+const adressePrincipale = ref(null)
+
+const groupes = computed(() => grouperParVendeur(panierStore.items))
+const livraisonParGroupe = computed(() => {
+  return livraisonDesGroupes(groupes.value, adressePrincipale.value?.quartier_id || null)
+})
+
+const livraisonEstimee = computed(() => {
+  return livraisonParGroupe.value.length > 0 && livraisonParGroupe.value.every((groupe) => groupe.statut === 'ok')
+})
+const fraisEstimes = computed(() => livraisonParGroupe.value.reduce((somme, groupe) => somme + groupe.frais, 0))
+const totalEstime = computed(() => panierStore.total + (livraisonEstimee.value ? fraisEstimes.value : 0))
+const aDesProduitsSansVendeur = computed(() => groupes.value.some((groupe) => !groupe.vendeurId))
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR').format(price)
 }
+
+const messageLivraison = (groupe) => {
+  const quartier = adressePrincipale.value?.quartier
+
+  switch (groupe.statut) {
+    case 'ok': {
+      const frais = groupe.frais > 0 ? `${formatPrice(groupe.frais)} FCFA` : 'gratuite'
+      const delai = formatDelai(groupe.tarif)
+      return `Livraison estimée vers ${quartier} : ${frais}${delai ? ` (${delai})` : ''}`
+    }
+    case 'non_couvert':
+      return `Ce vendeur ne livre pas à ${quartier} (retrait en boutique possible)`
+    case 'chargement':
+      return 'Calcul des frais de livraison...'
+    case 'sans_vendeur':
+      return 'Produits rattachés à aucun vendeur : ils ne peuvent pas être commandés.'
+    default:
+      return 'Frais de livraison calculés à l\'étape suivante'
+  }
+}
+
+const classeMessageLivraison = (groupe) => {
+  if (groupe.statut === 'sans_vendeur') return 'text-red-600'
+  if (groupe.statut === 'non_couvert') return 'text-orange-600'
+  if (groupe.statut === 'ok') return 'text-gray-600'
+  return 'text-gray-500'
+}
+
+const fetchAdressePrincipale = async () => {
+  try {
+    const response = await api.adresses.getAll()
+    const adresses = response.data?.data || []
+    adressePrincipale.value = adresses.find((adresse) => adresse.est_principale) || adresses[0] || null
+  } catch (error) {
+    console.error('Erreur chargement adresse principale:', error)
+  }
+}
+
+onMounted(fetchAdressePrincipale)
+
+// Charge les tarifs des vendeurs présents dans le panier
+watch(
+  () => groupes.value.map((groupe) => groupe.vendeurId).filter(Boolean).join(','),
+  () => chargerQuartiersVendeurs(groupes.value.map((groupe) => groupe.vendeurId)),
+  { immediate: true }
+)
 
 const updateQuantity = async (itemId, quantite) => {
   await panierStore.updateQuantity(itemId, quantite)

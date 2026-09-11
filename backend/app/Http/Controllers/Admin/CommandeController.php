@@ -148,7 +148,10 @@ class CommandeController extends Controller
             ], 422);
         }
 
-        $commande->update(['livreur_id' => $validated['livreur_id']]);
+        $commande->update([
+            'livreur_id' => $validated['livreur_id'],
+            'vendeur_id' => $validated['livreur_id'],
+        ]);
 
         return response()->json([
             'success' => true,

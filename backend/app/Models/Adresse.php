@@ -35,7 +35,9 @@ class Adresse extends Model
         return $this->belongsTo(ZoneLivraison::class, 'zone_livraison_id');
     }
 
-    public function quartier(): BelongsTo
+    // Nommée quartierLivraison (et non quartier) pour ne pas écraser la colonne
+    // texte `quartier` dans le JSON quand la relation est chargée.
+    public function quartierLivraison(): BelongsTo
     {
         return $this->belongsTo(Quartier::class, 'quartier_id');
     }

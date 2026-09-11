@@ -44,7 +44,7 @@ File: src/views/admin/AdminUsers.vue
               <option value="">Tous</option>
               <option value="client">Client</option>
               <option value="admin">Admin</option>
-              <option value="livreur">Livreur</option>
+              <option value="vendeur">Vendeur</option>
             </select>
           </div>
 
@@ -125,7 +125,7 @@ File: src/views/admin/AdminUsers.vue
                     >
                       <option value="client">Client</option>
                       <option value="admin">Admin</option>
-                      <option value="livreur">Livreur</option>
+                      <option value="vendeur">Vendeur</option>
                     </select>
                   </div>
                 </td>
@@ -178,11 +178,11 @@ File: src/views/admin/AdminUsers.vue
       </Card>
 
       <!-- Détail utilisateur -->
-      <div
-        v-if="showDetail"
-        class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6"
-      >
-        <div class="bg-white w-full max-w-3xl rounded-elegant shadow-card overflow-hidden">
+    <div
+      v-if="showDetail"
+      class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6 overflow-y-auto"
+    >
+       <div class="bg-white w-full max-w-3xl rounded-elegant shadow-card overflow-hidden max-h-[calc(90vh-80px)] md:max-h-[90vh] flex flex-col">
           <div class="p-4 border-b border-gray-100 flex items-center justify-between">
             <h2 class="font-display text-xl font-bold text-gray-800">
               Détails utilisateur
@@ -202,7 +202,7 @@ File: src/views/admin/AdminUsers.vue
             {{ detailError }}
           </div>
 
-          <div v-else-if="selectedUser" class="p-6 space-y-6">
+          <div v-else-if="selectedUser" class="p-6 space-y-6 overflow-y-auto">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card padding="md">
                 <div class="text-xs text-gray-500 mb-2">Informations</div>
@@ -352,7 +352,7 @@ const getRoleLabel = (role) => {
   const labels = {
     admin: 'Admin',
     client: 'Client',
-    livreur: 'Livreur',
+    vendeur: 'Vendeur',
   }
   return labels[role] || role
 }

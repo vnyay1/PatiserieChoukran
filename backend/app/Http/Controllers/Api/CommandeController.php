@@ -9,6 +9,7 @@ use App\Models\Panier;
 use App\Models\User;
 use App\Models\Notification;
 use App\Models\HistoriqueStatutCommande;
+use App\Models\VendeurTarifLivraison;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +30,7 @@ class CommandeController extends Controller
         }
 
         $query = Commande::where('user_id', $request->user()->id)
-            ->with(['ligneCommandes.produit', 'adresseLivraison'])
+            ->with(['ligneCommandes.produit', 'adresseLivraison', 'vendeur'])
             ->orderBy('created_at', 'desc');
 
         // Filtre par statut
@@ -60,6 +61,7 @@ class CommandeController extends Controller
                 'ligneCommandes.produit',
                 'adresseLivraison',
                 'livreur',
+                'vendeur',
                 'historiques.modifiePar'
             ])
             ->firstOrFail();
@@ -95,10 +97,9 @@ class CommandeController extends Controller
 
         Panier::purgerExpires($request->user()->id);
 
-        // Vérifier que le panier n'est pas vide
         $panierItems = Panier::where('user_id', $request->user()->id)
             ->nonExpire()
-            ->with('produit')
+            ->with(['produit.createur', 'vendeur'])
             ->get();
 
         if ($panierItems->isEmpty()) {
@@ -108,37 +109,23 @@ class CommandeController extends Controller
             ], 400);
         }
 
-        $panierLivreur = $this->resolveLivreurForPanierItems($panierItems);
-        if (!empty($panierLivreur['error'])) {
-            return response()->json([
-                'success' => false,
-                'message' => $panierLivreur['error'],
-            ], 422);
-        }
-        $livreur = $panierLivreur['livreur'];
+        $this->syncPanierVendeurIds($panierItems);
 
-        // Calculer les montants
-        $montantProduits = $panierItems->sum('sous_total');
-        
-        // Calculer les frais de livraison
-        $montantLivraison = 0;
+        $adresse = null;
         if ($validated['type_livraison'] === 'livraison') {
-            $adresse = $request->user()->adresses()->findOrFail($validated['adresse_livraison_id']);
-            $shipping = $this->calculateShippingForAdresse($adresse, $livreur?->id);
+            $adresse = $request->user()
+                ->adresses()
+                ->with('quartierLivraison')
+                ->findOrFail($validated['adresse_livraison_id']);
 
-            if (!empty($shipping['error'])) {
+            if (!$adresse->quartier_id) {
                 return response()->json([
                     'success' => false,
-                    'message' => $shipping['error'],
+                    'message' => 'Veuillez sélectionner un quartier pour cette adresse.',
                 ], 422);
             }
-
-            $montantLivraison = $shipping['frais_livraison'] ?? self::TARIF_MIN;
         }
 
-        $montantTotal = $montantProduits + $montantLivraison;
-
-        // Définir l'opérateur mobile
         $operateurMobile = null;
         if ($validated['moyen_paiement'] === 'orange_money') {
             $operateurMobile = 'orange';
@@ -146,91 +133,126 @@ class CommandeController extends Controller
             $operateurMobile = 'mtn';
         }
 
-        DB::beginTransaction();
+        $commandes = [];
+        $vendeursANotifier = [];
 
         try {
-            // Créer la commande
-            $commande = Commande::create([
-                'user_id' => $request->user()->id,
-                'montant_produits' => $montantProduits,
-                'montant_livraison' => $montantLivraison,
-                'montant_total' => $montantTotal,
-                'type_livraison' => $validated['type_livraison'],
-                'adresse_livraison_id' => $validated['type_livraison'] === 'livraison'
-                    ? ($validated['adresse_livraison_id'] ?? null)
-                    : null,
-                'telephone_livraison' => $validated['type_livraison'] === 'livraison'
-                    ? ($validated['telephone_livraison'] ?? null)
-                    : null,
-                'date_livraison_souhaitee' => $validated['date_livraison_souhaitee'] ?? null,
-                'heure_livraison_souhaitee' => $validated['heure_livraison_souhaitee'] ?? null,
-                'instructions_speciales' => $validated['instructions_speciales'] ?? null,
-                'moyen_paiement' => $validated['moyen_paiement'],
-                'operateur_mobile' => $operateurMobile,
-                'telephone_paiement' => $validated['telephone_paiement'] ?? null,
-                'statut' => 'en_attente',
-                'statut_paiement' => 'en_attente',
-                'livreur_id' => $livreur?->id,
-            ]);
+            DB::transaction(function () use ($panierItems, $validated, $adresse, $operateurMobile, $request, &$commandes, &$vendeursANotifier) {
+                $groupes = $panierItems->groupBy(fn (Panier $item) => $item->vendeur_id);
 
-            // Créer les lignes de commande
-            foreach ($panierItems as $item) {
-                LigneCommande::create([
-                    'commande_id' => $commande->id,
-                    'produit_id' => $item->produit_id,
-                    'nom_produit' => $item->produit->nom,
-                    'quantite' => $item->quantite,
-                    'prix_unitaire' => $item->prix_unitaire_actuel,
-                    'sous_total' => $item->sous_total,
-                ]);
+                foreach ($groupes as $vendeurId => $items) {
+                    $vendeurId = $vendeurId !== '' ? (int) $vendeurId : null;
+                    $vendeur = $vendeurId ? User::find($vendeurId) : null;
 
-                // Décrémenter le stock (indicatif)
-                $item->produit->diminuerStock($item->quantite);
-            }
+                    if (!$vendeurId) {
+                        throw new \InvalidArgumentException('Certains produits du panier ne sont associés à aucun vendeur.');
+                    }
 
-            // Vider le panier
-            Panier::where('user_id', $request->user()->id)->delete();
+                    $montantProduits = $items->sum('sous_total');
+                    $montantLivraison = 0;
 
-            // Enregistrer dans l'historique
-            HistoriqueStatutCommande::create([
-                'commande_id' => $commande->id,
-                'ancien_statut' => null,
-                'nouveau_statut' => 'en_attente',
-                'commentaire' => 'Commande créée',
-                'modifie_par_user_id' => $request->user()->id,
-            ]);
+                    if ($validated['type_livraison'] === 'livraison') {
+                        $tarif = VendeurTarifLivraison::where('vendeur_id', $vendeurId)
+                            ->where('quartier_id', $adresse->quartier_id)
+                            ->where('actif', true)
+                            ->first();
 
-            DB::commit();
+                        if (!$tarif) {
+                            $nomVendeur = $vendeur?->nom_complet ?? "Vendeur #{$vendeurId}";
+                            throw new \InvalidArgumentException(
+                                "Le vendeur « {$nomVendeur} » ne livre pas dans votre quartier."
+                            );
+                        }
 
-            // Notification livreur hors application (email + notification interne)
-            if ($livreur) {
-                try {
-                    $this->notifyAssignedLivreur($commande, $livreur);
-                } catch (\Throwable $e) {
-                    Log::warning('Echec notification livreur après création commande', [
+                        $montantLivraison = (float) $tarif->tarif;
+                    }
+
+                    $commande = Commande::create([
+                        'user_id' => $request->user()->id,
+                        'vendeur_id' => $vendeurId,
+                        'livreur_id' => $vendeurId,
+                        'montant_produits' => $montantProduits,
+                        'montant_livraison' => $montantLivraison,
+                        'montant_total' => $montantProduits + $montantLivraison,
+                        'type_livraison' => $validated['type_livraison'],
+                        'adresse_livraison_id' => $validated['type_livraison'] === 'livraison'
+                            ? ($validated['adresse_livraison_id'] ?? null)
+                            : null,
+                        'telephone_livraison' => $validated['type_livraison'] === 'livraison'
+                            ? ($validated['telephone_livraison'] ?? null)
+                            : null,
+                        'date_livraison_souhaitee' => $validated['date_livraison_souhaitee'] ?? null,
+                        'heure_livraison_souhaitee' => $validated['heure_livraison_souhaitee'] ?? null,
+                        'instructions_speciales' => $validated['instructions_speciales'] ?? null,
+                        'moyen_paiement' => $validated['moyen_paiement'],
+                        'operateur_mobile' => $operateurMobile,
+                        'telephone_paiement' => $validated['telephone_paiement'] ?? null,
+                        'statut' => 'en_attente',
+                        'statut_paiement' => 'en_attente',
+                    ]);
+
+                    foreach ($items as $item) {
+                        LigneCommande::create([
+                            'commande_id' => $commande->id,
+                            'produit_id' => $item->produit_id,
+                            'nom_produit' => $item->produit->nom,
+                            'quantite' => $item->quantite,
+                            'prix_unitaire' => $item->prix_unitaire_actuel,
+                            'sous_total' => $item->sous_total,
+                        ]);
+
+                        $item->produit->diminuerStock($item->quantite);
+                    }
+
+                    HistoriqueStatutCommande::create([
                         'commande_id' => $commande->id,
-                        'livreur_id' => $livreur->id,
+                        'ancien_statut' => null,
+                        'nouveau_statut' => 'en_attente',
+                        'commentaire' => 'Commande créée',
+                        'modifie_par_user_id' => $request->user()->id,
+                    ]);
+
+                    $commandes[] = $commande->load(['ligneCommandes.produit', 'adresseLivraison.quartierLivraison', 'vendeur']);
+
+                    if ($vendeur) {
+                        $vendeursANotifier[] = [$commande, $vendeur];
+                    }
+                }
+
+                Panier::where('user_id', $request->user()->id)->delete();
+            });
+
+            foreach ($vendeursANotifier as [$commande, $vendeur]) {
+                try {
+                    $this->notifyAssignedLivreur($commande, $vendeur);
+                } catch (\Throwable $e) {
+                    Log::warning('Echec notification vendeur après création commande', [
+                        'commande_id' => $commande->id,
+                        'vendeur_id' => $vendeur->id,
                         'error' => $e->getMessage(),
                     ]);
                 }
             }
 
-            // Charger les relations
-            $commande->load(['ligneCommandes.produit', 'adresseLivraison']);
-
             return response()->json([
                 'success' => true,
-                'message' => 'Commande créée avec succès',
-                'data' => $commande,
+                'message' => count($commandes) . ' commande(s) créée(s) avec succès',
+                'data' => $commandes,
             ], 201);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('Erreur lors de la création des commandes multi-vendeur', [
+                'user_id' => $request->user()->id,
+                'error' => $e->getMessage(),
+            ]);
 
-        } catch (\Exception $e) {
-            DB::rollBack();
-            
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la création de la commande',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -319,8 +341,11 @@ class CommandeController extends Controller
         // Recalculer les frais de livraison si nécessaire
         $montantLivraison = 0;
         if ($typeLivraison === 'livraison') {
-            $adresse = $request->user()->adresses()->findOrFail($adresseLivraisonId);
-            $shipping = $this->calculateShippingForAdresse($adresse, (int) $commande->livreur_id);
+            $adresse = $request->user()->adresses()->with('quartierLivraison')->findOrFail($adresseLivraisonId);
+            $shipping = $this->calculateShippingForAdresse(
+                $adresse,
+                (int) ($commande->vendeur_id ?? $commande->livreur_id)
+            );
 
             if (!empty($shipping['error'])) {
                 return response()->json([
@@ -424,17 +449,27 @@ class CommandeController extends Controller
             'adresse_id' => 'required|exists:adresses,id',
         ]);
 
-        $adresse = $request->user()->adresses()->findOrFail($validated['adresse_id']);
-        $panierLivreur = $this->resolvePanierLivreurId((int) $request->user()->id);
+        $adresse = $request->user()
+            ->adresses()
+            ->with('quartierLivraison')
+            ->findOrFail($validated['adresse_id']);
 
-        if (!empty($panierLivreur['error'])) {
+        Panier::purgerExpires($request->user()->id);
+
+        $panierItems = Panier::where('user_id', $request->user()->id)
+            ->nonExpire()
+            ->with(['produit.createur', 'vendeur'])
+            ->get();
+
+        if ($panierItems->isEmpty()) {
             return response()->json([
                 'success' => false,
-                'message' => $panierLivreur['error'],
+                'message' => 'Votre panier est vide.',
             ], 422);
         }
 
-        $shipping = $this->calculateShippingForAdresse($adresse, (int) $panierLivreur['livreur_id']);
+        $this->syncPanierVendeurIds($panierItems);
+        $shipping = $this->calculateShippingForPanier($panierItems, $adresse);
         if (!empty($shipping['error'])) {
             return response()->json([
                 'success' => false,
@@ -442,24 +477,123 @@ class CommandeController extends Controller
             ], 422);
         }
 
-        $frais = $shipping['frais_livraison'] ?? self::TARIF_MIN;
-
         return response()->json([
             'success' => true,
             'data' => [
-                'frais_livraison' => $frais,
-                'zone' => $shipping['zone'],
+                'frais_livraison' => $shipping['frais_livraison'],
+                'details' => $shipping['details'],
             ]
         ]);
     }
 
+    private function syncPanierVendeurIds(Collection $panierItems): void
+    {
+        foreach ($panierItems as $item) {
+            $vendeurId = $item->produit?->created_by_user_id;
+
+            if ((int) $item->vendeur_id !== (int) $vendeurId) {
+                $item->vendeur_id = $vendeurId;
+                $item->save();
+            }
+        }
+    }
+
+    private function calculateShippingForPanier(Collection $panierItems, $adresse): array
+    {
+        $details = [];
+        $total = 0;
+
+        $groupes = $panierItems->groupBy(fn (Panier $item) => $item->vendeur_id);
+
+        foreach ($groupes as $vendeurId => $items) {
+            $vendeurId = $vendeurId !== '' ? (int) $vendeurId : null;
+
+            if (!$vendeurId) {
+                return [
+                    'frais_livraison' => null,
+                    'details' => [],
+                    'error' => 'Certains produits du panier ne sont associés à aucun vendeur.',
+                ];
+            }
+
+            $shipping = $this->calculateShippingForAdresse($adresse, $vendeurId);
+
+            if (!empty($shipping['error'])) {
+                return [
+                    'frais_livraison' => null,
+                    'details' => [],
+                    'error' => $shipping['error'],
+                ];
+            }
+
+            $frais = (float) ($shipping['frais_livraison'] ?? self::TARIF_MIN);
+            $total += $frais;
+
+            $details[] = [
+                'vendeur_id' => $vendeurId,
+                'vendeur_nom' => $items->first()->vendeur?->nom_complet
+                    ?? $items->first()->produit?->createur?->nom_complet,
+                'frais_livraison' => $frais,
+                'quartier' => $shipping['quartier'] ?? null,
+                'zone' => $shipping['zone'] ?? null,
+            ];
+        }
+
+        return [
+            'frais_livraison' => $total,
+            'details' => $details,
+            'error' => null,
+        ];
+    }
+
     private function calculateShippingForAdresse($adresse, ?int $livreurId = null): array
     {
+        if ($adresse?->quartier_id) {
+            if (!$livreurId) {
+                return [
+                    'frais_livraison' => null,
+                    'quartier' => null,
+                    'zone' => null,
+                    'error' => 'Impossible de calculer la livraison sans vendeur associé.',
+                ];
+            }
+
+            $tarif = VendeurTarifLivraison::where('vendeur_id', $livreurId)
+                ->where('quartier_id', $adresse->quartier_id)
+                ->where('actif', true)
+                ->with('quartier')
+                ->first();
+
+            if (!$tarif) {
+                $nomVendeur = User::find($livreurId)?->nom_complet ?? "Vendeur #{$livreurId}";
+
+                return [
+                    'frais_livraison' => null,
+                    'quartier' => null,
+                    'zone' => null,
+                    'error' => "Le vendeur « {$nomVendeur} » ne livre pas dans votre quartier.",
+                ];
+            }
+
+            return [
+                'frais_livraison' => (float) $tarif->tarif,
+                'quartier' => [
+                    'id' => $tarif->quartier?->id,
+                    'nom' => $tarif->quartier?->nom,
+                    'ville' => $tarif->quartier?->ville,
+                    'delai_min' => $tarif->delai_min,
+                    'delai_max' => $tarif->delai_max,
+                ],
+                'zone' => null,
+            ];
+        }
+
         if (!$adresse || !$adresse->zone_livraison_id) {
             return [
                 'frais_livraison' => null,
+                'quartier' => null,
                 'zone' => null,
-                'error' => 'Veuillez sélectionner une zone de livraison pour cette adresse.',
+                'error' => 'Veuillez sélectionner un quartier pour cette adresse.',
             ];
         }
 
@@ -468,6 +602,7 @@ class CommandeController extends Controller
         if (!$zone) {
             return [
                 'frais_livraison' => null,
+                'quartier' => null,
                 'zone' => null,
                 'error' => 'Zone de livraison invalide. Merci de sélectionner une zone valide.',
             ];
@@ -476,6 +611,7 @@ class CommandeController extends Controller
         if (!$zone->est_active) {
             return [
                 'frais_livraison' => null,
+                'quartier' => null,
                 'zone' => null,
                 'error' => 'Cette zone de livraison est actuellement inactive.',
             ];
@@ -484,6 +620,7 @@ class CommandeController extends Controller
         if ($livreurId !== null && (int) $zone->created_by_user_id !== (int) $livreurId) {
             return [
                 'frais_livraison' => null,
+                'quartier' => null,
                 'zone' => null,
                 'error' => 'Cette zone de livraison n\'est pas disponible pour les produits de votre panier.',
             ];
@@ -491,87 +628,13 @@ class CommandeController extends Controller
 
         return [
             'frais_livraison' => (float) $zone->tarif_livraison,
+            'quartier' => null,
             'zone' => [
                 'id' => $zone->id,
                 'nom_zone' => $zone->nom_zone,
                 'ville' => $zone->ville,
                 'tarif_livraison' => (float) $zone->tarif_livraison,
             ],
-        ];
-    }
-
-    private function resolvePanierLivreurId(int $userId): array
-    {
-        Panier::purgerExpires($userId);
-
-        $panierItems = Panier::where('user_id', $userId)
-            ->nonExpire()
-            ->with(['produit:id,created_by_user_id'])
-            ->get();
-
-        $panierLivreur = $this->resolveLivreurForPanierItems($panierItems);
-
-        return [
-            'livreur_id' => $panierLivreur['livreur']?->id,
-            'error' => $panierLivreur['error'],
-        ];
-    }
-
-    private function resolveLivreurForPanierItems(Collection $panierItems): array
-    {
-        if ($panierItems->isEmpty()) {
-            return [
-                'livreur' => null,
-                'error' => 'Votre panier est vide.',
-            ];
-        }
-
-        $creatorIds = $panierItems
-            ->pluck('produit.created_by_user_id')
-            ->filter()
-            ->unique()
-            ->values();
-
-        if ($creatorIds->count() > 1) {
-            return [
-                'livreur' => null,
-                'error' => 'Votre panier doit contenir uniquement des produits d\'un même livreur.',
-            ];
-        }
-
-        if ($creatorIds->isEmpty()) {
-            return [
-                'livreur' => null,
-                'error' => null,
-            ];
-        }
-
-        $livreurId = (int) $creatorIds->first();
-        $allItemsOwnedByCreator = $panierItems->every(function ($item) use ($livreurId) {
-            return (int) ($item->produit->created_by_user_id ?? 0) === $livreurId;
-        });
-
-        if (!$allItemsOwnedByCreator) {
-            return [
-                'livreur' => null,
-                'error' => 'Votre panier contient des produits non attribués à ce livreur.',
-            ];
-        }
-
-        $livreur = User::where('id', $livreurId)
-            ->where('role', 'vendeur')
-            ->first();
-
-        if (!$livreur) {
-            return [
-                'livreur' => null,
-                'error' => 'Aucun vendeur valide n\'est associé aux produits sélectionnés.',
-            ];
-        }
-
-        return [
-            'livreur' => $livreur,
-            'error' => null,
         ];
     }
 

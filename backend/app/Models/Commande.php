@@ -9,6 +9,7 @@ class Commande extends Model
     protected $fillable = [
         'numero_commande',
         'user_id',
+        'vendeur_id',
         'montant_produits',
         'montant_livraison',
         'montant_total',
@@ -46,6 +47,11 @@ class Commande extends Model
     public function livreur()
     {
         return $this->belongsTo(User::class, 'livreur_id');
+    }
+
+    public function vendeur()
+    {
+        return $this->belongsTo(User::class, 'vendeur_id');
     }
 
     public function adresseLivraison()

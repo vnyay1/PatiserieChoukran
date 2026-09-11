@@ -85,7 +85,7 @@ File: src/views/Checkout.vue
           </div>
 
           <!-- Adresse (si livraison) -->
-          <div v-if="formData.type_livraison === 'livraison'">
+          <div v-if="estLivraison">
             <div class="mb-4">
               <label class="block text-sm font-medium text-gray-700 mb-2">
                 Adresse de livraison
@@ -101,10 +101,15 @@ File: src/views/Checkout.vue
                   :key="adresse.id"
                   :value="adresse.id"
                 >
-                  {{ adresse.libelle }} - {{ adresse.quartier }}, {{ adresse.ville }}
-                  {{ adresse.zone_livraison?.nom_zone ? ` (${adresse.zone_livraison?.nom_zone})` : '' }}
+                  {{ libelleAdresse(adresse) }}
                 </option>
               </select>
+              <p v-if="adresses.length === 0" class="text-xs text-gray-500 mt-1">
+                Ajoutez une adresse de livraison pour continuer.
+              </p>
+              <p v-else-if="selectedAdresse && !selectedAdresse.quartier_id" class="text-xs text-orange-600 mt-1">
+                Cette adresse n'a pas de quartier reconnu : modifiez-la pour calculer la livraison.
+              </p>
             </div>
 
             <div class="flex flex-wrap items-center gap-4 mb-6">
@@ -151,7 +156,7 @@ File: src/views/Checkout.vue
                   class="input"
                   required
                 />
-                <p v-if="showDeliveryTimeError" class="text-xs text-red-600 mt-1">
+                <p v-if="hasDeliveryTimeError" class="text-xs text-red-600 mt-1">
                   {{ deliveryTimeError }}
                 </p>
               </div>
@@ -183,6 +188,10 @@ File: src/views/Checkout.vue
               class="input resize-none"
             ></textarea>
           </div>
+
+          <p v-if="blocageEtape1" class="text-sm text-red-600 mb-4">
+            {{ blocageEtape1 }}
+          </p>
 
           <Button type="submit" variant="primary" size="lg" full-width :disabled="isStep1Blocked">
             Continuer vers le paiement
@@ -236,6 +245,10 @@ File: src/views/Checkout.vue
             </p>
           </div>
 
+          <p v-if="orderError" class="text-sm text-red-600 mb-4">
+            {{ orderError }}
+          </p>
+
           <div class="flex gap-3">
             <Button type="button" variant="outline" @click="currentStep = 1">
               Retour
@@ -247,24 +260,111 @@ File: src/views/Checkout.vue
         </form>
       </Card>
 
+      <!-- Étape 3: Confirmation (une commande par vendeur) -->
+      <Card v-if="currentStep === 3" padding="lg" class="mb-6">
+        <div class="text-center mb-6">
+          <div class="text-5xl mb-3">🎉</div>
+          <h2 class="font-display text-xl font-bold text-gray-800 mb-2">
+            {{ commandesCreees.length > 1 ? `${commandesCreees.length} commandes confirmées` : 'Commande confirmée' }}
+          </h2>
+          <p class="text-sm text-gray-600">
+            <template v-if="commandesCreees.length > 1">
+              Votre panier a été réparti en une commande par vendeur.
+            </template>
+            Vous pouvez suivre leur avancement dans « Mes commandes ».
+          </p>
+        </div>
+
+        <div class="space-y-3 mb-6">
+          <div
+            v-for="commande in commandesCreees"
+            :key="commande.id"
+            class="flex items-center justify-between gap-3 p-4 border border-gray-200 rounded-lg"
+          >
+            <div class="min-w-0">
+              <div class="font-semibold text-gray-800">{{ commande.numero_commande }}</div>
+              <div class="text-sm text-gray-600">{{ commande.vendeur?.nom_complet || 'Vendeur' }}</div>
+            </div>
+            <div class="text-right">
+              <div class="price">{{ formatPrice(commande.montant_total) }} FCFA</div>
+              <router-link
+                :to="`/mes-commandes/${commande.id}`"
+                class="text-sm text-gold-600 hover:text-gold-700"
+              >
+                Voir le détail
+              </router-link>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3">
+          <Button variant="primary" class="flex-1" @click="router.push('/mes-commandes')">
+            Voir mes commandes
+          </Button>
+          <Button variant="outline" class="flex-1" @click="router.push('/produits')">
+            Continuer mes achats
+          </Button>
+        </div>
+      </Card>
+
       <!-- Résumé de la commande -->
-      <Card padding="lg">
+      <Card v-if="currentStep < 3" padding="lg">
         <h3 class="font-display text-lg font-bold text-gray-800 mb-4">
           Récapitulatif
         </h3>
 
+        <p v-if="groupes.length > 1" class="text-sm text-gray-600 mb-4">
+          Votre panier sera réparti en {{ groupes.length }} commandes, une par vendeur.
+        </p>
+
         <div class="space-y-3 mb-4">
+          <div
+            v-for="groupe in livraisonParGroupe"
+            :key="groupe.vendeurId ?? 'sans-vendeur'"
+            class="p-3 border border-gray-100 rounded-lg space-y-1"
+          >
+            <div class="flex justify-between gap-3 text-sm font-semibold text-gray-800">
+              <span>{{ groupe.vendeurNom }}</span>
+              <span class="text-gray-500 font-normal">
+                {{ groupe.items.length }} article{{ groupe.items.length > 1 ? 's' : '' }}
+              </span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span>Sous-total</span>
+              <span>{{ formatPrice(groupe.sousTotal) }} FCFA</span>
+            </div>
+            <div v-if="estLivraison && groupe.vendeurId" class="flex justify-between gap-3 text-sm">
+              <span>Livraison</span>
+              <span v-if="groupe.statut === 'ok'" class="text-right">
+                {{ groupe.frais > 0 ? formatPrice(groupe.frais) + ' FCFA' : 'Gratuit' }}
+                <span v-if="formatDelai(groupe.tarif)" class="block text-xs text-gray-500">
+                  Délai : {{ formatDelai(groupe.tarif) }}
+                </span>
+              </span>
+              <span v-else-if="groupe.statut === 'non_couvert'" class="text-right text-red-600">
+                Ce vendeur ne livre pas dans votre quartier
+              </span>
+              <span v-else-if="groupe.statut === 'chargement'" class="text-gray-500">Calcul...</span>
+              <span v-else class="text-gray-500">À calculer</span>
+            </div>
+            <p v-if="groupe.statut === 'sans_vendeur'" class="text-xs text-red-600">
+              Ces produits ne sont rattachés à aucun vendeur et ne peuvent pas être commandés.
+            </p>
+          </div>
+
+          <div class="divider-ornament"></div>
+
           <div class="flex justify-between text-sm">
             <span>Sous-total</span>
             <span>{{ formatPrice(panierStore.total) }} FCFA</span>
           </div>
-          <div v-if="formData.type_livraison === 'livraison'" class="flex justify-between text-sm">
+          <div v-if="estLivraison" class="flex justify-between text-sm">
             <span>Livraison</span>
-            <span>{{ fraisLivraison > 0 ? formatPrice(fraisLivraison) + ' FCFA' : 'Gratuit' }}</span>
+            <span v-if="livraisonCalculee">
+              {{ fraisLivraison > 0 ? formatPrice(fraisLivraison) + ' FCFA' : 'Gratuit' }}
+            </span>
+            <span v-else class="text-gray-500">À calculer</span>
           </div>
-          <p v-if="formData.type_livraison === 'livraison' && shippingError" class="text-xs text-red-600">
-            {{ shippingError }}
-          </p>
           <div class="divider-ornament"></div>
           <div class="flex justify-between font-bold text-lg">
             <span>Total</span>
@@ -273,148 +373,52 @@ File: src/views/Checkout.vue
         </div>
       </Card>
 
-      <!-- Modal ajout adresse -->
-      <div
+      <!-- Modal ajout / modification adresse -->
+      <AdresseFormModal
         v-if="showAddAddress"
-        class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6"
-      >
-        <div class="bg-white w-full max-w-2xl rounded-elegant shadow-card overflow-hidden flex flex-col max-h-[90vh] md:max-h-none">
-          <div class="p-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 class="font-display text-xl font-bold text-gray-800">
-              {{ isEditingAddress ? 'Modifier une adresse' : 'Ajouter une adresse' }}
-            </h2>
-            <button class="text-sm text-gray-500 hover:text-gray-700" @click="closeAddAddress">
-              Fermer
-            </button>
-          </div>
-
-          <form
-            class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto md:overflow-visible max-h-[70vh] md:max-h-none scrollbar-hide"
-            @submit.prevent="submitAddress"
-          >
-            <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-gray-700 mb-2">Libellé (optionnel)</label>
-              <input v-model="addressForm.libelle" type="text" class="input" placeholder="Maison, Bureau..." />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Quartier *</label>
-              <input v-model="addressForm.quartier" type="text" class="input" required />
-            </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Ville *</label>
-            <select v-model="addressForm.ville" class="input" required>
-              <option value="">Sélectionner une ville</option>
-              <option v-for="ville in villes" :key="ville.id" :value="ville.id">
-                {{ ville.nom_ville }}
-              </option>
-            </select>
-          </div>
-
-            <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-gray-700 mb-2">Zone de livraison *</label>
-              <select v-model="addressForm.zone_livraison_id" class="input" required>
-                <option value="">Sélectionner une zone</option>
-                <option v-for="zone in zones" :key="zone.id" :value="zone.id">
-                  {{ zone.nom_zone }}
-                </option>
-              </select>
-              <p v-if="addressForm.ville && zones.length === 0" class="text-xs text-red-600 mt-1">
-                Aucune zone active pour cette ville.
-              </p>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Téléphone *</label>
-              <input
-                v-model="addressForm.telephone_contact"
-                type="tel"
-                class="input"
-                placeholder="+237699123456"
-                required
-              />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Point de repère</label>
-              <input v-model="addressForm.point_repere" type="text" class="input" />
-            </div>
-
-            <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-gray-700 mb-2">Complément d'adresse</label>
-              <textarea v-model="addressForm.complement_adresse" rows="2" class="input resize-none"></textarea>
-            </div>
-
-            <div class="md:col-span-2">
-              <label class="inline-flex items-center gap-2">
-                <input
-                  v-model="addressForm.est_principale"
-                  type="checkbox"
-                  class="rounded border-gray-300 text-gold-600 focus:ring-gold-500"
-                />
-                <span class="text-sm text-gray-700">Définir comme adresse principale</span>
-              </label>
-            </div>
-
-            <p v-if="addressError" class="text-sm text-red-600 md:col-span-2">
-              {{ addressError }}
-            </p>
-
-            <div class="md:col-span-2 flex gap-3">
-              <Button type="submit" variant="primary" :loading="savingAddress">
-                {{ isEditingAddress ? 'Mettre à jour' : 'Enregistrer' }}
-              </Button>
-              <Button type="button" variant="outline" @click="closeAddAddress">
-                Annuler
-              </Button>
-            </div>
-          </form>
-        </div>
-      </div>
+        :adresse="adresseEnEdition"
+        :telephone-par-defaut="authStore.user?.telephone || ''"
+        @close="closeAddAddress"
+        @saved="onAdresseSaved"
+      />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePanierStore } from '@/stores/panier'
 import { useAuthStore } from '@/stores/auth'
-import api from '@/services/api'
+import api, { messageErreur } from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import AdresseFormModal from '@/components/adresse/AdresseFormModal.vue'
+import {
+  useLivraisonVendeurs,
+  grouperParVendeur,
+  formatVille,
+  formatDelai,
+} from '@/composables/useLivraisonVendeurs'
 import { Truck, Store, Smartphone, Banknote } from 'lucide-vue-next'
 
 const router = useRouter()
 const panierStore = usePanierStore()
 const authStore = useAuthStore()
+const {
+  erreur: erreurTarifs,
+  chargerQuartiersVendeurs,
+  livraisonDesGroupes,
+} = useLivraisonVendeurs()
 
 const etapes = ['Livraison', 'Paiement', 'Confirmation']
 const currentStep = ref(1)
 const submitting = ref(false)
 const showAddAddress = ref(false)
-const editingAddressId = ref(null)
-const preserveZoneSelectionOnCityChange = ref(false)
-
+const adresseEnEdition = ref(null)
 const adresses = ref([])
-const zones = ref([])
-const villes = ref([])
-const fraisLivraison = ref(0)
-const shippingError = ref('')
-const savingAddress = ref(false)
-const addressError = ref('')
-
-const addressForm = ref({
-  libelle: '',
-  quartier: '',
-  ville: '',
-  zone_livraison_id: '',
-  telephone_contact: authStore.user?.telephone || '',
-  point_repere: '',
-  complement_adresse: '',
-  est_principale: false,
-})
+const orderError = ref('')
+const commandesCreees = ref([])
 
 const formData = ref({
   type_livraison: 'livraison',
@@ -441,8 +445,10 @@ const minDate = computed(() => {
   return tomorrow.toISOString().split('T')[0]
 })
 
+const estLivraison = computed(() => formData.value.type_livraison === 'livraison')
+
 const deliveryTimeError = computed(() => {
-  if (formData.value.type_livraison !== 'livraison') {
+  if (!estLivraison.value) {
     return ''
   }
 
@@ -463,268 +469,170 @@ const deliveryTimeError = computed(() => {
   return ''
 })
 const hasDeliveryTimeError = computed(() => Boolean(deliveryTimeError.value))
-const showDeliveryTimeError = computed(() => hasDeliveryTimeError.value)
-const totalGeneral = computed(() => {
-  return panierStore.total + (formData.value.type_livraison === 'livraison' ? fraisLivraison.value : 0)
-})
-const isStep1Blocked = computed(() => {
-  if (formData.value.type_livraison !== 'livraison') {
-    return false
-  }
 
-  return Boolean(shippingError.value || fraisLivraison.value <= 0 || hasDeliveryTimeError.value)
-})
-const isEditingAddress = computed(() => editingAddressId.value !== null)
 const selectedAdresse = computed(() => {
   return adresses.value.find((adresse) => String(adresse.id) === String(formData.value.adresse_livraison_id)) || null
+})
+
+// Une commande sera créée par groupe (vendeur)
+const groupes = computed(() => grouperParVendeur(panierStore.items))
+
+// Frais de livraison de chaque vendeur pour le quartier de l'adresse choisie
+const livraisonParGroupe = computed(() => {
+  if (!estLivraison.value) {
+    return groupes.value.map((groupe) => ({
+      ...groupe,
+      statut: groupe.vendeurId ? 'retrait' : 'sans_vendeur',
+      frais: 0,
+      tarif: null,
+    }))
+  }
+
+  return livraisonDesGroupes(groupes.value, selectedAdresse.value?.quartier_id || null)
+})
+
+const livraisonCalculee = computed(() => livraisonParGroupe.value.every((groupe) => groupe.statut === 'ok'))
+const fraisLivraison = computed(() => livraisonParGroupe.value.reduce((somme, groupe) => somme + groupe.frais, 0))
+const totalGeneral = computed(() => panierStore.total + (estLivraison.value ? fraisLivraison.value : 0))
+
+// Message expliquant pourquoi la commande ne peut pas être passée ('' si rien à signaler)
+const blocageEtape1 = computed(() => {
+  if (livraisonParGroupe.value.some((groupe) => groupe.statut === 'sans_vendeur')) {
+    return 'Certains produits ne sont rattachés à aucun vendeur : retirez-les du panier pour continuer.'
+  }
+
+  const nonCouverts = livraisonParGroupe.value.filter((groupe) => groupe.statut === 'non_couvert')
+  if (nonCouverts.length > 0) {
+    const noms = nonCouverts.map((groupe) => groupe.vendeurNom).join(', ')
+    return `${noms} : pas de livraison dans ce quartier. Choisissez une autre adresse ou le retrait en boutique.`
+  }
+
+  if (livraisonParGroupe.value.some((groupe) => groupe.statut === 'erreur')) {
+    return erreurTarifs.value || 'Impossible de calculer les frais de livraison.'
+  }
+
+  return ''
+})
+
+const isStep1Blocked = computed(() => {
+  if (blocageEtape1.value) return true
+  if (livraisonParGroupe.value.some((groupe) => groupe.statut === 'chargement')) return true
+
+  return estLivraison.value && (
+    !selectedAdresse.value
+    || !selectedAdresse.value.quartier_id
+    || hasDeliveryTimeError.value
+  )
 })
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR').format(price)
 }
 
-const fetchAdresses = async () => {
+const libelleAdresse = (adresse) => {
+  const libelle = `${adresse.libelle || 'Adresse'} - ${adresse.quartier}, ${formatVille(adresse.ville)}`
+  return adresse.quartier_id ? libelle : `${libelle} (quartier à préciser)`
+}
+
+const fetchAdresses = async (adresseASelectionner = null) => {
   try {
     const response = await api.adresses.getAll()
     if (response.data.success) {
-      adresses.value = response.data.data
-      if (adresses.value.length > 0) {
-        const principale = adresses.value.find(a => a.est_principale)
-        formData.value.adresse_livraison_id = principale?.id || adresses.value[0].id
+      adresses.value = response.data.data || []
+
+      const existe = (id) => adresses.value.some((adresse) => String(adresse.id) === String(id))
+      if (adresseASelectionner && existe(adresseASelectionner)) {
+        formData.value.adresse_livraison_id = adresseASelectionner
+      } else if (!existe(formData.value.adresse_livraison_id)) {
+        const principale = adresses.value.find((adresse) => adresse.est_principale)
+        formData.value.adresse_livraison_id = principale?.id || adresses.value[0]?.id || ''
       }
-      await refreshShipping()
     }
   } catch (error) {
     console.error('Erreur chargement adresses:', error)
   }
 }
 
-const fetchVilles = async () => {
-  try {
-    const response = await api.zones.getAll()
-    if (response.data.success) {
-      const groupedByVille = response.data.data || {}
-      const cityNames = Object.keys(groupedByVille)
-        .map((name) => (name || '').trim())
-        .filter((name) => !!name)
-
-      villes.value = cityNames.map((villeName) => ({
-        id: villeName,
-        nom_ville: villeName,
-      }))
-    }
-  } catch (error) {
-    console.error('Erreur chargement villes:', error)
-  }
-}
-
-const resetAddressForm = () => {
-  editingAddressId.value = null
-  preserveZoneSelectionOnCityChange.value = false
-  addressForm.value = {
-    libelle: '',
-    quartier: '',
-    ville: '',
-    zone_livraison_id: '',
-    telephone_contact: authStore.user?.telephone || '',
-    point_repere: '',
-    complement_adresse: '',
-    est_principale: false,
-  }
-  addressError.value = ''
-}
-
 const openAddAddress = () => {
-  resetAddressForm()
+  adresseEnEdition.value = null
   showAddAddress.value = true
 }
 
 const openEditAddress = (adresse) => {
   if (!adresse) return
-
-  const zoneId = adresse.zone_livraison_id || adresse.zone_livraison?.id || ''
-  editingAddressId.value = adresse.id
-  preserveZoneSelectionOnCityChange.value = true
-  addressError.value = ''
-
-  addressForm.value = {
-    libelle: adresse.libelle || '',
-    quartier: adresse.quartier || '',
-    ville: adresse.ville || '',
-    zone_livraison_id: zoneId,
-    telephone_contact: adresse.telephone_contact || authStore.user?.telephone || '',
-    point_repere: adresse.point_repere || '',
-    complement_adresse: adresse.complement_adresse || '',
-    est_principale: Boolean(adresse.est_principale),
-  }
-
+  adresseEnEdition.value = adresse
   showAddAddress.value = true
 }
 
 const closeAddAddress = () => {
   showAddAddress.value = false
-  resetAddressForm()
+  adresseEnEdition.value = null
 }
 
-const submitAddress = async () => {
-  savingAddress.value = true
-  addressError.value = ''
-
-  try {
-    const response = isEditingAddress.value
-      ? await api.adresses.update(editingAddressId.value, addressForm.value)
-      : await api.adresses.create(addressForm.value)
-
-    if (response.data.success) {
-      const updatedAddressId = response.data.data?.id || editingAddressId.value
-      closeAddAddress()
-      await fetchAdresses()
-      if (updatedAddressId) {
-        formData.value.adresse_livraison_id = updatedAddressId
-      }
-      await refreshShipping()
-    } else {
-      addressError.value = response.data?.message || 'Erreur lors de l\'enregistrement de l\'adresse.'
-    }
-  } catch (error) {
-    addressError.value = error.response?.data?.message || 'Erreur lors de l\'enregistrement de l\'adresse.'
-  } finally {
-    savingAddress.value = false
-  }
-}
-
-const fetchZonesByVille = async (ville) => {
-  if (!ville) {
-    zones.value = []
-    addressError.value = ''
-    return
-  }
-
-  try {
-    const response = await api.zones.byCityForCommande(ville)
-    if (response.data.success) {
-      zones.value = response.data.data || []
-      addressError.value = ''
-    }
-  } catch (error) {
-    zones.value = []
-    addressError.value = error.response?.data?.message || 'Impossible de charger les zones de livraison disponibles.'
-    console.error('Erreur chargement zones:', error)
-  }
-}
-
-const refreshShipping = async () => {
-  shippingError.value = ''
-
-  if (formData.value.type_livraison !== 'livraison') {
-    fraisLivraison.value = 0
-    return
-  }
-
-  if (!formData.value.adresse_livraison_id) {
-    fraisLivraison.value = 0
-    return
-  }
-
-  try {
-    const response = await api.commandes.calculateShipping({
-      adresse_id: formData.value.adresse_livraison_id
-    })
-    if (response.data.success) {
-      const data = response.data.data || {}
-      fraisLivraison.value = data.frais_livraison || 0
-    } else {
-      fraisLivraison.value = 0
-      shippingError.value = 'Impossible de calculer les frais de livraison.'
-    }
-  } catch (error) {
-    fraisLivraison.value = 0
-    shippingError.value = error.response?.data?.message || 'Erreur lors du calcul des frais de livraison.'
-  }
+const onAdresseSaved = async (adresse) => {
+  closeAddAddress()
+  await fetchAdresses(adresse?.id)
 }
 
 const goToStep2 = () => {
-  if (hasDeliveryTimeError.value) {
+  if (isStep1Blocked.value) {
     return
   }
-
-  if (formData.value.type_livraison === 'livraison' && (shippingError.value || fraisLivraison.value <= 0)) {
-    alert('Merci d\'ajouter une adresse valide pour calculer les frais de livraison.')
-    return
-  }
+  orderError.value = ''
   currentStep.value = 2
 }
 
 const submitOrder = async () => {
+  if (isStep1Blocked.value) {
+    currentStep.value = 1
+    return
+  }
+
   submitting.value = true
+  orderError.value = ''
+
+  const payload = { ...formData.value }
+  if (payload.moyen_paiement === 'especes') {
+    delete payload.telephone_paiement
+  }
 
   try {
-    if (formData.value.type_livraison === 'livraison' && hasDeliveryTimeError.value) {
-      currentStep.value = 1
-      return
-    }
+    const response = await api.commandes.create(payload)
 
-    if (formData.value.type_livraison === 'livraison' && (shippingError.value || fraisLivraison.value <= 0)) {
-      alert('Adresse de livraison invalide. Merci de vérifier votre adresse.')
-      return
-    }
-    const response = await api.commandes.create(formData.value)
-    
     if (response.data.success) {
-      // Vider le panier après une commande valide
-      await panierStore.clear()
-      // Rediriger vers la page de confirmation
-      router.push(`/mes-commandes`)
+      // Le backend renvoie une commande par vendeur
+      const data = response.data.data
+      commandesCreees.value = Array.isArray(data) ? data : [data]
+      currentStep.value = 3
+      // Le panier a été vidé côté serveur : on resynchronise le store
+      await panierStore.fetch()
+    } else {
+      orderError.value = response.data?.message || 'Erreur lors de la création de la commande.'
     }
   } catch (error) {
     console.error('Erreur création commande:', error)
-    alert('Erreur lors de la création de la commande')
+    orderError.value = messageErreur(error, 'Erreur lors de la création de la commande.')
   } finally {
     submitting.value = false
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // Accès direct à /commander : le panier n'est peut-être pas encore chargé
+  if (panierStore.isEmpty) {
+    await panierStore.fetch()
+  }
   if (panierStore.isEmpty) {
     router.push('/panier')
     return
   }
   fetchAdresses()
-  fetchVilles()
 })
 
+// Charge les quartiers couverts (et tarifs) des vendeurs présents dans le panier
 watch(
-  () => [formData.value.type_livraison, formData.value.adresse_livraison_id],
-  () => {
-    refreshShipping()
-  }
+  () => groupes.value.map((groupe) => groupe.vendeurId).filter(Boolean).join(','),
+  () => chargerQuartiersVendeurs(groupes.value.map((groupe) => groupe.vendeurId)),
+  { immediate: true }
 )
-
-let zoneSearchTimeout = null
-watch(
-  () => addressForm.value.ville,
-  (ville) => {
-    clearTimeout(zoneSearchTimeout)
-    const trimmed = (ville || '').trim()
-    if (!trimmed) {
-      zones.value = []
-      if (!preserveZoneSelectionOnCityChange.value) {
-        addressForm.value.zone_livraison_id = ''
-      }
-      preserveZoneSelectionOnCityChange.value = false
-      return
-    }
-    if (!preserveZoneSelectionOnCityChange.value) {
-      addressForm.value.zone_livraison_id = ''
-    }
-    zoneSearchTimeout = setTimeout(() => {
-      fetchZonesByVille(trimmed)
-      preserveZoneSelectionOnCityChange.value = false
-    }, 300)
-  }
-)
-
-onBeforeUnmount(() => {
-  clearTimeout(zoneSearchTimeout)
-})
 </script>
