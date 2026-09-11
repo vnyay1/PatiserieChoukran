@@ -97,18 +97,12 @@ class CommandeController extends Controller
     {
         $validated = $request->validate([
             'statut' => 'required|in:en_attente,confirmee,en_preparation,prete,en_livraison,livree,annulee',
-            'commentaire' => 'nullable|string',
+            'commentaire' => 'nullable|string|max:500',
         ]);
 
         $commande = Commande::findOrFail($id);
 
-        if ($commande->isArchivee()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cette commande est archivée et ne peut plus être modifiée.',
-            ], 400);
-        }
-
+        // Transitions contrôlées par Commande::changerStatut (422 si non autorisée)
         $commande->changerStatut(
             $validated['statut'],
             $request->user()->id,
@@ -179,18 +173,8 @@ class CommandeController extends Controller
 
         $commande = Commande::findOrFail($id);
 
-        if ($commande->isArchivee()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cette commande est archivée et ne peut plus être modifiée.',
-            ], 400);
-        }
-
-        $commande->update([
-            'statut_paiement' => 'paye',
-            'date_paiement' => now(),
-            'reference_paiement' => $validated['reference_paiement'] ?? null,
-        ]);
+        // Refus (422) si la commande est annulée ou déjà payée ; le client est notifié
+        $commande->confirmerPaiement($validated['reference_paiement'] ?? null);
 
         return response()->json([
             'success' => true,

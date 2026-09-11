@@ -6,17 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Commande;
 use App\Models\HistoriqueStatutCommande;
 use App\Models\LigneCommande;
-use App\Models\Notification;
 use App\Models\Panier;
 use App\Models\Produit;
 use App\Models\User;
 use App\Models\VendeurTarifLivraison;
+use App\Services\NotificationsCommande;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class CommandeController extends Controller
 {
@@ -280,16 +279,9 @@ class CommandeController extends Controller
                 Panier::where('user_id', $request->user()->id)->delete();
             });
 
+            // Après la transaction : chaque vendeur est prévenu de sa commande
             foreach ($vendeursANotifier as [$commande, $vendeur]) {
-                try {
-                    $this->notifyAssignedLivreur($commande, $vendeur);
-                } catch (\Throwable $e) {
-                    Log::warning('Echec notification vendeur après création commande', [
-                        'commande_id' => $commande->id,
-                        'vendeur_id' => $vendeur->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
+                NotificationsCommande::nouvelleCommande($commande, $vendeur);
             }
 
             return response()->json([
@@ -740,49 +732,5 @@ class CommandeController extends Controller
         }
 
         return null;
-    }
-
-    private function notifyAssignedLivreur(Commande $commande, User $livreur): void
-    {
-        $title = 'Nouvelle commande assignée';
-        $message = "La commande {$commande->numero_commande} vous a été assignée.";
-        $actionUrl = '/admin/commandes';
-
-        // Notification consultable dans l'app (historique)
-        Notification::create([
-            'user_id' => $livreur->id,
-            'titre' => $title,
-            'message' => $message,
-            'type' => 'commande',
-            'canal' => 'app',
-            'est_lu' => false,
-            'url_action' => $actionUrl,
-            'date_envoi' => now(),
-        ]);
-
-        // Notification hors app: email
-        if (empty($livreur->email)) {
-            return;
-        }
-
-        try {
-            Mail::raw(
-                "{$message}\n\nMontant total: {$commande->montant_total}fcfa \nDate: {$commande->created_at?->format('d/m/Y H:i')}\nRendez-vous dans votre espace pour plus de détails.",
-                function ($mail) use ($livreur, $commande, $title) {
-                    $mail->to($livreur->email, $livreur->nom_complet)
-                        ->subject("{$title} - {$commande->numero_commande}");
-                }
-            );
-            Log::info('Notification email livreur envoyée', [
-                'commande_id' => $commande->id,
-                'livreur_id' => $livreur->id,
-            ]);
-        } catch (\Throwable $e) {
-            Log::warning('Echec envoi notification email livreur', [
-                'commande_id' => $commande->id,
-                'livreur_id' => $livreur->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
     }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Exceptions\RegleMetierException;
+use App\Services\NotificationsCommande;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -9,6 +11,34 @@ class Commande extends Model
 {
     // Commandes pas encore terminées (ni livrées ni annulées)
     public const STATUTS_EN_COURS = ['en_attente', 'confirmee', 'en_preparation', 'prete', 'en_livraison'];
+
+    /**
+     * Cycle de vie : on avance étape par étape, sans retour en arrière.
+     * « en_livraison » ne concerne que la livraison à domicile (voir statutsSuivants()).
+     * « livree » et « annulee » sont des états finaux.
+     */
+    public const TRANSITIONS = [
+        'en_attente' => ['confirmee', 'annulee'],
+        'confirmee' => ['en_preparation', 'annulee'],
+        'en_preparation' => ['prete', 'annulee'],
+        'prete' => ['en_livraison', 'livree', 'annulee'],
+        'en_livraison' => ['livree'],
+        'livree' => [],
+        'annulee' => [],
+    ];
+
+    public const LIBELLES_STATUT = [
+        'en_attente' => 'En attente',
+        'confirmee' => 'Confirmée',
+        'en_preparation' => 'En préparation',
+        'prete' => 'Prête',
+        'en_livraison' => 'En livraison',
+        'livree' => 'Livrée',
+        'annulee' => 'Annulée',
+    ];
+
+    // Étapes suivantes exposées à l'API (le frontend ne propose que celles-ci)
+    protected $appends = ['statuts_suivants'];
 
     protected $fillable = [
         'numero_commande',
@@ -159,10 +189,57 @@ class Commande extends Model
         $this->numero_commande = $numero;
     }
 
+    public static function libelleStatut(?string $statut): string
+    {
+        return self::LIBELLES_STATUT[$statut] ?? (string) $statut;
+    }
+
+    /**
+     * Statuts vers lesquels la commande peut passer depuis son statut actuel.
+     */
+    public function statutsSuivants(): array
+    {
+        $suivants = self::TRANSITIONS[$this->statut] ?? [];
+        $livraison = $this->type_livraison === 'livraison';
+
+        return array_values(array_filter($suivants, function (string $statut) use ($livraison) {
+            // Livraison à domicile : prête -> en livraison -> livrée
+            // Retrait en boutique : prête -> livrée (remise au client)
+            if ($statut === 'en_livraison') {
+                return $livraison;
+            }
+            if ($statut === 'livree' && $this->statut === 'prete') {
+                return ! $livraison;
+            }
+
+            return true;
+        }));
+    }
+
+    public function peutPasserA(string $statut): bool
+    {
+        return in_array($statut, $this->statutsSuivants(), true);
+    }
+
+    public function getStatutsSuivantsAttribute(): array
+    {
+        return $this->statutsSuivants();
+    }
+
     public function changerStatut($nouveauStatut, $userId = null, $commentaire = null)
     {
-        DB::transaction(function () use ($nouveauStatut, $userId, $commentaire) {
-            $ancienStatut = $this->statut;
+        if (! $this->peutPasserA($nouveauStatut)) {
+            throw new RegleMetierException(sprintf(
+                'Impossible de passer la commande %s de « %s » à « %s ».',
+                $this->numero_commande,
+                self::libelleStatut($this->statut),
+                self::libelleStatut($nouveauStatut)
+            ));
+        }
+
+        $ancienStatut = $this->statut;
+
+        DB::transaction(function () use ($ancienStatut, $nouveauStatut, $userId, $commentaire) {
             $this->statut = $nouveauStatut;
             $this->save();
 
@@ -183,6 +260,33 @@ class Commande extends Model
                 'modifie_par_user_id' => $userId,
             ]);
         });
+
+        // Après la transaction : client prévenu (ou vendeur si le client annule)
+        $this->loadMissing(['user', 'vendeur']);
+        NotificationsCommande::statutChange($this, $ancienStatut, $userId, $commentaire);
+    }
+
+    /**
+     * Paiement reçu (espèces à la livraison ou mobile money vérifié par le vendeur/l'admin).
+     */
+    public function confirmerPaiement(?string $reference = null): void
+    {
+        if ($this->isAnnulee()) {
+            throw new RegleMetierException('Impossible de confirmer le paiement d\'une commande annulée.');
+        }
+
+        if ($this->isPaid()) {
+            throw new RegleMetierException('Le paiement de cette commande est déjà confirmé.');
+        }
+
+        $this->update([
+            'statut_paiement' => 'paye',
+            'date_paiement' => now(),
+            'reference_paiement' => $reference,
+        ]);
+
+        $this->loadMissing('user');
+        NotificationsCommande::paiementConfirme($this);
     }
 
     public function isPaid()

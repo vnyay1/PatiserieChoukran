@@ -14,4 +14,5 @@ Artisan::command('panier:purge-expired', function () {
     $this->info("Paniers expirés supprimés: {$count}");
 })->purpose('Supprime les paniers expirés');
 
-Schedule::command('panier:purge-expired')->everyMinute();
+// Les endpoints du panier purgent aussi à la volée : une passe par heure suffit
+Schedule::command('panier:purge-expired')->hourly();

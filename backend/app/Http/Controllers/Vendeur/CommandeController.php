@@ -127,13 +127,7 @@ class CommandeController extends Controller
         $vendeur = $request->user();
         $commande = $this->findForVendeur($vendeur->id, $id);
 
-        if ($commande->statut === 'annulee') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cette commande est annulée et ne peut plus être modifiée.',
-            ], 400);
-        }
-
+        // Transitions contrôlées par Commande::changerStatut (422 si non autorisée)
         $commande->changerStatut(
             $validated['statut'],
             $vendeur->id,
@@ -158,18 +152,8 @@ class CommandeController extends Controller
 
         $commande = $this->findForVendeur($request->user()->id, $id);
 
-        if ($commande->statut === 'annulee') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Impossible de confirmer le paiement d\'une commande annulée.',
-            ], 400);
-        }
-
-        $commande->update([
-            'statut_paiement' => 'paye',
-            'date_paiement' => now(),
-            'reference_paiement' => $validated['reference_paiement'] ?? null,
-        ]);
+        // Refus (422) si la commande est annulée ou déjà payée ; le client est notifié
+        $commande->confirmerPaiement($validated['reference_paiement'] ?? null);
 
         return response()->json([
             'success' => true,
