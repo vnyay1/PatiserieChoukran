@@ -5,29 +5,27 @@
 // File: routes/api.php
 // ===================================
 
-use Illuminate\Support\Facades\Route;
-
-// Controllers
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\CategorieController;
-use App\Http\Controllers\Api\ProduitController;
-use App\Http\Controllers\Api\PanierController;
-use App\Http\Controllers\Api\CommandeController;
-use App\Http\Controllers\Api\AdresseController;
-use App\Http\Controllers\Api\NotificationController;
-use App\Http\Controllers\Api\ZoneLivraisonController;
-
-// Admin Controllers
-use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\CategorieController as AdminCategorieController;
+// Controllers
+use App\Http\Controllers\Admin\CommandeController as AdminCommandeController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ParametreSiteController as AdminParametreSiteController;
 use App\Http\Controllers\Admin\ProduitController as AdminProduitController;
-use App\Http\Controllers\Admin\CommandeController as AdminCommandeController;
-use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\QuartierController as AdminQuartierController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\ZoneLivraisonController as AdminZoneLivraisonController;
+use App\Http\Controllers\Api\AdresseController;
+// Admin Controllers
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CategorieController;
+use App\Http\Controllers\Api\CommandeController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\PanierController;
+use App\Http\Controllers\Api\ProduitController;
+use App\Http\Controllers\Api\ZoneLivraisonController;
 use App\Http\Controllers\Vendeur\CommandeController as VendeurCommandeController;
 use App\Http\Controllers\Vendeur\TarifLivraisonController as VendeurTarifLivraisonController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -36,11 +34,11 @@ use App\Http\Controllers\Vendeur\TarifLivraisonController as VendeurTarifLivrais
 */
 
 Route::prefix('v1')->group(function () {
-    
+
     // ===================================
     // ROUTES PUBLIQUES (sans authentification)
     // ===================================
-    
+
     // Authentication
     Route::prefix('auth')->group(function () {
         Route::post('register', [AuthController::class, 'register']);
@@ -74,9 +72,9 @@ Route::prefix('v1')->group(function () {
     // ===================================
     // ROUTES PROTÉGÉES (authentification requise)
     // ===================================
-    
-    Route::middleware('auth:sanctum')->group(function () {
-        
+
+    Route::middleware(['auth:sanctum', 'actif'])->group(function () {
+
         // Authentication
         Route::prefix('auth')->group(function () {
             Route::post('logout', [AuthController::class, 'logout']);
@@ -125,19 +123,20 @@ Route::prefix('v1')->group(function () {
         Route::prefix('notifications')->group(function () {
             Route::get('/', [NotificationController::class, 'index']);
             Route::get('/unread-count', [NotificationController::class, 'unreadCount']);
-            Route::post('/{id}/mark-read', [NotificationController::class, 'markAsRead']);
             Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
-            Route::delete('/{id}', [NotificationController::class, 'destroy']);
+            // Avant /{id} : sinon "clear-read" serait pris pour un identifiant
             Route::delete('/clear-read', [NotificationController::class, 'clearRead']);
+            Route::post('/{id}/mark-read', [NotificationController::class, 'markAsRead'])->whereNumber('id');
+            Route::delete('/{id}', [NotificationController::class, 'destroy'])->whereNumber('id');
         });
     });
 
     // ===================================
     // ROUTES ADMIN (authentification + rôle admin)
     // ===================================
-    
-    Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
-        
+
+    Route::middleware(['auth:sanctum', 'actif', 'admin'])->prefix('admin')->group(function () {
+
         // Dashboard
         Route::get('dashboard/stats', [DashboardController::class, 'stats']);
 
@@ -202,8 +201,8 @@ Route::prefix('v1')->group(function () {
     // ===================================
     // ROUTES VENDEUR (authentification + rôle vendeur)
     // ===================================
-    
-    Route::middleware(['auth:sanctum', 'vendeur'])->prefix('vendeur')->group(function () {
+
+    Route::middleware(['auth:sanctum', 'actif', 'vendeur'])->prefix('vendeur')->group(function () {
         Route::get('tarifs-livraison/quartiers', [VendeurTarifLivraisonController::class, 'quartiers']);
         Route::apiResource('tarifs-livraison', VendeurTarifLivraisonController::class);
 

@@ -129,7 +129,7 @@ File: src/views/CommandeDetail.vue
               <div class="flex items-center gap-2 text-sm text-gray-600 mt-3">
                 <Clock :size="16" />
                 <span>
-                  {{ formatDate(commande.date_livraison_souhaitee) }} — {{ commande.heure_livraison_souhaitee }}
+                  {{ formatDate(commande.date_livraison_souhaitee) }} — {{ formatHeure(commande.heure_livraison_souhaitee) }}
                 </span>
               </div>
 
@@ -321,6 +321,8 @@ File: src/views/CommandeDetail.vue
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api, { messageErreur } from '@/services/api'
+import { useToastStore } from '@/stores/toast'
+import { formatHeure } from '@/utils/format'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { useLivraisonVendeurs, formatVille } from '@/composables/useLivraisonVendeurs'
@@ -329,6 +331,7 @@ import { resolveImageUrl, onImageError } from '@/utils/images'
 
 const route = useRoute()
 const router = useRouter()
+const toastStore = useToastStore()
 
 const loading = ref(true)
 const error = ref('')
@@ -440,7 +443,8 @@ const initFormFromCommande = () => {
     type_livraison: commande.value.type_livraison || 'livraison',
     adresse_livraison_id: commande.value.adresse_livraison_id || '',
     date_livraison_souhaitee: commande.value.date_livraison_souhaitee || '',
-    heure_livraison_souhaitee: commande.value.heure_livraison_souhaitee || '',
+    // "14:30:00" -> "14:30" : format attendu par <input type="time"> et par l'API (H:i)
+    heure_livraison_souhaitee: formatHeure(commande.value.heure_livraison_souhaitee),
     telephone_livraison: commande.value.telephone_livraison || '',
     instructions_speciales: commande.value.instructions_speciales || '',
     moyen_paiement: commande.value.moyen_paiement || 'orange_money',
@@ -549,10 +553,10 @@ const submitUpdate = async () => {
       commande.value = response.data.data
       editing.value = false
       initFormFromCommande()
+      toastStore.succes('Commande mise à jour.')
     }
   } catch (err) {
-    console.error('Erreur mise à jour commande:', err)
-    alert(messageErreur(err, 'Erreur lors de la mise à jour'))
+    toastStore.erreur(messageErreur(err, 'Erreur lors de la mise à jour.'))
   } finally {
     updating.value = false
   }
@@ -564,10 +568,11 @@ const cancelOrder = async () => {
     const response = await api.commandes.cancel(route.params.id)
     if (response.data.success) {
       showCancelConfirm.value = false
+      toastStore.succes('Commande annulée.')
       await fetchCommande()
     }
   } catch (err) {
-    console.error('Erreur annulation commande:', err)
+    toastStore.erreur(messageErreur(err, 'Impossible d\'annuler la commande.'))
   } finally {
     canceling.value = false
   }

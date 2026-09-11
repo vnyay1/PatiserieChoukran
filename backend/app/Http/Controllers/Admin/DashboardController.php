@@ -4,12 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Commande;
-use App\Models\User;
 use App\Models\Produit;
-use Illuminate\Http\Request;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class DashboardController extends Controller
@@ -42,8 +42,8 @@ class DashboardController extends Controller
         $vendeurId = isset($validated['vendeur_id'])
             ? (int) $validated['vendeur_id']
             : (isset($validated['livreur_id']) ? (int) $validated['livreur_id'] : null);
-        
-        $dateDebut = match($periode) {
+
+        $dateDebut = match ($periode) {
             'aujourd_hui' => Carbon::today(),
             'semaine' => Carbon::now()->startOfWeek(),
             'mois' => Carbon::now()->startOfMonth(),
@@ -64,7 +64,7 @@ class DashboardController extends Controller
             'commandes_en_attente' => (clone $commandesQuery)->enAttente()->count(),
             'commandes_en_preparation' => (clone $commandesQuery)->enPreparation()->count(),
             'commandes_livrees' => (clone $commandesPeriodeQuery)->livree()->count(),
-            
+
             // Revenus
             'revenus_total' => (clone $commandesPeriodeQuery)
                 ->where('statut_paiement', 'paye')
@@ -73,11 +73,11 @@ class DashboardController extends Controller
                 ->whereDate('created_at', Carbon::today())
                 ->where('statut_paiement', 'paye')
                 ->sum('montant_total'),
-            
+
             // Clients
             'total_clients' => $statsClients['total_clients'],
             'nouveaux_clients' => $statsClients['nouveaux_clients'],
-            
+
             // Produits
             'total_produits' => $statsProduits['total_produits'],
             'produits_stock_faible' => $statsProduits['produits_stock_faible'],
@@ -129,7 +129,7 @@ class DashboardController extends Controller
                 'livreurs' => $vendeurs,
                 'selected_vendeur_id' => $vendeurId,
                 'selected_livreur_id' => $vendeurId,
-            ]
+            ],
         ]);
     }
 
@@ -141,16 +141,8 @@ class DashboardController extends Controller
             return $query;
         }
 
-        return $query
-            ->whereHas('ligneCommandes.produit', function ($q) use ($vendeurId) {
-                $q->where('created_by_user_id', $vendeurId);
-            })
-            ->whereDoesntHave('ligneCommandes.produit', function ($q) use ($vendeurId) {
-                $q->where(function ($sub) use ($vendeurId) {
-                    $sub->whereNull('created_by_user_id')
-                        ->orWhere('created_by_user_id', '!=', $vendeurId);
-                });
-            });
+        // Une commande = un vendeur (vendeur_id, complété pour les anciennes commandes)
+        return $query->where('vendeur_id', $vendeurId);
     }
 
     private function buildClientsStats(Carbon $dateDebut, ?int $vendeurId, Builder $commandesQuery): array

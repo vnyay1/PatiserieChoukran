@@ -49,10 +49,25 @@ File: src/views/Home.vue
             v-for="categorie in categories"
             :key="categorie.id"
             :to="`/produits?categorie=${categorie.id}`"
-            class="card p-6 text-center hover:shadow-elegant transform hover:-translate-y-1 transition-all"
+            class="card text-center hover:shadow-elegant transform hover:-translate-y-1 transition-all"
           >
-            <div class="text-4xl mb-3">{{ getCategorieEmoji(categorie.nom) }}</div>
-            <h3 class="font-display font-semibold text-lg text-gray-800">{{ categorie.nom }}</h3>
+            <!-- Image de la catégorie (téléversée par l'admin), sinon un emoji -->
+            <div v-if="categorie.image" class="aspect-[4/3] overflow-hidden bg-gold-50">
+              <img
+                :src="resolveImageUrl(categorie.image)"
+                :alt="categorie.nom"
+                class="w-full h-full object-cover"
+                loading="lazy"
+                @error="onImageError"
+              />
+            </div>
+            <div v-else class="text-4xl pt-6">{{ getCategorieEmoji(categorie.nom) }}</div>
+            <div class="p-4">
+              <h3 class="font-display font-semibold text-lg text-gray-800">{{ categorie.nom }}</h3>
+              <p v-if="categorie.produits_disponibles_count" class="text-xs text-gray-500 mt-1">
+                {{ categorie.produits_disponibles_count }} produit{{ categorie.produits_disponibles_count > 1 ? 's' : '' }}
+              </p>
+            </div>
           </router-link>
         </div>
       </div>
@@ -123,6 +138,7 @@ import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
 import Button from '@/components/common/Button.vue'
 import ProduitCard from '@/components/produits/ProduitCard.vue'
+import { resolveImageUrl, onImageError } from '@/utils/images'
 
 const authStore = useAuthStore()
 

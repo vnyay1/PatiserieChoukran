@@ -136,7 +136,8 @@ File: src/views/admin/AdminUsers.vue
                     </span>
                     <select
                       class="text-xs border border-gray-200 rounded-lg px-2 py-1"
-                      :disabled="updatingStatusId === user.id"
+                      :disabled="updatingStatusId === user.id || user.id === authStore.user?.id"
+                      :title="user.id === authStore.user?.id ? 'Vous ne pouvez pas modifier votre propre statut' : undefined"
                       :value="user.statut"
                       @change="onStatusChange(user, $event)"
                     >
@@ -297,8 +298,10 @@ File: src/views/admin/AdminUsers.vue
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import api from '@/services/api'
+import api, { messageErreur } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { Search } from 'lucide-vue-next'
@@ -313,6 +316,8 @@ const updatingStatusId = ref(null)
 const updatingRoleId = ref(null)
 
 const authStore = useAuthStore()
+const toastStore = useToastStore()
+const { confirmer } = useConfirm()
 
 const filters = ref({
   search: '',
@@ -437,7 +442,19 @@ const onStatusChange = async (user, event) => {
   const nextStatus = event.target.value
   if (nextStatus === user.statut) return
 
-  const confirmed = confirm(`Changer le statut de ${user.nom_complet} en "${getStatutLabel(nextStatus)}" ?`)
+  if (user.id === authStore.user?.id) {
+    event.target.value = user.statut
+    return
+  }
+
+  const confirmed = await confirmer({
+    titre: 'Changer le statut',
+    message: nextStatus === 'actif'
+      ? `${user.nom_complet} pourra de nouveau se connecter.`
+      : `${user.nom_complet} passera en « ${getStatutLabel(nextStatus)} » et sera déconnecté de tous ses appareils.`,
+    libelleConfirmer: 'Confirmer',
+    danger: nextStatus !== 'actif',
+  })
   if (!confirmed) {
     event.target.value = user.statut
     return
@@ -451,10 +468,11 @@ const onStatusChange = async (user, event) => {
       if (selectedUser.value?.id === user.id) {
         selectedUser.value.statut = response.data.data.statut
       }
+      toastStore.succes('Statut mis à jour.')
     }
   } catch (err) {
     event.target.value = user.statut
-    alert(err.response?.data?.message || 'Erreur lors de la mise à jour du statut')
+    toastStore.erreur(messageErreur(err, 'Erreur lors de la mise à jour du statut.'))
   } finally {
     updatingStatusId.value = null
   }
@@ -469,7 +487,11 @@ const onRoleChange = async (user, event) => {
     return
   }
 
-  const confirmed = confirm(`Changer le rôle de ${user.nom_complet} en "${getRoleLabel(nextRole)}" ?`)
+  const confirmed = await confirmer({
+    titre: 'Changer le rôle',
+    message: `${user.nom_complet} deviendra « ${getRoleLabel(nextRole)} ».`,
+    libelleConfirmer: 'Confirmer',
+  })
   if (!confirmed) {
     event.target.value = user.role
     return
@@ -483,10 +505,11 @@ const onRoleChange = async (user, event) => {
       if (selectedUser.value?.id === user.id) {
         selectedUser.value.role = response.data.data.role
       }
+      toastStore.succes('Rôle mis à jour.')
     }
   } catch (err) {
     event.target.value = user.role
-    alert(err.response?.data?.message || 'Erreur lors de la mise à jour du rôle')
+    toastStore.erreur(messageErreur(err, 'Erreur lors de la mise à jour du rôle.'))
   } finally {
     updatingRoleId.value = null
   }

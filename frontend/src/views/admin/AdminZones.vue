@@ -205,10 +205,15 @@ File: src/views/admin/AdminZones.vue
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import api from '@/services/api'
+import api, { messageErreur } from '@/services/api'
+import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-vue-next'
+
+const toastStore = useToastStore()
+const { confirmer } = useConfirm()
 
 const zones = ref([])
 const villesDisponibles = ref([])
@@ -357,28 +362,33 @@ const submitForm = async () => {
     }
 
     if (response.data.success) {
+      toastStore.succes(isEditing.value ? 'Zone mise à jour.' : 'Zone créée.')
       showForm.value = false
       fetchZones()
       resetForm()
     }
   } catch (error) {
-    formError.value = error.response?.data?.message || 'Erreur lors de l\'enregistrement'
-    console.error('Erreur sauvegarde zone:', error)
+    formError.value = messageErreur(error, 'Erreur lors de l\'enregistrement.')
   } finally {
     saving.value = false
   }
 }
 
 const deleteZone = async (zone) => {
-  const confirmed = confirm(`Supprimer la zone "${zone.nom_zone}" ?`)
+  const confirmed = await confirmer({
+    titre: 'Supprimer la zone',
+    message: `La zone « ${zone.nom_zone} » sera supprimée.`,
+    libelleConfirmer: 'Supprimer',
+    danger: true,
+  })
   if (!confirmed) return
 
   try {
     await api.admin.zones.remove(zone.id)
+    toastStore.succes('Zone supprimée.')
     fetchZones()
   } catch (error) {
-    console.error('Erreur suppression zone:', error)
-    alert('Erreur lors de la suppression')
+    toastStore.erreur(messageErreur(error, 'Erreur lors de la suppression.'))
   }
 }
 

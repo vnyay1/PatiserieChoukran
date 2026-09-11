@@ -37,7 +37,7 @@ class PanierController extends Controller
                 'items' => $panier,
                 'total' => $total,
                 'nombre_items' => $panier->count(),
-            ]
+            ],
         ]);
     }
 
@@ -60,18 +60,10 @@ class PanierController extends Controller
         $produit = Produit::findOrFail($validated['produit_id']);
 
         // Vérifier la disponibilité
-        if (!$produit->est_disponible) {
+        if (! $produit->est_disponible) {
             return response()->json([
                 'success' => false,
                 'message' => 'Ce produit n\'est pas disponible',
-            ], 400);
-        }
-
-        // Vérifier le stock (indicatif)
-        if ($produit->stock_disponible < $validated['quantite']) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Stock insuffisant',
             ], 400);
         }
 
@@ -81,9 +73,25 @@ class PanierController extends Controller
             ->nonExpire()
             ->first();
 
+        // Le stock doit couvrir la quantité déjà au panier + celle ajoutée
+        $dejaAuPanier = $panierItem?->quantite ?? 0;
+        if ($produit->stock_disponible < $dejaAuPanier + $validated['quantite']) {
+            $reste = max(0, $produit->stock_disponible - $dejaAuPanier);
+
+            return response()->json([
+                'success' => false,
+                'message' => $reste > 0
+                    ? "Stock insuffisant : vous pouvez encore ajouter {$reste} unité(s) de ce produit."
+                    : ($dejaAuPanier > 0
+                        ? 'Tout le stock disponible de ce produit est déjà dans votre panier.'
+                        : 'Ce produit est en rupture de stock.'),
+            ], 400);
+        }
+
         if ($panierItem) {
-            // Mettre à jour la quantité
+            // Mettre à jour la quantité (et le prix, s'il a changé depuis le premier ajout)
             $panierItem->quantite += $validated['quantite'];
+            $panierItem->prix_unitaire_actuel = $produit->prix_actuel;
             $panierItem->vendeur_id = $produit->created_by_user_id;
             $panierItem->calculerSousTotal();
             $panierItem->date_expiration = Panier::prochaineExpiration();
@@ -133,7 +141,7 @@ class PanierController extends Controller
         if ($panierItem->produit->stock_disponible < $validated['quantite']) {
             return response()->json([
                 'success' => false,
-                'message' => 'Stock insuffisant',
+                'message' => "Stock insuffisant : {$panierItem->produit->stock_disponible} unité(s) disponible(s).",
             ], 400);
         }
 
@@ -209,7 +217,7 @@ class PanierController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => ['count' => $count]
+            'data' => ['count' => $count],
         ]);
     }
 

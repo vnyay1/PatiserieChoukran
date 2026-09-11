@@ -5,6 +5,7 @@
 
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toast'
 import router from '@/router'
 
 const api = axios.create({
@@ -36,39 +37,48 @@ api.interceptors.response.use(
     return response
   },
   async (error) => {
-    if (error.response) {
-      // Erreur 401 - Non authentifié
-      if (error.response.status === 401) {
-        const authStore = useAuthStore()
-        const requestUrl = String(error.config?.url || '')
-        const isAuthRequest =
-          requestUrl.includes('/auth/login') ||
-          requestUrl.includes('/auth/register') ||
-          requestUrl.includes('/auth/logout')
+    const toastStore = useToastStore()
 
-        if (!isAuthRequest && authStore.token && !isHandlingUnauthorized) {
-          isHandlingUnauthorized = true
-          try {
-            await authStore.logout({ callApi: false })
+    // Pas de réponse : serveur injoignable ou connexion coupée (hors annulation volontaire)
+    if (!error.response) {
+      if (!axios.isCancel(error)) {
+        toastStore.erreur('Impossible de joindre le serveur. Vérifiez votre connexion internet.')
+      }
+      return Promise.reject(error)
+    }
 
-            if (router.currentRoute.value.name !== 'login') {
-              await router.push({ name: 'login' })
-            }
-          } finally {
-            isHandlingUnauthorized = false
+    // Erreur 401 - Session expirée, token révoqué ou compte suspendu
+    if (error.response.status === 401) {
+      const authStore = useAuthStore()
+      const requestUrl = String(error.config?.url || '')
+      const isAuthRequest =
+        requestUrl.includes('/auth/login') ||
+        requestUrl.includes('/auth/register') ||
+        requestUrl.includes('/auth/logout')
+
+      if (!isAuthRequest && authStore.token && !isHandlingUnauthorized) {
+        isHandlingUnauthorized = true
+        try {
+          await authStore.logout({ callApi: false })
+          toastStore.info(
+            error.response.data?.message && error.response.data.message !== 'Unauthenticated.'
+              ? error.response.data.message
+              : 'Votre session a expiré. Veuillez vous reconnecter.'
+          )
+
+          const current = router.currentRoute.value
+          if (current.name !== 'login') {
+            await router.push({ name: 'login', query: { redirect: current.fullPath } })
           }
+        } finally {
+          isHandlingUnauthorized = false
         }
       }
+    }
 
-      // Erreur 403 - Non autorisé
-      if (error.response.status === 403) {
-        console.error('Accès non autorisé')
-      }
-
-      // Erreur 429 - Too Many Requests
-      if (error.response.status === 429) {
-        console.error('Trop de requêtes, veuillez patienter')
-      }
+    // Erreur 429 - Trop de requêtes
+    if (error.response.status === 429) {
+      toastStore.erreur(error.response.data?.message || 'Trop de requêtes, veuillez patienter quelques instants.')
     }
 
     return Promise.reject(error)
@@ -100,6 +110,7 @@ export default {
     logout: () => api.post('/auth/logout'),
     getUser: () => api.get('/auth/user'),
     updateProfile: (data) => api.put('/auth/profile', data),
+    changePassword: (data) => api.post('/auth/change-password', data),
   },
 
   // Catégories

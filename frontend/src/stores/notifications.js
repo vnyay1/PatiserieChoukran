@@ -2,7 +2,19 @@ import { defineStore } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
 
-const POLLING_INTERVAL_MS = 30000
+// Compteur de notifications non lues : rafraîchi toutes les minutes quand l'onglet est
+// visible, au retour sur l'onglet et à la navigation (au plus une fois toutes les 15 s).
+const POLLING_INTERVAL_MS = 60000
+const DELAI_MIN_ENTRE_REQUETES_MS = 15000
+
+let pollingHandle = null
+let dernierRafraichissement = 0
+
+const surChangementVisibilite = () => {
+  if (document.visibilityState === 'visible') {
+    useNotificationsStore().fetchUnreadCount({ force: true })
+  }
+}
 
 const getDefaultPagination = () => ({
   current_page: 1,
@@ -20,7 +32,6 @@ export const useNotificationsStore = defineStore('notifications', {
     loading: false,
     error: null,
     unreadCount: 0,
-    pollingHandle: null,
   }),
 
   getters: {
@@ -75,12 +86,19 @@ export const useNotificationsStore = defineStore('notifications', {
       }
     },
 
-    async fetchUnreadCount() {
+    async fetchUnreadCount({ force = false } = {}) {
       const authStore = useAuthStore()
       if (!authStore.isAuthenticated) {
         this.unreadCount = 0
         return { success: false, count: 0 }
       }
+
+      // Évite les rafales (navigation rapide entre pages)
+      const maintenant = Date.now()
+      if (!force && maintenant - dernierRafraichissement < DELAI_MIN_ENTRE_REQUETES_MS) {
+        return { success: true, count: this.unreadCount }
+      }
+      dernierRafraichissement = maintenant
 
       try {
         const response = await api.notifications.unreadCount()
@@ -245,24 +263,29 @@ export const useNotificationsStore = defineStore('notifications', {
         return
       }
 
-      await this.fetchUnreadCount()
+      await this.fetchUnreadCount({ force: true })
 
-      if (this.pollingHandle) {
+      if (pollingHandle) {
         return
       }
 
-      this.pollingHandle = setInterval(() => {
-        this.fetchUnreadCount()
+      // Onglet en arrière-plan : aucune requête (rafraîchi au retour sur l'onglet)
+      pollingHandle = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          this.fetchUnreadCount({ force: true })
+        }
       }, POLLING_INTERVAL_MS)
+      document.addEventListener('visibilitychange', surChangementVisibilite)
     },
 
     stopPolling() {
-      if (!this.pollingHandle) {
+      if (!pollingHandle) {
         return
       }
 
-      clearInterval(this.pollingHandle)
-      this.pollingHandle = null
+      clearInterval(pollingHandle)
+      pollingHandle = null
+      document.removeEventListener('visibilitychange', surChangementVisibilite)
     },
   }
 })

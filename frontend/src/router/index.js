@@ -27,6 +27,7 @@ const AdminProduits = () => import('@/views/admin/AdminProduits.vue')
 const AdminUsers = () => import('@/views/admin/AdminUsers.vue')
 const AdminZones = () => import('@/views/admin/AdminZones.vue')
 const AdminTarifsLivraison = () => import('@/views/admin/AdminTarifsLivraison.vue')
+const NotFound = () => import('@/views/NotFound.vue')
 
 const routes = [
   {
@@ -153,6 +154,13 @@ const routes = [
     name: 'admin-tarifs',
     component: AdminTarifsLivraison,
     meta: { title: 'Mes tarifs de livraison', requiresAuth: true, requiresVendeur: true }
+  },
+  {
+    // Toute URL inconnue : page 404 plutôt qu'un écran vide
+    path: '/:pathMatch(.*)*',
+    name: 'not-found',
+    component: NotFound,
+    meta: { title: 'Page introuvable' }
   }
 ]
 

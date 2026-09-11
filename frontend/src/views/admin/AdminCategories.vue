@@ -84,7 +84,25 @@ File: src/views/admin/AdminCategories.vue
 
           <div class="md:col-span-2">
             <label class="block text-sm font-medium text-gray-700 mb-2">Image</label>
-            <input :key="fileInputKey" type="file" accept="image/*" class="input" @change="onImageChange" />
+            <div class="flex items-center gap-4">
+              <img
+                v-if="apercuImage"
+                :src="apercuImage"
+                alt="Aperçu de l'image de la catégorie"
+                class="h-20 w-20 flex-shrink-0 rounded-lg object-cover border"
+                @error="onImageError"
+              />
+              <input
+                :key="fileInputKey"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                class="input"
+                @change="onImageChange"
+              />
+            </div>
+            <p class="text-xs text-gray-500 mt-1">
+              JPEG, PNG ou WebP, {{ TAILLE_MAX_IMAGE_MO }} Mo maximum. Affichée sur la page d'accueil.
+            </p>
           </div>
 
           <div class="md:col-span-2 flex flex-wrap gap-4">
@@ -216,15 +234,19 @@ File: src/views/admin/AdminCategories.vue
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import api from '@/services/api'
+import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
+import api, { messageErreur } from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-vue-next'
-import { resolveImageUrl, onImageError } from '@/utils/images'
+import { resolveImageUrl, onImageError, verifierImage, TAILLE_MAX_IMAGE_MO } from '@/utils/images'
 
 const authStore = useAuthStore()
+const toastStore = useToastStore()
+const { confirmer } = useConfirm()
 const categories = ref([])
 const loading = ref(false)
 const saving = ref(false)
@@ -254,6 +276,17 @@ const form = ref({
 
 const imageFile = ref(null)
 const fileInputKey = ref(0)
+// Image déjà enregistrée (édition) et aperçu local du fichier choisi
+const imageActuelle = ref(null)
+const apercuLocal = ref(null)
+const apercuImage = computed(() => apercuLocal.value || (imageActuelle.value ? resolveImageUrl(imageActuelle.value) : null))
+
+const libererApercu = () => {
+  if (apercuLocal.value) {
+    URL.revokeObjectURL(apercuLocal.value)
+    apercuLocal.value = null
+  }
+}
 
 const canManageCategorie = (categorie) => {
   if (authStore.isAdmin) return true
@@ -312,6 +345,8 @@ const resetForm = () => {
     est_actif: true,
   }
   imageFile.value = null
+  imageActuelle.value = null
+  libererApercu()
   fileInputKey.value += 1
   formError.value = ''
 }
@@ -335,6 +370,8 @@ const openEdit = (categorie) => {
     est_actif: !!categorie.est_actif,
   }
   imageFile.value = null
+  imageActuelle.value = categorie.image || null
+  libererApercu()
   fileInputKey.value += 1
   isEditing.value = true
   showForm.value = true
@@ -347,7 +384,21 @@ const closeForm = () => {
 }
 
 const onImageChange = (event) => {
-  imageFile.value = event.target.files?.[0] || null
+  const fichier = event.target.files?.[0] || null
+  libererApercu()
+
+  // Refus immédiat avec un message clair plutôt qu'un échec à l'enregistrement
+  const erreur = verifierImage(fichier)
+  if (erreur) {
+    formError.value = erreur
+    imageFile.value = null
+    fileInputKey.value += 1
+    return
+  }
+
+  formError.value = ''
+  imageFile.value = fichier
+  apercuLocal.value = fichier ? URL.createObjectURL(fichier) : null
 }
 
 const buildFormData = () => {
@@ -383,13 +434,13 @@ const submitForm = async () => {
     }
 
     if (response.data.success) {
+      toastStore.succes(isEditing.value ? 'Catégorie mise à jour.' : 'Catégorie créée.')
       showForm.value = false
       fetchCategories()
       resetForm()
     }
   } catch (error) {
-    formError.value = error.response?.data?.message || 'Erreur lors de l\'enregistrement'
-    console.error('Erreur sauvegarde catégorie:', error)
+    formError.value = messageErreur(error, 'Erreur lors de l\'enregistrement.')
   } finally {
     saving.value = false
   }
@@ -400,15 +451,20 @@ const deleteCategorie = async (categorie) => {
     return
   }
 
-  const confirmed = confirm(`Supprimer "${categorie.nom}" ?`)
+  const confirmed = await confirmer({
+    titre: 'Supprimer la catégorie',
+    message: `La catégorie « ${categorie.nom} » sera supprimée.`,
+    libelleConfirmer: 'Supprimer',
+    danger: true,
+  })
   if (!confirmed) return
 
   try {
     await api.admin.categories.remove(categorie.id)
+    toastStore.succes('Catégorie supprimée.')
     fetchCategories()
   } catch (error) {
-    console.error('Erreur suppression catégorie:', error)
-    alert('Erreur lors de la suppression')
+    toastStore.erreur(messageErreur(error, 'Erreur lors de la suppression.'))
   }
 }
 
@@ -417,6 +473,8 @@ const changePage = (page) => {
   currentPage.value = page
   fetchCategories()
 }
+
+onBeforeUnmount(libererApercu)
 
 onMounted(() => {
   fetchCategories()

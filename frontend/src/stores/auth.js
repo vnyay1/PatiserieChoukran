@@ -4,7 +4,7 @@
 // ===================================
 
 import { defineStore } from 'pinia'
-import api from '@/services/api'
+import api, { messageErreur } from '@/services/api'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -48,7 +48,7 @@ export const useAuthStore = defineStore('auth', {
         this.error = response.data?.message || 'Erreur de connexion'
         return { success: false, error: this.error }
       } catch (error) {
-        this.error = error.response?.data?.message || 'Erreur de connexion'
+        this.error = messageErreur(error, 'Erreur de connexion')
         return { success: false, error: this.error }
       } finally {
         this.loading = false
@@ -73,7 +73,7 @@ export const useAuthStore = defineStore('auth', {
         this.error = response.data?.message || 'Erreur d\'inscription'
         return { success: false, error: this.error }
       } catch (error) {
-        this.error = error.response?.data?.message || 'Erreur d\'inscription'
+        this.error = messageErreur(error, 'Erreur d\'inscription')
         return { success: false, error: this.error }
       } finally {
         this.loading = false

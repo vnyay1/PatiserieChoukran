@@ -13,8 +13,14 @@ class CommandeController extends Controller
      */
     public function index(Request $request)
     {
-        $query = $this->queryForVendeur($request->user()->id)
-            ->visibleDansListes();
+        $query = $this->queryForVendeur($request->user()->id);
+
+        // historique=1 : commandes terminées (annulées, ou livrées et payées)
+        if ($request->boolean('historique')) {
+            $query->archivee();
+        } else {
+            $query->visibleDansListes();
+        }
 
         // Utilisé pour le badge du menu vendeur :
         // ne compter que les commandes encore à traiter.
@@ -30,7 +36,7 @@ class CommandeController extends Controller
             ]);
         }
 
-        $query->with(['user', 'ligneCommandes', 'adresseLivraison']);
+        $query->with(['user:id,nom_complet,telephone', 'ligneCommandes', 'adresseLivraison']);
 
         if ($request->has('statut')) {
             $query->where('statut', $request->statut);
@@ -90,12 +96,16 @@ class CommandeController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $commande = $this->findForVendeur($request->user()->id, $id)
+        // Détail accessible aussi pour les commandes archivées (historique)
+        $commande = $this->queryForVendeur($request->user()->id)
+            ->where('id', $id)
+            ->firstOrFail()
             ->load([
-                'user',
+                'user:id,nom_complet,telephone,email',
+                'vendeur:id,nom_complet,telephone',
                 'ligneCommandes.produit',
-                'adresseLivraison',
-                'historiques.modifiePar',
+                'adresseLivraison.quartierLivraison',
+                'historiques.modifiePar:id,nom_complet,role',
             ]);
 
         return response()->json([
@@ -191,18 +201,11 @@ class CommandeController extends Controller
         ]);
     }
 
+    // Une commande appartient à un seul vendeur (checkout multi-vendeur) :
+    // vendeur_id suffit (renseigné aussi pour les anciennes commandes par migration)
     private function queryForVendeur(int $vendeurId)
     {
-        return Commande::query()
-            ->whereHas('ligneCommandes.produit', function ($q) use ($vendeurId) {
-                $q->where('created_by_user_id', $vendeurId);
-            })
-            ->whereDoesntHave('ligneCommandes.produit', function ($q) use ($vendeurId) {
-                $q->where(function ($sub) use ($vendeurId) {
-                    $sub->whereNull('created_by_user_id')
-                        ->orWhere('created_by_user_id', '!=', $vendeurId);
-                });
-            });
+        return Commande::query()->where('vendeur_id', $vendeurId);
     }
 
     private function findForVendeur(int $vendeurId, int|string $commandeId): Commande

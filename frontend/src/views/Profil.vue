@@ -153,17 +153,41 @@ File: src/views/Profil.vue
               <div class="space-y-4 mb-6">
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-2">Mot de passe actuel</label>
-                  <input v-model="passwordForm.ancien_mot_de_passe" type="password" class="input" required />
+                  <input
+                    v-model="passwordForm.ancien_mot_de_passe"
+                    type="password"
+                    class="input"
+                    autocomplete="current-password"
+                    required
+                  />
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-2">Nouveau mot de passe</label>
-                  <input v-model="passwordForm.nouveau_mot_de_passe" type="password" class="input" required />
+                  <input
+                    v-model="passwordForm.nouveau_mot_de_passe"
+                    type="password"
+                    class="input"
+                    autocomplete="new-password"
+                    minlength="6"
+                    required
+                  />
+                  <p class="text-xs text-gray-500 mt-1">Minimum 6 caractères</p>
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-2">Confirmer le mot de passe</label>
-                  <input v-model="passwordForm.nouveau_mot_de_passe_confirmation" type="password" class="input" required />
+                  <input
+                    v-model="passwordForm.nouveau_mot_de_passe_confirmation"
+                    type="password"
+                    class="input"
+                    autocomplete="new-password"
+                    minlength="6"
+                    required
+                  />
                 </div>
               </div>
+              <p v-if="passwordError" class="text-sm text-red-600 mb-4">
+                {{ passwordError }}
+              </p>
               <Button type="submit" variant="primary" :loading="updatingPassword">
                 Changer le mot de passe
               </Button>
@@ -188,15 +212,19 @@ File: src/views/Profil.vue
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import api from '@/services/api'
+import { useToastStore } from '@/stores/toast'
+import api, { messageErreur } from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import AdresseFormModal from '@/components/adresse/AdresseFormModal.vue'
 import { formatVille } from '@/composables/useLivraisonVendeurs'
+import { useConfirm } from '@/composables/useConfirm'
 import { User, MapPin, Lock, LogOut, Trash2, Pencil } from 'lucide-vue-next'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const toastStore = useToastStore()
+const { confirmer } = useConfirm()
 
 const activeTab = ref('infos')
 const updating = ref(false)
@@ -205,6 +233,7 @@ const showAddAddress = ref(false)
 const adresseEnEdition = ref(null)
 const adresses = ref([])
 const profileError = ref('')
+const passwordError = ref('')
 
 const profileForm = ref({
   nom_complet: authStore.user?.nom_complet || '',
@@ -296,7 +325,7 @@ const updateProfile = async () => {
     profileForm.value.telephone = sanitizeLocalTelephone(authStore.user?.telephone || telephone)
     profileForm.value.email = authStore.user?.email || ''
 
-    alert('Profil mis à jour')
+    toastStore.succes('Profil mis à jour.')
   } catch (error) {
     const validationErrors = error.response?.data?.errors || {}
     profileError.value =
@@ -312,17 +341,24 @@ const updateProfile = async () => {
 }
 
 const changePassword = async () => {
+  passwordError.value = ''
+
   if (passwordForm.value.nouveau_mot_de_passe !== passwordForm.value.nouveau_mot_de_passe_confirmation) {
-    alert('Les mots de passe ne correspondent pas')
+    passwordError.value = 'Les nouveaux mots de passe ne correspondent pas.'
     return
   }
+
   updatingPassword.value = true
   try {
     await api.auth.changePassword(passwordForm.value)
-    alert('Mot de passe changé')
     passwordForm.value = { ancien_mot_de_passe: '', nouveau_mot_de_passe: '', nouveau_mot_de_passe_confirmation: '' }
+
+    // Le backend révoque tous les tokens après un changement de mot de passe
+    await authStore.logout({ callApi: false })
+    toastStore.succes('Mot de passe changé. Veuillez vous reconnecter.')
+    router.push({ name: 'login' })
   } catch (error) {
-    console.error('Erreur:', error)
+    passwordError.value = messageErreur(error, 'Erreur lors du changement de mot de passe.')
   } finally {
     updatingPassword.value = false
   }
@@ -340,18 +376,24 @@ const fetchAdresses = async () => {
 }
 
 const deleteAdresse = async (adresse) => {
-  const confirmed = confirm(`Supprimer l'adresse "${adresse.libelle || adresse.quartier}" ?`)
+  const confirmed = await confirmer({
+    titre: 'Supprimer l\'adresse',
+    message: `L'adresse « ${adresse.libelle || adresse.quartier} » sera supprimée.`,
+    libelleConfirmer: 'Supprimer',
+    danger: true,
+  })
   if (!confirmed) return
 
   try {
     const response = await api.adresses.remove(adresse.id)
     if (response.data.success) {
+      toastStore.succes('Adresse supprimée.')
       fetchAdresses()
     } else {
-      alert(response.data?.message || 'Erreur lors de la suppression')
+      toastStore.erreur(response.data?.message || 'Erreur lors de la suppression.')
     }
   } catch (error) {
-    alert(error.response?.data?.message || 'Erreur lors de la suppression')
+    toastStore.erreur(messageErreur(error, 'Erreur lors de la suppression.'))
   }
 }
 
@@ -373,6 +415,7 @@ const closeAddAddress = () => {
 
 const onAdresseSaved = async () => {
   closeAddAddress()
+  toastStore.succes('Adresse enregistrée.')
   await fetchAdresses()
 }
 

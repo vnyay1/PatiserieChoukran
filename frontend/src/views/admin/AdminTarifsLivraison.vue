@@ -188,10 +188,15 @@ File: src/views/admin/AdminTarifsLivraison.vue
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api, { messageErreur } from '@/services/api'
+import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { formatVille, formatDelai, normaliserTexte } from '@/composables/useLivraisonVendeurs'
 import { Plus, Search, Pencil, Trash2 } from 'lucide-vue-next'
+
+const toastStore = useToastStore()
+const { confirmer } = useConfirm()
 
 const tarifs = ref([])
 // Tous les quartiers actifs, avec `couvert` = le vendeur a déjà un tarif pour ce quartier
@@ -320,6 +325,7 @@ const submitForm = async () => {
     } else {
       await api.vendeur.tarifs.create({ ...payload, quartier_id: form.value.quartier_id })
     }
+    toastStore.succes(isEditing.value ? 'Tarif mis à jour.' : 'Quartier ajouté à votre zone de livraison.')
     showForm.value = false
     await fetchTarifs()
   } catch (error) {
@@ -333,20 +339,29 @@ const toggleActif = async (tarif) => {
   try {
     await api.vendeur.tarifs.update(tarif.id, { actif: !tarif.actif })
     tarif.actif = !tarif.actif
+    toastStore.succes(tarif.actif
+      ? `Livraison réactivée à ${tarif.quartier?.nom}.`
+      : `Livraison suspendue à ${tarif.quartier?.nom}.`)
   } catch (error) {
-    alert(messageErreur(error, 'Erreur lors de la mise à jour du tarif.'))
+    toastStore.erreur(messageErreur(error, 'Erreur lors de la mise à jour du tarif.'))
   }
 }
 
 const deleteTarif = async (tarif) => {
-  const confirmed = confirm(`Supprimer le tarif pour « ${tarif.quartier?.nom} » ? Vous ne livrerez plus ce quartier.`)
+  const confirmed = await confirmer({
+    titre: 'Supprimer le tarif',
+    message: `Vous ne livrerez plus le quartier « ${tarif.quartier?.nom} ».`,
+    libelleConfirmer: 'Supprimer',
+    danger: true,
+  })
   if (!confirmed) return
 
   try {
     await api.vendeur.tarifs.remove(tarif.id)
+    toastStore.succes('Tarif supprimé.')
     await fetchTarifs()
   } catch (error) {
-    alert(messageErreur(error, 'Erreur lors de la suppression du tarif.'))
+    toastStore.erreur(messageErreur(error, 'Erreur lors de la suppression du tarif.'))
   }
 }
 

@@ -22,6 +22,10 @@ File: src/App.vue
 
     <!-- Footer -->
     <Footer />
+
+    <!-- Retours à l'écran (remplacent alert/confirm/prompt) -->
+    <ToastContainer />
+    <ConfirmDialog />
   </div>
 </template>
 
@@ -33,6 +37,8 @@ import { usePanierStore } from '@/stores/panier'
 import Header from '@/components/layout/Header.vue'
 import Footer from '@/components/layout/Footer.vue'
 import BottomNav from '@/components/layout/BottomNav.vue'
+import ToastContainer from '@/components/common/ToastContainer.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()

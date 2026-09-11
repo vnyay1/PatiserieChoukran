@@ -151,7 +151,7 @@ File: src/views/Checkout.vue
                 <input
                   v-model="formData.heure_livraison_souhaitee"
                   type="time"
-                  :min="deliveryStartTime"
+                  :min="heureMin"
                   :max="deliveryEndTime"
                   class="input"
                   required
@@ -400,6 +400,7 @@ import {
   formatVille,
   formatDelai,
 } from '@/composables/useLivraisonVendeurs'
+import { aujourdhuiIso } from '@/utils/format'
 import { Truck, Store, Smartphone, Banknote } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -439,10 +440,19 @@ const paymentMethods = [
 const deliveryStartTime = '09:00'
 const deliveryEndTime = '18:00'
 
-const minDate = computed(() => {
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  return tomorrow.toISOString().split('T')[0]
+// Livraison possible dès aujourd'hui (date locale, pas UTC), à une heure à venir
+const minDate = computed(() => aujourdhuiIso())
+const livraisonAujourdhui = computed(() => formData.value.date_livraison_souhaitee === minDate.value)
+
+const heureMaintenant = () => {
+  const maintenant = new Date()
+  return `${String(maintenant.getHours()).padStart(2, '0')}:${String(maintenant.getMinutes()).padStart(2, '0')}`
+}
+
+const heureMin = computed(() => {
+  if (!livraisonAujourdhui.value) return deliveryStartTime
+  const maintenant = heureMaintenant()
+  return maintenant > deliveryStartTime ? maintenant : deliveryStartTime
 })
 
 const estLivraison = computed(() => formData.value.type_livraison === 'livraison')
@@ -464,6 +474,12 @@ const deliveryTimeError = computed(() => {
 
   if (requestedTime < deliveryStartTime || requestedTime > deliveryEndTime) {
     return `L'heure de livraison doit être comprise entre ${deliveryStartTime} et ${deliveryEndTime}.`
+  }
+
+  if (livraisonAujourdhui.value && requestedTime <= heureMaintenant()) {
+    return heureMaintenant() >= deliveryEndTime
+      ? 'Plus de livraison possible aujourd\'hui : choisissez une autre date.'
+      : 'Cette heure est déjà passée : choisissez une heure à venir.'
   }
 
   return ''

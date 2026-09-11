@@ -84,6 +84,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
+import { useToastStore } from '@/stores/toast'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { ShoppingCart, Star } from 'lucide-vue-next'
@@ -99,6 +100,7 @@ const props = defineProps({
 const router = useRouter()
 const authStore = useAuthStore()
 const panierStore = usePanierStore()
+const toastStore = useToastStore()
 const addingToCart = ref(false)
 const isRestrictedRole = computed(() => authStore.isAdmin || authStore.isVendeur)
 
@@ -120,17 +122,22 @@ const addToCart = async () => {
   if (isRestrictedRole.value) {
     return
   }
-  addingToCart.value = true
 
-  const result = await panierStore.addItem(props.produit.id, 1)
-
-  if (result.success) {
-    // Afficher un toast ou notification (à implémenter)
-    console.log('Produit ajouté au panier')
-  } else {
-    console.error('Erreur:', result.message)
+  // Visiteur : le panier est réservé aux clients connectés
+  if (!authStore.isAuthenticated) {
+    toastStore.info('Connectez-vous pour ajouter des produits à votre panier.')
+    router.push({ name: 'login', query: { redirect: router.currentRoute.value.fullPath } })
+    return
   }
 
+  addingToCart.value = true
+  const result = await panierStore.addItem(props.produit.id, 1)
   addingToCart.value = false
+
+  if (result.success) {
+    toastStore.succes(`« ${props.produit.nom} » ajouté au panier.`)
+  } else {
+    toastStore.erreur(result.message || 'Impossible d\'ajouter ce produit au panier.')
+  }
 }
 </script>

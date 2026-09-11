@@ -60,8 +60,9 @@ class ProduitController extends Controller
             'prix_unitaire' => 'required|numeric|min:0',
             'prix_promo' => 'nullable|numeric|min:0|lt:prix_unitaire',
             'promo_active' => 'sometimes|boolean',
-            'image_principale' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
-            'images_secondaires.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'image_principale' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'images_secondaires' => 'nullable|array|max:4',
+            'images_secondaires.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'stock_disponible' => 'required|integer|min:0',
             'est_disponible' => 'boolean',
             'est_vedette' => 'boolean',
@@ -69,9 +70,9 @@ class ProduitController extends Controller
 
         if ($request->has('promo_active')) {
             $promoActive = $request->boolean('promo_active');
-            if (!$promoActive) {
+            if (! $promoActive) {
                 $validated['prix_promo'] = null;
-            } elseif (!array_key_exists('prix_promo', $validated) || is_null($validated['prix_promo'])) {
+            } elseif (! array_key_exists('prix_promo', $validated) || is_null($validated['prix_promo'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Veuillez renseigner un prix promo pour activer la promotion.',
@@ -134,20 +135,21 @@ class ProduitController extends Controller
             'prix_unitaire' => 'sometimes|numeric|min:0',
             'prix_promo' => 'nullable|numeric|min:0',
             'promo_active' => 'sometimes|boolean',
-            'image_principale' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
-            'images_secondaires.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'image_principale' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'images_secondaires' => 'nullable|array|max:4',
+            'images_secondaires.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'stock_disponible' => 'sometimes|integer|min:0',
             'est_disponible' => 'boolean',
             'est_vedette' => 'boolean',
         ]);
 
-        if ($request->has('promo_active') && !$request->boolean('promo_active')) {
+        if ($request->has('promo_active') && ! $request->boolean('promo_active')) {
             $validated['prix_promo'] = null;
         }
 
         if (array_key_exists('prix_promo', $validated)) {
             $prixBase = $validated['prix_unitaire'] ?? $produit->prix_unitaire;
-            if (!is_null($validated['prix_promo']) && $validated['prix_promo'] >= $prixBase) {
+            if (! is_null($validated['prix_promo']) && $validated['prix_promo'] >= $prixBase) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Le prix promo doit être inférieur au prix unitaire',

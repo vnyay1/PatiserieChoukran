@@ -24,6 +24,23 @@ export const resolveImageUrl = (path, { placeholder = true } = {}) => {
   return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
 }
 
+// Mêmes limites que le backend (image, mimes:jpeg,png,jpg,webp, max:5120)
+export const TAILLE_MAX_IMAGE_MO = 5
+const TYPES_IMAGE_ACCEPTES = ['image/jpeg', 'image/png', 'image/webp']
+
+// Message d'erreur si le fichier n'est pas une image acceptée, sinon ''
+export const verifierImage = (fichier) => {
+  if (!fichier) return ''
+  if (!TYPES_IMAGE_ACCEPTES.includes(fichier.type)) {
+    return `« ${fichier.name} » : format non accepté. Utilisez une image JPEG, PNG ou WebP.`
+  }
+  if (fichier.size > TAILLE_MAX_IMAGE_MO * 1024 * 1024) {
+    const tailleMo = (fichier.size / 1024 / 1024).toFixed(1).replace('.', ',')
+    return `« ${fichier.name} » pèse ${tailleMo} Mo : ${TAILLE_MAX_IMAGE_MO} Mo maximum.`
+  }
+  return ''
+}
+
 // <img @error="onImageError"> : image introuvable -> placeholder (une seule fois, pas de boucle)
 export const onImageError = (event) => {
   const img = event?.target

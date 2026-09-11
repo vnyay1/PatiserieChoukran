@@ -28,10 +28,10 @@ class UserController extends Controller
         // Recherche
         if ($request->has('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('nom_complet', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('telephone', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('telephone', 'like', "%{$search}%");
             });
         }
 
@@ -79,7 +79,20 @@ class UserController extends Controller
         ]);
 
         $user = User::findOrFail($id);
+
+        if ($request->user()->id === $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vous ne pouvez pas modifier votre propre statut.',
+            ], 400);
+        }
+
         $user->update($validated);
+
+        // Compte suspendu/désactivé : déconnexion immédiate de tous ses appareils
+        if ($user->statut !== 'actif') {
+            $user->tokens()->delete();
+        }
 
         return response()->json([
             'success' => true,

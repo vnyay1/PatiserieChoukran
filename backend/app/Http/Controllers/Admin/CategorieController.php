@@ -43,7 +43,7 @@ class CategorieController extends Controller
         $validated = $request->validate([
             'nom' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'ordre_affichage' => 'nullable|integer|min:0',
             'est_actif' => 'boolean',
         ]);
@@ -89,7 +89,7 @@ class CategorieController extends Controller
         $validated = $request->validate([
             'nom' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'ordre_affichage' => 'nullable|integer|min:0',
             'est_actif' => 'boolean',
         ]);

@@ -62,7 +62,19 @@ const syncVendeurBadgePolling = async (authStore) => {
   }
 
   await fetchVendeurCommandesCount(authStore)
-  vendeurBadgeInterval = setInterval(() => fetchVendeurCommandesCount(authStore), 30000)
+  // Pas de requête quand l'onglet est en arrière-plan ; rafraîchi au retour (voir onVisibilityChange)
+  vendeurBadgeInterval = setInterval(() => {
+    if (document.visibilityState === 'visible') {
+      fetchVendeurCommandesCount(authStore)
+    }
+  }, 60000)
+}
+
+const onVisibilityChange = () => {
+  const authStore = useAuthStore()
+  if (document.visibilityState === 'visible' && authStore.isVendeur) {
+    fetchVendeurCommandesCount(authStore)
+  }
 }
 
 const onVendeurCommandesUpdated = () => {
@@ -78,6 +90,7 @@ const registerBadgeListener = () => {
   }
 
   window.addEventListener('vendeur-commandes-updated', onVendeurCommandesUpdated)
+  document.addEventListener('visibilitychange', onVisibilityChange)
   badgeListenerRegistered = true
 }
 
@@ -87,6 +100,7 @@ const unregisterBadgeListener = () => {
   }
 
   window.removeEventListener('vendeur-commandes-updated', onVendeurCommandesUpdated)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
   badgeListenerRegistered = false
 }
 

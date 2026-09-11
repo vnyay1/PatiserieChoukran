@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class Commande extends Model
 {
+    // Commandes pas encore terminées (ni livrées ni annulées)
+    public const STATUTS_EN_COURS = ['en_attente', 'confirmee', 'en_preparation', 'prete', 'en_livraison'];
+
     protected $fillable = [
         'numero_commande',
         'user_id',
@@ -34,7 +37,8 @@ class Commande extends Model
         'montant_produits' => 'decimal:2',
         'montant_livraison' => 'decimal:2',
         'montant_total' => 'decimal:2',
-        'date_livraison_souhaitee' => 'date',
+        // Sérialisée en "AAAA-MM-JJ" (utilisable tel quel par <input type="date">)
+        'date_livraison_souhaitee' => 'date:Y-m-d',
         'date_paiement' => 'datetime',
     ];
 
@@ -135,7 +139,7 @@ class Commande extends Model
     {
         $date = now()->format('Ymd');
         $count = static::whereDate('created_at', today())->count() + 1;
-        $this->numero_commande = 'CMD-' . $date . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
+        $this->numero_commande = 'CMD-'.$date.'-'.str_pad($count, 4, '0', STR_PAD_LEFT);
     }
 
     public function changerStatut($nouveauStatut, $userId = null, $commentaire = null)

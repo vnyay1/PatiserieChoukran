@@ -44,6 +44,8 @@ File: src/views/Register.vue
               <input
                 v-model="telephoneInput"
                 type="tel"
+                inputmode="numeric"
+                autocomplete="tel-national"
                 placeholder="699123456"
                 class="input rounded-l-none border-l-0"
                 required
@@ -70,11 +72,10 @@ File: src/views/Register.vue
             <label class="block text-sm font-medium text-gray-700 mb-2">
               Mot de passe
             </label>
-            <input
+            <PasswordInput
               v-model="form.mot_de_passe"
-              type="password"
               placeholder="••••••••"
-              class="input"
+              autocomplete="new-password"
               required
               minlength="6"
             />
@@ -86,12 +87,12 @@ File: src/views/Register.vue
             <label class="block text-sm font-medium text-gray-700 mb-2">
               Confirmer le mot de passe
             </label>
-            <input
+            <PasswordInput
               v-model="form.mot_de_passe_confirmation"
-              type="password"
               placeholder="••••••••"
-              class="input"
+              autocomplete="new-password"
               required
+              minlength="6"
             />
           </div>
 
@@ -116,7 +117,10 @@ File: src/views/Register.vue
         <div class="mt-6 text-center">
           <p class="text-sm text-gray-600">
             Déjà un compte ?
-            <router-link to="/connexion" class="text-gold-600 hover:text-gold-700 font-medium">
+            <router-link
+              :to="{ name: 'login', query: route.query }"
+              class="text-gold-600 hover:text-gold-700 font-medium"
+            >
               Se connecter
             </router-link>
           </p>
@@ -128,11 +132,14 @@ File: src/views/Register.vue
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import Button from '@/components/common/Button.vue'
 import Card from '@/components/common/Card.vue'
+import PasswordInput from '@/components/common/PasswordInput.vue'
+import { destinationApresConnexion } from '@/utils/redirection'
 
+const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
@@ -166,6 +173,11 @@ const telephoneInput = computed({
 })
 
 const handleRegister = async () => {
+  if (sanitizeLocalTelephone(form.value.telephone).length !== 9) {
+    error.value = 'Le numéro de téléphone doit comporter 9 chiffres.'
+    return
+  }
+
   // Vérifier que les mots de passe correspondent
   if (form.value.mot_de_passe !== form.value.mot_de_passe_confirmation) {
     error.value = 'Les mots de passe ne correspondent pas'
@@ -186,7 +198,7 @@ const handleRegister = async () => {
   loading.value = false
 
   if (result.success) {
-    router.push('/')
+    router.push(destinationApresConnexion(route, authStore))
   } else {
     error.value = result.error || 'Erreur lors de l\'inscription'
   }

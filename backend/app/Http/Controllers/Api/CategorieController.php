@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Categorie;
-use Illuminate\Http\Request;
 
 class CategorieController extends Controller
 {
@@ -30,9 +29,10 @@ class CategorieController extends Controller
     public function show($slug)
     {
         $categorie = Categorie::where('slug', $slug)
-            ->with(['produitsDisponibles' => function($query) {
+            ->actif()
+            ->with(['produitsDisponibles' => function ($query) {
                 $query->orderBy('est_vedette', 'desc')
-                      ->orderBy('created_at', 'desc');
+                    ->orderBy('created_at', 'desc');
             }])
             ->firstOrFail();
 

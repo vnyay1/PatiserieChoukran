@@ -217,10 +217,15 @@ File: src/views/admin/AdminParametres.vue
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import api from '@/services/api'
+import api, { messageErreur } from '@/services/api'
+import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-vue-next'
+
+const toastStore = useToastStore()
+const { confirmer } = useConfirm()
 
 const parametres = ref([])
 const loading = ref(false)
@@ -379,28 +384,33 @@ const submitForm = async () => {
     }
 
     if (response.data.success) {
+      toastStore.succes(isEditing.value ? 'Paramètre mis à jour.' : 'Paramètre créé.')
       showForm.value = false
       fetchParametres()
       resetForm()
     }
   } catch (error) {
-    formError.value = error.response?.data?.message || 'Erreur lors de l\'enregistrement'
-    console.error('Erreur sauvegarde paramètre:', error)
+    formError.value = messageErreur(error, 'Erreur lors de l\'enregistrement.')
   } finally {
     saving.value = false
   }
 }
 
 const deleteParametre = async (param) => {
-  const confirmed = confirm(`Supprimer "${param.cle}" ?`)
+  const confirmed = await confirmer({
+    titre: 'Supprimer le paramètre',
+    message: `Le paramètre « ${param.cle} » sera supprimé.`,
+    libelleConfirmer: 'Supprimer',
+    danger: true,
+  })
   if (!confirmed) return
 
   try {
     await api.admin.parametres.remove(param.id)
+    toastStore.succes('Paramètre supprimé.')
     fetchParametres()
   } catch (error) {
-    console.error('Erreur suppression paramètre:', error)
-    alert('Erreur lors de la suppression')
+    toastStore.erreur(messageErreur(error, 'Erreur lors de la suppression.'))
   }
 }
 

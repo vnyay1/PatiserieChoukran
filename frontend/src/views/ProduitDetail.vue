@@ -174,6 +174,8 @@ File: src/views/ProduitDetail.vue
                   type="number"
                   min="1"
                   :max="produit.stock_disponible"
+                  aria-label="Quantité"
+                  @blur="normaliserQuantite"
                   class="w-20 text-center text-lg font-semibold border-2 border-gray-200 rounded-lg py-2 focus:border-gold-500 focus:ring-2 focus:ring-gold-200 outline-none"
                 />
 
@@ -271,6 +273,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
+import { useToastStore } from '@/stores/toast'
 import api from '@/services/api'
 import ProduitCard from '@/components/produits/ProduitCard.vue'
 import Button from '@/components/common/Button.vue'
@@ -278,8 +281,10 @@ import { resolveImageUrl, onImageError } from '@/utils/images'
 import { ArrowLeft, Star, ShoppingCart, Minus, Plus, AlertTriangle } from 'lucide-vue-next'
 
 const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 const panierStore = usePanierStore()
+const toastStore = useToastStore()
 
 const produit = ref(null)
 const produitsSimilaires = ref([])
@@ -348,24 +353,36 @@ const fetchProduitsSimilaires = async () => {
   }
 }
 
+// Quantité toujours entière et comprise entre 1 et le stock disponible
+const normaliserQuantite = () => {
+  const stock = Math.max(1, Number(produit.value?.stock_disponible) || 1)
+  const valeur = Math.floor(Number(quantite.value))
+  quantite.value = Number.isFinite(valeur) ? Math.min(Math.max(valeur, 1), stock) : 1
+}
+
 const addToCart = async () => {
   if (isRestrictedRole.value) {
     return
   }
-  addingToCart.value = true
 
-  const result = await panierStore.addItem(produit.value.id, quantite.value)
-
-  if (result.success) {
-    // TODO: Afficher toast de succès
-    console.log('Produit ajouté au panier')
-    quantite.value = 1
-  } else {
-    // TODO: Afficher toast d'erreur
-    console.error(result.message)
+  // Visiteur : le panier est réservé aux clients connectés
+  if (!authStore.isAuthenticated) {
+    toastStore.info('Connectez-vous pour ajouter des produits à votre panier.')
+    router.push({ name: 'login', query: { redirect: route.fullPath } })
+    return
   }
 
+  normaliserQuantite()
+  addingToCart.value = true
+  const result = await panierStore.addItem(produit.value.id, quantite.value)
   addingToCart.value = false
+
+  if (result.success) {
+    toastStore.succes(`${quantite.value} × « ${produit.value.nom} » ajouté au panier.`)
+    quantite.value = 1
+  } else {
+    toastStore.erreur(result.message || 'Impossible d\'ajouter ce produit au panier.')
+  }
 }
 
 onMounted(() => {

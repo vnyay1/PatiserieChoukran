@@ -15,6 +15,22 @@ File: src/components/layout/Header.vue
         <!-- Mobile actions -->
         <div class="flex items-center gap-3 md:hidden">
           <router-link
+            v-if="authStore.isAuthenticated"
+            to="/notifications"
+            class="relative touch-target h-11 w-11 rounded-full border border-gray-200 bg-white text-gray-700 flex items-center justify-center"
+            aria-label="Notifications"
+            title="Notifications"
+          >
+            <Bell :size="20" />
+            <span
+              v-if="unreadNotificationsCount > 0"
+              class="absolute -top-1 -right-1 bg-gold-600 text-white text-[10px] rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
+            >
+              {{ formatNotificationBadgeCount(unreadNotificationsCount) }}
+            </span>
+          </router-link>
+
+          <router-link
             v-if="authStore.isAuthenticated && authStore.isClient"
             to="/panier"
             class="relative touch-target h-11 w-11 rounded-full border border-gold-200 bg-gold-50 text-gold-700 flex items-center justify-center"
@@ -81,7 +97,13 @@ File: src/components/layout/Header.vue
             </span>
           </router-link>
 
-          <router-link v-if="authStore.isAuthenticated" to="/notifications" class="relative">
+          <router-link
+            v-if="authStore.isAuthenticated"
+            to="/notifications"
+            class="relative"
+            aria-label="Notifications"
+            title="Notifications"
+          >
             <Bell
               :size="24"
               :class="route.name === 'notifications' ? 'text-gold-600' : 'text-gray-700 hover:text-gold-600'"
@@ -304,6 +326,10 @@ watch(
   () => route.fullPath,
   () => {
     mobileOpen.value = false
+    // Rafraîchissement opportuniste du badge (limité par le store)
+    if (authStore.isAuthenticated) {
+      notificationsStore.fetchUnreadCount()
+    }
   }
 )
 

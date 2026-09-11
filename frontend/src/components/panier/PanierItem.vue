@@ -39,6 +39,7 @@ File: src/components/panier/PanierItem.vue
           <!-- Bouton supprimer (mobile) -->
           <button
             class="md:hidden flex-shrink-0 text-red-500 hover:text-red-600"
+            aria-label="Retirer du panier"
             @click="$emit('remove', item.id)"
           >
             <Trash2 :size="20" />
@@ -50,8 +51,9 @@ File: src/components/panier/PanierItem.vue
           <!-- Quantité -->
           <div class="flex items-center gap-2">
             <button
-              :disabled="item.quantite <= 1 || updating"
+              :disabled="item.quantite <= 1 || loading"
               class="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 hover:border-gold-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Diminuer la quantité"
               @click="updateQuantity(item.quantite - 1)"
             >
               <Minus :size="16" />
@@ -62,13 +64,15 @@ File: src/components/panier/PanierItem.vue
               type="number"
               min="1"
               :max="item.produit.stock_disponible"
+              aria-label="Quantité"
               class="w-16 text-center border border-gray-200 rounded-lg py-1 focus:border-gold-500 focus:ring-2 focus:ring-gold-200 outline-none"
               @change="updateQuantity($event.target.value)"
             />
 
             <button
-              :disabled="item.quantite >= item.produit.stock_disponible || updating"
+              :disabled="item.quantite >= item.produit.stock_disponible || loading"
               class="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 hover:border-gold-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Augmenter la quantité"
               @click="updateQuantity(item.quantite + 1)"
             >
               <Plus :size="16" />
@@ -83,6 +87,7 @@ File: src/components/panier/PanierItem.vue
 
             <button
               class="text-red-500 hover:text-red-600"
+              aria-label="Retirer du panier"
               @click="$emit('remove', item.id)"
             >
               <Trash2 :size="20" />
@@ -96,8 +101,9 @@ File: src/components/panier/PanierItem.vue
           <div class="flex items-center gap-2">
             <span class="text-sm text-gray-600 w-20">Quantité:</span>
             <button
-              :disabled="item.quantite <= 1 || updating"
+              :disabled="item.quantite <= 1 || loading"
               class="w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 active:bg-gray-50 disabled:opacity-50"
+              aria-label="Diminuer la quantité"
               @click="updateQuantity(item.quantite - 1)"
             >
               <Minus :size="18" />
@@ -108,13 +114,15 @@ File: src/components/panier/PanierItem.vue
               type="number"
               min="1"
               :max="item.produit.stock_disponible"
+              aria-label="Quantité"
               class="w-16 text-center border border-gray-200 rounded-lg py-2 text-lg font-semibold"
               @change="updateQuantity($event.target.value)"
             />
 
             <button
-              :disabled="item.quantite >= item.produit.stock_disponible || updating"
+              :disabled="item.quantite >= item.produit.stock_disponible || loading"
               class="w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 active:bg-gray-50 disabled:opacity-50"
+              aria-label="Augmenter la quantité"
               @click="updateQuantity(item.quantite + 1)"
             >
               <Plus :size="18" />
@@ -138,43 +146,40 @@ File: src/components/panier/PanierItem.vue
     </div>
 
     <!-- Loading overlay -->
-    <div v-if="updating" class="absolute inset-0 bg-white/80 flex items-center justify-center rounded-elegant">
+    <div v-if="loading" class="absolute inset-0 bg-white/80 flex items-center justify-center rounded-elegant">
       <div class="spinner"></div>
     </div>
   </Card>
 </template>
 
 <script setup>
-import { ref } from 'vue'
 import Card from '@/components/common/Card.vue'
 import { Minus, Plus, Trash2 } from 'lucide-vue-next'
 import { resolveImageUrl, onImageError } from '@/utils/images'
+import { formatPrice } from '@/utils/format'
 
 const props = defineProps({
   item: {
     type: Object,
     required: true
+  },
+  // Fourni par le parent pendant la requête (un emit ne peut pas être attendu)
+  loading: {
+    type: Boolean,
+    default: false
   }
 })
 
 const emit = defineEmits(['update-quantity', 'remove'])
 
-const updating = ref(false)
+const updateQuantity = (newQuantite) => {
+  const quantite = parseInt(newQuantite, 10)
 
-const formatPrice = (price) => {
-  return new Intl.NumberFormat('fr-FR').format(price)
-}
-
-const updateQuantity = async (newQuantite) => {
-  const quantite = parseInt(newQuantite)
-  
-  if (quantite < 1 || quantite > props.item.produit.stock_disponible) {
+  if (!Number.isFinite(quantite) || quantite < 1 || quantite > props.item.produit.stock_disponible) {
     return
   }
 
-  updating.value = true
-  await emit('update-quantity', props.item.id, quantite)
-  updating.value = false
+  emit('update-quantity', props.item.id, quantite)
 }
 </script>
 

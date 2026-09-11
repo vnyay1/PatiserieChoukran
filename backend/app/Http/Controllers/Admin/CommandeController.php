@@ -13,7 +13,15 @@ class CommandeController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Commande::with(['user', 'ligneCommandes', 'livreur']);
+        $query = Commande::with([
+            'user:id,nom_complet,telephone',
+            'vendeur:id,nom_complet,telephone',
+            'ligneCommandes',
+        ]);
+
+        if ($request->filled('vendeur_id')) {
+            $query->where('vendeur_id', $request->integer('vendeur_id'));
+        }
 
         // Historique admin:
         // - historique=1 -> commandes archivées (annulées ou livrées+payées)
@@ -45,12 +53,12 @@ class CommandeController extends Controller
         // Recherche par numéro de commande ou client
         if ($request->has('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('numero_commande', 'like', "%{$search}%")
-                  ->orWhereHas('user', function($q2) use ($search) {
-                      $q2->where('nom_complet', 'like', "%{$search}%")
-                        ->orWhere('telephone', 'like', "%{$search}%");
-                  });
+                    ->orWhereHas('user', function ($q2) use ($search) {
+                        $q2->where('nom_complet', 'like', "%{$search}%")
+                            ->orWhere('telephone', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -69,11 +77,11 @@ class CommandeController extends Controller
     public function show($id)
     {
         $commande = Commande::with([
-            'user',
+            'user:id,nom_complet,telephone,email',
+            'vendeur:id,nom_complet,telephone',
             'ligneCommandes.produit',
-            'adresseLivraison',
-            'livreur',
-            'historiques.modifiePar'
+            'adresseLivraison.quartierLivraison',
+            'historiques.modifiePar:id,nom_complet,role',
         ])->findOrFail($id);
 
         return response()->json([
@@ -100,7 +108,7 @@ class CommandeController extends Controller
                 'message' => 'Cette commande est archivée et ne peut plus être modifiée.',
             ], 400);
         }
-        
+
         $commande->changerStatut(
             $validated['statut'],
             $request->user()->id,
@@ -124,7 +132,7 @@ class CommandeController extends Controller
         ]);
 
         $commande = Commande::findOrFail($id);
-        
+
         // Vérifier que c'est bien un vendeur.
         $livreur = \App\Models\User::find($validated['livreur_id']);
         if ($livreur->role !== 'vendeur') {
@@ -156,7 +164,7 @@ class CommandeController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Vendeur assigné',
-            'data' => $commande->load('livreur'),
+            'data' => $commande->load('vendeur:id,nom_complet,telephone'),
         ]);
     }
 
@@ -177,7 +185,7 @@ class CommandeController extends Controller
                 'message' => 'Cette commande est archivée et ne peut plus être modifiée.',
             ], 400);
         }
-        
+
         $commande->update([
             'statut_paiement' => 'paye',
             'date_paiement' => now(),

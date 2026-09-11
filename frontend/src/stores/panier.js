@@ -5,7 +5,7 @@
 
 import { defineStore } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
-import api from '@/services/api'
+import api, { messageErreur } from '@/services/api'
 
 export const usePanierStore = defineStore('panier', {
   state: () => ({
@@ -62,9 +62,9 @@ export const usePanierStore = defineStore('panier', {
           message: response.data?.message || 'Erreur lors de l\'ajout au panier'
         }
       } catch (error) {
-        return { 
-          success: false, 
-          message: error.response?.data?.message || 'Erreur lors de l\'ajout au panier' 
+        return {
+          success: false,
+          message: messageErreur(error, 'Erreur lors de l\'ajout au panier')
         }
       }
     },
@@ -77,8 +77,9 @@ export const usePanierStore = defineStore('panier', {
           await this.fetch()
           return { success: true }
         }
+        return { success: false, message: response.data?.message || 'Erreur lors de la mise à jour' }
       } catch (error) {
-        return { success: false, message: 'Erreur lors de la mise à jour' }
+        return { success: false, message: messageErreur(error, 'Erreur lors de la mise à jour') }
       }
     },
 
@@ -90,8 +91,9 @@ export const usePanierStore = defineStore('panier', {
           await this.fetch()
           return { success: true, message: 'Article retiré du panier' }
         }
+        return { success: false, message: response.data?.message || 'Erreur lors de la suppression' }
       } catch (error) {
-        return { success: false, message: 'Erreur lors de la suppression' }
+        return { success: false, message: messageErreur(error, 'Erreur lors de la suppression') }
       }
     },
 
@@ -103,8 +105,9 @@ export const usePanierStore = defineStore('panier', {
           this.items = []
           return { success: true, message: 'Panier vidé' }
         }
+        return { success: false, message: response.data?.message || 'Impossible de vider le panier' }
       } catch (error) {
-        return { success: false, message: 'Erreur' }
+        return { success: false, message: messageErreur(error, 'Impossible de vider le panier') }
       }
     }
   }

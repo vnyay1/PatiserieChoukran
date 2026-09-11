@@ -8,49 +8,68 @@ use Illuminate\Http\Request;
 
 class ProduitController extends Controller
 {
+    // Colonnes autorisées pour le tri : tout le reste est refusé par la validation
+    private const TRIS = ['created_at', 'prix', 'nombre_commandes', 'nom'];
+
     /**
      * Liste des produits avec filtres
      */
     public function index(Request $request)
     {
-        $query = Produit::with('categorie')->disponible();
+        $validated = $request->validate([
+            'categorie_id' => 'nullable|integer',
+            'search' => 'nullable|string|max:100',
+            'prix_min' => 'nullable|numeric|min:0',
+            'prix_max' => 'nullable|numeric|min:0',
+            'sort_by' => 'nullable|in:'.implode(',', self::TRIS),
+            'sort_order' => 'nullable|in:asc,desc',
+            'per_page' => 'nullable|integer|min:1|max:50',
+        ]);
 
-        // Filtre par catégorie
-        if ($request->has('categorie_id')) {
-            $query->where('categorie_id', $request->categorie_id);
+        $query = Produit::with('categorie')->visible();
+
+        if (! empty($validated['categorie_id'])) {
+            $query->where('categorie_id', $validated['categorie_id']);
         }
 
-        // Filtre par recherche
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
+        if (! empty($validated['search'])) {
+            $search = $validated['search'];
+            $query->where(function ($q) use ($search) {
                 $q->where('nom', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
-        // Filtre produits vedettes
         if ($request->boolean('vedette')) {
             $query->vedette();
         }
 
-        // Filtre produits en promotion
         if ($request->boolean('promotion')) {
             $query->promotion();
         }
 
-        // Tri
-        $sortBy = $request->get('sort_by', 'created_at');
-        $sortOrder = $request->get('sort_order', 'desc');
-        
+        // Prix réellement payé : le prix promo s'il existe, sinon le prix unitaire.
+        // Liaison en entier (FCFA sans centimes) : une chaîne serait mal comparée par SQLite.
+        if (isset($validated['prix_min'])) {
+            $query->whereRaw('COALESCE(prix_promo, prix_unitaire) >= ?', [(int) floor($validated['prix_min'])]);
+        }
+        if (isset($validated['prix_max'])) {
+            $query->whereRaw('COALESCE(prix_promo, prix_unitaire) <= ?', [(int) ceil($validated['prix_max'])]);
+        }
+
+        // Tri (colonne et sens validés ci-dessus)
+        $sortBy = $validated['sort_by'] ?? 'created_at';
+        $sortOrder = $validated['sort_order'] ?? 'desc';
+
         if ($sortBy === 'prix') {
-            $query->orderByRaw('COALESCE(prix_promo, prix_unitaire) ' . $sortOrder);
+            $query->orderByRaw('COALESCE(prix_promo, prix_unitaire) '.($sortOrder === 'asc' ? 'asc' : 'desc'));
         } else {
             $query->orderBy($sortBy, $sortOrder);
         }
+        // Ordre stable d'une page à l'autre en cas d'égalité
+        $query->orderBy('id', 'desc');
 
-        // Pagination
-        $produits = $query->paginate($request->get('per_page', 12));
+        $produits = $query->paginate($validated['per_page'] ?? 12);
 
         return response()->json([
             'success' => true,
@@ -65,7 +84,7 @@ class ProduitController extends Controller
     {
         $produit = Produit::where('slug', $slug)
             ->with('categorie')
-            ->disponible()
+            ->visible()
             ->firstOrFail();
 
         // Incrémenter le nombre de vues
@@ -86,7 +105,7 @@ class ProduitController extends Controller
 
         $similaires = Produit::where('categorie_id', $produit->categorie_id)
             ->where('id', '!=', $produit->id)
-            ->disponible()
+            ->visible()
             ->limit(4)
             ->get();
 
@@ -102,7 +121,7 @@ class ProduitController extends Controller
     public function featured()
     {
         $produits = Produit::vedette()
-            ->disponible()
+            ->visible()
             ->with('categorie')
             ->limit(8)
             ->get();
@@ -118,7 +137,7 @@ class ProduitController extends Controller
      */
     public function nouveautes()
     {
-        $produits = Produit::disponible()
+        $produits = Produit::visible()
             ->with('categorie')
             ->orderBy('created_at', 'desc')
             ->limit(8)
@@ -136,8 +155,9 @@ class ProduitController extends Controller
     public function promotions()
     {
         $produits = Produit::promotion()
-            ->disponible()
+            ->visible()
             ->with('categorie')
+            ->limit(24)
             ->get();
 
         return response()->json([

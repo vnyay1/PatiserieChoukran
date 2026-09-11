@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Commande;
+use App\Models\HistoriqueStatutCommande;
 use App\Models\LigneCommande;
+use App\Models\Notification;
 use App\Models\Panier;
 use App\Models\User;
-use App\Models\Notification;
-use App\Models\HistoriqueStatutCommande;
 use App\Models\VendeurTarifLivraison;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -33,12 +34,16 @@ class CommandeController extends Controller
             ->with(['ligneCommandes.produit', 'adresseLivraison', 'vendeur'])
             ->orderBy('created_at', 'desc');
 
-        // Filtre par statut
-        if ($request->has('statut')) {
-            $query->where('statut', $request->statut);
+        // Filtre par statut ("en_cours" = toutes les commandes non terminées)
+        if ($request->filled('statut')) {
+            if ($request->statut === 'en_cours') {
+                $query->whereIn('statut', Commande::STATUTS_EN_COURS);
+            } else {
+                $query->where('statut', $request->statut);
+            }
         }
 
-        $commandes = $query->paginate(10);
+        $commandes = $query->paginate(min(max((int) $request->get('per_page', 10), 1), 50));
 
         return response()->json([
             'success' => true,
@@ -62,7 +67,7 @@ class CommandeController extends Controller
                 'adresseLivraison',
                 'livreur',
                 'vendeur',
-                'historiques.modifiePar'
+                'historiques.modifiePar',
             ])
             ->firstOrFail();
 
@@ -95,6 +100,19 @@ class CommandeController extends Controller
             'heure_livraison_souhaitee.before_or_equal' => 'L\'heure de livraison doit être comprise entre 09:00 et 18:00.',
         ]);
 
+        if ($validated['type_livraison'] === 'livraison') {
+            $erreurCreneau = $this->verifierCreneauLivraison(
+                $validated['date_livraison_souhaitee'],
+                $validated['heure_livraison_souhaitee']
+            );
+            if ($erreurCreneau) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $erreurCreneau,
+                ], 422);
+            }
+        }
+
         Panier::purgerExpires($request->user()->id);
 
         $panierItems = Panier::where('user_id', $request->user()->id)
@@ -118,7 +136,7 @@ class CommandeController extends Controller
                 ->with('quartierLivraison')
                 ->findOrFail($validated['adresse_livraison_id']);
 
-            if (!$adresse->quartier_id) {
+            if (! $adresse->quartier_id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Veuillez sélectionner un quartier pour cette adresse.',
@@ -144,7 +162,7 @@ class CommandeController extends Controller
                     $vendeurId = $vendeurId !== '' ? (int) $vendeurId : null;
                     $vendeur = $vendeurId ? User::find($vendeurId) : null;
 
-                    if (!$vendeurId) {
+                    if (! $vendeurId) {
                         throw new \InvalidArgumentException('Certains produits du panier ne sont associés à aucun vendeur.');
                     }
 
@@ -157,7 +175,7 @@ class CommandeController extends Controller
                             ->where('actif', true)
                             ->first();
 
-                        if (!$tarif) {
+                        if (! $tarif) {
                             $nomVendeur = $vendeur?->nom_complet ?? "Vendeur #{$vendeurId}";
                             throw new \InvalidArgumentException(
                                 "Le vendeur « {$nomVendeur} » ne livre pas dans votre quartier."
@@ -236,7 +254,7 @@ class CommandeController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => count($commandes) . ' commande(s) créée(s) avec succès',
+                'message' => count($commandes).' commande(s) créée(s) avec succès',
                 'data' => $commandes,
             ], 201);
         } catch (\InvalidArgumentException $e) {
@@ -267,11 +285,11 @@ class CommandeController extends Controller
         }
 
         $commande = Commande::where('user_id', $request->user()->id)
-            ->where( 'id', $id)
+            ->where('id', $id)
             ->firstOrFail();
 
         // Vérifier si la commande peut être annulée
-        if (!in_array($commande->statut, ['en_attente'])) {
+        if (! in_array($commande->statut, ['en_attente'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Cette commande ne peut plus être annulée',
@@ -327,11 +345,28 @@ class CommandeController extends Controller
         ]);
 
         $typeLivraison = $validated['type_livraison'] ?? $commande->type_livraison;
+
+        // Nouveau créneau demandé : il doit être dans le futur
+        $dateActuelle = $commande->date_livraison_souhaitee?->format('Y-m-d');
+        $heureActuelle = $commande->heure_livraison_souhaitee ? substr($commande->heure_livraison_souhaitee, 0, 5) : null;
+        $nouvelleDate = $validated['date_livraison_souhaitee'] ?? $dateActuelle;
+        $nouvelleHeure = $validated['heure_livraison_souhaitee'] ?? $heureActuelle;
+
+        if ($typeLivraison === 'livraison' && ($nouvelleDate !== $dateActuelle || $nouvelleHeure !== $heureActuelle)) {
+            $erreurCreneau = $this->verifierCreneauLivraison($nouvelleDate, $nouvelleHeure);
+            if ($erreurCreneau) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $erreurCreneau,
+                ], 422);
+            }
+        }
+
         $adresseLivraisonId = $typeLivraison === 'livraison'
             ? ($validated['adresse_livraison_id'] ?? $commande->adresse_livraison_id)
             : null;
 
-        if ($typeLivraison === 'livraison' && !$adresseLivraisonId) {
+        if ($typeLivraison === 'livraison' && ! $adresseLivraisonId) {
             return response()->json([
                 'success' => false,
                 'message' => 'Veuillez sélectionner une adresse de livraison valide.',
@@ -347,7 +382,7 @@ class CommandeController extends Controller
                 (int) ($commande->vendeur_id ?? $commande->livreur_id)
             );
 
-            if (!empty($shipping['error'])) {
+            if (! empty($shipping['error'])) {
                 return response()->json([
                     'success' => false,
                     'message' => $shipping['error'],
@@ -398,7 +433,7 @@ class CommandeController extends Controller
             'montant_total' => $commande->montant_produits + $montantLivraison,
         ]);
 
-        $commande->load(['ligneCommandes.produit', 'adresseLivraison']);
+        $commande->load(['ligneCommandes.produit', 'adresseLivraison', 'vendeur', 'historiques.modifiePar']);
 
         return response()->json([
             'success' => true,
@@ -421,7 +456,7 @@ class CommandeController extends Controller
         $stats = [
             'total_commandes' => Commande::where('user_id', $userId)->count(),
             'en_cours' => Commande::where('user_id', $userId)
-                ->whereIn('statut', ['en_attente', 'confirmee', 'en_preparation', 'prete', 'en_livraison'])
+                ->whereIn('statut', Commande::STATUTS_EN_COURS)
                 ->count(),
             'livrees' => Commande::where('user_id', $userId)->livree()->count(),
             'annulees' => Commande::where('user_id', $userId)->where('statut', 'annulee')->count(),
@@ -470,7 +505,7 @@ class CommandeController extends Controller
 
         $this->syncPanierVendeurIds($panierItems);
         $shipping = $this->calculateShippingForPanier($panierItems, $adresse);
-        if (!empty($shipping['error'])) {
+        if (! empty($shipping['error'])) {
             return response()->json([
                 'success' => false,
                 'message' => $shipping['error'],
@@ -482,8 +517,29 @@ class CommandeController extends Controller
             'data' => [
                 'frais_livraison' => $shipping['frais_livraison'],
                 'details' => $shipping['details'],
-            ]
+            ],
         ]);
+    }
+
+    /**
+     * Le créneau de livraison demandé doit être à venir (fuseau de l'application).
+     * Renvoie un message d'erreur, ou null si le créneau est valide.
+     */
+    private function verifierCreneauLivraison(?string $date, ?string $heure): ?string
+    {
+        if (! $date || ! $heure) {
+            return null;
+        }
+
+        try {
+            $creneau = Carbon::parse($date)->setTimeFromTimeString(substr($heure, 0, 5));
+        } catch (\Throwable) {
+            return 'Date ou heure de livraison invalide.';
+        }
+
+        return $creneau->isPast()
+            ? 'Ce créneau de livraison est déjà passé : choisissez une heure à venir.'
+            : null;
     }
 
     private function syncPanierVendeurIds(Collection $panierItems): void
@@ -508,7 +564,7 @@ class CommandeController extends Controller
         foreach ($groupes as $vendeurId => $items) {
             $vendeurId = $vendeurId !== '' ? (int) $vendeurId : null;
 
-            if (!$vendeurId) {
+            if (! $vendeurId) {
                 return [
                     'frais_livraison' => null,
                     'details' => [],
@@ -518,7 +574,7 @@ class CommandeController extends Controller
 
             $shipping = $this->calculateShippingForAdresse($adresse, $vendeurId);
 
-            if (!empty($shipping['error'])) {
+            if (! empty($shipping['error'])) {
                 return [
                     'frais_livraison' => null,
                     'details' => [],
@@ -549,7 +605,7 @@ class CommandeController extends Controller
     private function calculateShippingForAdresse($adresse, ?int $livreurId = null): array
     {
         if ($adresse?->quartier_id) {
-            if (!$livreurId) {
+            if (! $livreurId) {
                 return [
                     'frais_livraison' => null,
                     'quartier' => null,
@@ -564,7 +620,7 @@ class CommandeController extends Controller
                 ->with('quartier')
                 ->first();
 
-            if (!$tarif) {
+            if (! $tarif) {
                 $nomVendeur = User::find($livreurId)?->nom_complet ?? "Vendeur #{$livreurId}";
 
                 return [
@@ -588,7 +644,7 @@ class CommandeController extends Controller
             ];
         }
 
-        if (!$adresse || !$adresse->zone_livraison_id) {
+        if (! $adresse || ! $adresse->zone_livraison_id) {
             return [
                 'frais_livraison' => null,
                 'quartier' => null,
@@ -599,7 +655,7 @@ class CommandeController extends Controller
 
         $zone = \App\Models\ZoneLivraison::find($adresse->zone_livraison_id);
 
-        if (!$zone) {
+        if (! $zone) {
             return [
                 'frais_livraison' => null,
                 'quartier' => null,
@@ -608,7 +664,7 @@ class CommandeController extends Controller
             ];
         }
 
-        if (!$zone->est_active) {
+        if (! $zone->est_active) {
             return [
                 'frais_livraison' => null,
                 'quartier' => null,

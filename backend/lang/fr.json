@@ -1,0 +1,10 @@
+{
+    "The given data was invalid.": "Les données fournies sont invalides.",
+    "(and :count more error)": "(et :count autre erreur)",
+    "(and :count more errors)": "(et :count autres erreurs)",
+    "Unauthenticated.": "Vous devez être connecté.",
+    "This action is unauthorized.": "Cette action n'est pas autorisée.",
+    "Too Many Attempts.": "Trop de tentatives. Veuillez réessayer dans un instant.",
+    "Not Found": "Ressource introuvable.",
+    "Server Error": "Erreur du serveur."
+}

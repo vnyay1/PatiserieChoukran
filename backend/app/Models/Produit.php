@@ -62,6 +62,13 @@ class Produit extends Model
         return $query->where('est_disponible', true);
     }
 
+    // Produits proposés sur la boutique : disponibles et dans une catégorie active
+    public function scopeVisible($query)
+    {
+        return $query->disponible()
+            ->whereHas('categorie', fn ($categorie) => $categorie->where('est_actif', true));
+    }
+
     public function scopeVedette($query)
     {
         return $query->where('est_vedette', true);
@@ -85,14 +92,15 @@ class Produit extends Model
 
     public function getEnPromotionAttribute()
     {
-        return !is_null($this->prix_promo);
+        return ! is_null($this->prix_promo);
     }
 
     public function getPourcentageReductionAttribute()
     {
-        if (!$this->en_promotion) {
+        if (! $this->en_promotion) {
             return 0;
         }
+
         return round((($this->prix_unitaire - $this->prix_promo) / $this->prix_unitaire) * 100);
     }
 

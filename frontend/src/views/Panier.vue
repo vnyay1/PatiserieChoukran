@@ -73,6 +73,7 @@ File: src/views/Panier.vue
                   v-for="item in groupe.items"
                   :key="item.id"
                   :item="item"
+                  :loading="itemsEnCours.has(item.id)"
                   @update-quantity="updateQuantity"
                   @remove="removeItem"
                 />
@@ -198,6 +199,7 @@ File: src/views/Panier.vue
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { usePanierStore } from '@/stores/panier'
+import { useToastStore } from '@/stores/toast'
 import api from '@/services/api'
 import PanierItem from '@/components/panier/PanierItem.vue'
 import Button from '@/components/common/Button.vue'
@@ -206,6 +208,7 @@ import { useLivraisonVendeurs, grouperParVendeur, formatDelai } from '@/composab
 import { Shield } from 'lucide-vue-next'
 
 const panierStore = usePanierStore()
+const toastStore = useToastStore()
 const { chargerQuartiersVendeurs, livraisonDesGroupes } = useLivraisonVendeurs()
 
 const showClearConfirm = ref(false)
@@ -274,17 +277,42 @@ watch(
   { immediate: true }
 )
 
+// Lignes en cours de mise à jour (indicateur de chargement par article)
+const itemsEnCours = ref(new Set())
+
+const avecChargement = async (itemId, action) => {
+  itemsEnCours.value.add(itemId)
+  try {
+    return await action()
+  } finally {
+    itemsEnCours.value.delete(itemId)
+  }
+}
+
 const updateQuantity = async (itemId, quantite) => {
-  await panierStore.updateQuantity(itemId, quantite)
+  const result = await avecChargement(itemId, () => panierStore.updateQuantity(itemId, quantite))
+  if (!result?.success) {
+    toastStore.erreur(result?.message || 'Impossible de modifier la quantité.')
+  }
 }
 
 const removeItem = async (itemId) => {
-  await panierStore.removeItem(itemId)
+  const result = await avecChargement(itemId, () => panierStore.removeItem(itemId))
+  if (result?.success) {
+    toastStore.succes('Article retiré du panier.')
+  } else {
+    toastStore.erreur(result?.message || 'Impossible de retirer cet article.')
+  }
 }
 
 const clearCart = async () => {
-  await panierStore.clear()
+  const result = await panierStore.clear()
   showClearConfirm.value = false
+  if (result?.success) {
+    toastStore.succes('Panier vidé.')
+  } else {
+    toastStore.erreur(result?.message || 'Impossible de vider le panier.')
+  }
 }
 </script>
 
