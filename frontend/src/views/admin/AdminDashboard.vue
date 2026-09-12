@@ -229,6 +229,16 @@ import api from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { resolveImageUrl, onImageError } from '@/utils/images'
+import {
+  dateIso,
+  formatDate,
+  formatPrice,
+  formatPrice as formatNumber,
+  libelleStatut as getStatutLabel,
+  classeStatut as getBadgeClass,
+  libellePaiement as getPaymentLabel,
+  classePaiement as getPaymentBadgeClass,
+} from '@/utils/format'
 
 const loading = ref(false)
 const error = ref('')
@@ -301,7 +311,8 @@ const chartData = computed(() => {
   for (let i = 6; i >= 0; i--) {
     const date = new Date()
     date.setDate(date.getDate() - i)
-    const iso = date.toISOString().slice(0, 10)
+    // Date locale : toISOString donnerait la date UTC, décalée d'un jour en soirée
+    const iso = dateIso(date)
     const data = map.get(iso)
     days.push({
       date: iso,
@@ -324,86 +335,8 @@ const getBarHeight = (value) => {
   return Math.max(4, (value / maxMontant.value) * 100)
 }
 
-const formatNumber = (value) => {
-  return new Intl.NumberFormat('fr-FR').format(value || 0)
-}
-
-const formatPrice = (value) => {
-  return new Intl.NumberFormat('fr-FR').format(value || 0)
-}
-
-const toDate = (value) => {
-  if (!value) return null
-  if (typeof value === 'string' && value.length === 10) {
-    return new Date(`${value}T00:00:00`)
-  }
-  return new Date(value)
-}
-
-const formatDateShort = (date) => {
-  const parsed = toDate(date)
-  if (!parsed) return ''
-  return parsed.toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: 'short',
-  })
-}
-
-const formatDateTime = (date) => {
-  const parsed = toDate(date)
-  if (!parsed) return ''
-  return parsed.toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
-}
-
-const getStatutLabel = (statut) => {
-  const labels = {
-    en_attente: 'En attente',
-    confirmee: 'Confirmée',
-    en_preparation: 'En préparation',
-    prete: 'Prête',
-    en_livraison: 'En livraison',
-    livree: 'Livrée',
-    annulee: 'Annulée',
-  }
-  return labels[statut] || statut
-}
-
-const getBadgeClass = (statut) => {
-  const classes = {
-    en_attente: 'bg-yellow-100 text-yellow-700',
-    confirmee: 'bg-blue-100 text-blue-700',
-    en_preparation: 'bg-purple-100 text-purple-700',
-    prete: 'bg-indigo-100 text-indigo-700',
-    en_livraison: 'bg-orange-100 text-orange-700',
-    livree: 'bg-green-100 text-green-700',
-    annulee: 'bg-red-100 text-red-700',
-  }
-  return classes[statut] || 'bg-gray-100 text-gray-700'
-}
-
-const getPaymentLabel = (statut) => {
-  const labels = {
-    en_attente: 'À payer',
-    paye: 'Payé',
-    echec: 'Échec',
-    rembourse: 'Remboursé',
-  }
-  return labels[statut] || statut
-}
-
-const getPaymentBadgeClass = (statut) => {
-  const classes = {
-    en_attente: 'bg-yellow-100 text-yellow-700',
-    paye: 'bg-green-100 text-green-700',
-    echec: 'bg-red-100 text-red-700',
-    rembourse: 'bg-gray-100 text-gray-700',
-  }
-  return classes[statut] || 'bg-gray-100 text-gray-700'
-}
+const formatDateShort = (date) => formatDate(date, { day: '2-digit', month: 'short' })
+const formatDateTime = (date) => formatDate(date)
 
 const setPeriode = (value) => {
   if (periode.value === value) return

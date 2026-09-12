@@ -22,7 +22,7 @@ class PanierController extends Controller
 
         $panier = Panier::where('user_id', $request->user()->id)
             ->nonExpire()
-            ->with(['produit.categorie', 'produit.createur', 'vendeur'])
+            ->with(['produit.categorie', 'produit.createur:id,nom_complet', 'vendeur:id,nom_complet'])
             ->get();
 
         $panier->each(function (Panier $panierItem) {
@@ -113,7 +113,7 @@ class PanierController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Produit ajouté au panier',
-            'data' => $panierItem->load(['produit.createur', 'vendeur']),
+            'data' => $panierItem->load(['produit.createur:id,nom_complet', 'vendeur:id,nom_complet']),
         ], 201);
     }
 
@@ -155,7 +155,7 @@ class PanierController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Panier mis à jour',
-            'data' => $panierItem->load(['produit.createur', 'vendeur']),
+            'data' => $panierItem->load(['produit.createur:id,nom_complet', 'vendeur:id,nom_complet']),
         ]);
     }
 
@@ -249,7 +249,7 @@ class PanierController extends Controller
         if ((int) $panierItem->vendeur_id !== (int) $vendeurId) {
             $panierItem->vendeur_id = $vendeurId;
             $panierItem->save();
-            $panierItem->load('vendeur');
+            $panierItem->load('vendeur:id,nom_complet');
         }
     }
 

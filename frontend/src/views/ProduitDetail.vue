@@ -101,9 +101,14 @@ File: src/views/ProduitDetail.vue
           </router-link>
 
           <!-- Nom -->
-          <h1 class="font-display text-3xl md:text-4xl font-bold text-gray-800 mb-4">
+          <h1 class="font-display text-3xl md:text-4xl font-bold text-gray-800 mb-2">
             {{ produit.nom }}
           </h1>
+
+          <!-- Vendeur : ses frais de livraison s'appliquent selon votre quartier -->
+          <p v-if="produit.createur?.nom_complet" class="text-sm text-gray-600 mb-4">
+            Vendu par <span class="font-medium text-gray-800">{{ produit.createur.nom_complet }}</span>
+          </p>
 
           <!-- Prix -->
           <div class="flex items-baseline gap-3 mb-6">

@@ -26,7 +26,8 @@ class ProduitController extends Controller
             'per_page' => 'nullable|integer|min:1|max:50',
         ]);
 
-        $query = Produit::with('categorie')->visible();
+        // Seul le nom du vendeur est exposé (pas son téléphone ni son e-mail)
+        $query = Produit::with(['categorie', 'createur:id,nom_complet'])->visible();
 
         if (! empty($validated['categorie_id'])) {
             $query->where('categorie_id', $validated['categorie_id']);
@@ -83,7 +84,7 @@ class ProduitController extends Controller
     public function show($slug)
     {
         $produit = Produit::where('slug', $slug)
-            ->with('categorie')
+            ->with(['categorie', 'createur:id,nom_complet'])
             ->visible()
             ->firstOrFail();
 
@@ -105,6 +106,7 @@ class ProduitController extends Controller
 
         $similaires = Produit::where('categorie_id', $produit->categorie_id)
             ->where('id', '!=', $produit->id)
+            ->with('createur:id,nom_complet')
             ->visible()
             ->limit(4)
             ->get();
@@ -122,7 +124,7 @@ class ProduitController extends Controller
     {
         $produits = Produit::vedette()
             ->visible()
-            ->with('categorie')
+            ->with(['categorie', 'createur:id,nom_complet'])
             ->limit(8)
             ->get();
 
@@ -138,7 +140,7 @@ class ProduitController extends Controller
     public function nouveautes()
     {
         $produits = Produit::visible()
-            ->with('categorie')
+            ->with(['categorie', 'createur:id,nom_complet'])
             ->orderBy('created_at', 'desc')
             ->limit(8)
             ->get();
@@ -156,7 +158,7 @@ class ProduitController extends Controller
     {
         $produits = Produit::promotion()
             ->visible()
-            ->with('categorie')
+            ->with(['categorie', 'createur:id,nom_complet'])
             ->limit(24)
             ->get();
 

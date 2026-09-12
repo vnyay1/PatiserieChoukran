@@ -225,7 +225,7 @@ File: src/views/admin/AdminUsers.vue
                 </div>
               </Card>
 
-              <Card padding="md" v-if="selectedUser.stats">
+              <Card v-if="selectedUser.stats && selectedUser.role === 'client'" padding="md">
                 <div class="text-xs text-gray-500 mb-2">Statistiques client</div>
                 <div class="space-y-2 text-sm text-gray-700">
                   <div class="flex items-center justify-between">
@@ -239,6 +239,32 @@ File: src/views/admin/AdminUsers.vue
                   <div class="flex items-center justify-between">
                     <span>Commande moyenne</span>
                     <span class="font-semibold">{{ formatPrice(selectedUser.stats.commande_moyenne) }} FCFA</span>
+                  </div>
+                </div>
+              </Card>
+
+              <Card v-if="selectedUser.stats && selectedUser.role === 'vendeur'" padding="md">
+                <div class="text-xs text-gray-500 mb-2">Statistiques vendeur</div>
+                <div class="space-y-2 text-sm text-gray-700">
+                  <div class="flex items-center justify-between">
+                    <span>Produits au catalogue</span>
+                    <span class="font-semibold">{{ formatNumber(selectedUser.stats.produits) }}</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span>Commandes reçues</span>
+                    <span class="font-semibold">{{ formatNumber(selectedUser.stats.commandes_recues) }}</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span>En cours</span>
+                    <span class="font-semibold">{{ formatNumber(selectedUser.stats.commandes_en_cours) }}</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span>Encaissé</span>
+                    <span class="font-semibold">{{ formatPrice(selectedUser.stats.chiffre_affaires) }} FCFA</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span>Quartiers desservis</span>
+                    <span class="font-semibold">{{ formatNumber(selectedUser.stats.quartiers_desservis) }}</span>
                   </div>
                 </div>
               </Card>
@@ -302,6 +328,7 @@ import api, { messageErreur } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
+import { formatPrice, formatPrice as formatNumber, formatDate } from '@/utils/format'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { Search } from 'lucide-vue-next'
@@ -340,18 +367,6 @@ const lastCommandes = computed(() => {
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 5)
 })
-
-const formatNumber = (value) => new Intl.NumberFormat('fr-FR').format(value || 0)
-const formatPrice = (value) => new Intl.NumberFormat('fr-FR').format(value || 0)
-
-const formatDate = (date) => {
-  if (!date) return ''
-  return new Date(date).toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
-}
 
 const getRoleLabel = (role) => {
   const labels = {

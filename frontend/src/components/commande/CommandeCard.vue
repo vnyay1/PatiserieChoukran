@@ -95,6 +95,14 @@ File: src/components/commande/CommandeCard.vue
 
 <script setup>
 import Card from '@/components/common/Card.vue'
+import {
+  formatPrice,
+  formatDateLongue as formatDate,
+  libelleStatut as getStatutLabel,
+  classeStatut as getBadgeClass,
+  libellePaiement as getPaymentLabel,
+  classePaiement as getPaymentBadgeClass,
+} from '@/utils/format'
 import { Package, Truck, Store, ChevronRight } from 'lucide-vue-next'
 
 defineProps({
@@ -105,64 +113,6 @@ defineProps({
 })
 
 defineEmits(['click'])
-
-const formatPrice = (price) => {
-  return new Intl.NumberFormat('fr-FR').format(price)
-}
-
-const formatDate = (date) => {
-  return new Date(date).toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  })
-}
-
-const getStatutLabel = (statut) => {
-  const labels = {
-    'en_attente': 'En attente',
-    'confirmee': 'Confirmée',
-    'en_preparation': 'En préparation',
-    'prete': 'Prête',
-    'en_livraison': 'En livraison',
-    'livree': 'Livrée',
-    'annulee': 'Annulée'
-  }
-  return labels[statut] || statut
-}
-
-const getBadgeClass = (statut) => {
-  const classes = {
-    'en_attente': 'bg-yellow-100 text-yellow-700',
-    'confirmee': 'bg-blue-100 text-blue-700',
-    'en_preparation': 'bg-purple-100 text-purple-700',
-    'prete': 'bg-indigo-100 text-indigo-700',
-    'en_livraison': 'bg-orange-100 text-orange-700',
-    'livree': 'bg-green-100 text-green-700',
-    'annulee': 'bg-red-100 text-red-700'
-  }
-  return classes[statut] || 'bg-gray-100 text-gray-700'
-}
-
-const getPaymentLabel = (statut) => {
-  const labels = {
-    'en_attente': 'À payer',
-    'paye': 'Payé',
-    'echec': 'Échec',
-    'rembourse': 'Remboursé'
-  }
-  return labels[statut] || statut
-}
-
-const getPaymentBadgeClass = (statut) => {
-  const classes = {
-    'en_attente': 'bg-yellow-100 text-yellow-700',
-    'paye': 'bg-green-100 text-green-700',
-    'echec': 'bg-red-100 text-red-700',
-    'rembourse': 'bg-gray-100 text-gray-700'
-  }
-  return classes[statut] || 'bg-gray-100 text-gray-700'
-}
 
 const getDeliveryIcon = (type) => {
   return type === 'livraison' ? Truck : Store

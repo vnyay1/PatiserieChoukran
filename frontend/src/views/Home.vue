@@ -101,6 +101,28 @@ File: src/views/Home.vue
       </div>
     </section>
 
+    <!-- Nouveautés -->
+    <section v-if="loadingNouveautes || produitsNouveautes.length > 0" class="py-12 px-4">
+      <div class="container mx-auto">
+        <div class="text-center mb-8">
+          <h2 class="font-display text-3xl font-bold text-gold-600 mb-2">Nouveautés</h2>
+          <p class="text-gray-600">Les dernières créations de nos vendeurs</p>
+        </div>
+
+        <div v-if="loadingNouveautes" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div v-for="n in 4" :key="n" class="skeleton h-64 rounded-elegant"></div>
+        </div>
+
+        <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <ProduitCard
+            v-for="produit in produitsNouveautes"
+            :key="produit.id"
+            :produit="produit"
+          />
+        </div>
+      </div>
+    </section>
+
     <!-- Pourquoi Choukrane -->
     <section class="py-12 px-4">
       <div class="container mx-auto">
@@ -144,8 +166,10 @@ const authStore = useAuthStore()
 
 const categories = ref([])
 const produitsFeatured = ref([])
+const produitsNouveautes = ref([])
 const loadingCategories = ref(true)
 const loadingProduits = ref(true)
+const loadingNouveautes = ref(true)
 
 const getCategorieEmoji = (nom) => {
   const emojis = {
@@ -158,29 +182,23 @@ const getCategorieEmoji = (nom) => {
   return emojis[nom] || '🍰'
 }
 
-onMounted(async () => {
+const charger = async (requete, cible, chargement) => {
   try {
-    // Charger les catégories
-    const catResponse = await api.categories.getAll()
-    if (catResponse.data.success) {
-      categories.value = catResponse.data.data
+    const response = await requete
+    if (response.data.success) {
+      cible.value = response.data.data
     }
   } catch (error) {
-    console.error('Erreur chargement catégories:', error)
+    console.error('Erreur chargement page d\'accueil:', error)
   } finally {
-    loadingCategories.value = false
+    chargement.value = false
   }
+}
 
-  try {
-    // Charger les produits vedettes
-    const prodResponse = await api.produits.getFeatured()
-    if (prodResponse.data.success) {
-      produitsFeatured.value = prodResponse.data.data
-    }
-  } catch (error) {
-    console.error('Erreur chargement produits:', error)
-  } finally {
-    loadingProduits.value = false
-  }
+onMounted(() => {
+  // Les trois requêtes partent en même temps : la page s'affiche plus vite
+  charger(api.categories.getAll(), categories, loadingCategories)
+  charger(api.produits.getFeatured(), produitsFeatured, loadingProduits)
+  charger(api.produits.getNouveautes(), produitsNouveautes, loadingNouveautes)
 })
 </script>

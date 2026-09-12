@@ -126,16 +126,27 @@ File: src/views/CommandeDetail.vue
                 </div>
               </div>
 
-              <div class="flex items-center gap-2 text-sm text-gray-600 mt-3">
+              <div v-if="commande.date_livraison_souhaitee" class="flex items-center gap-2 text-sm text-gray-600 mt-3">
                 <Clock :size="16" />
                 <span>
-                  {{ formatDate(commande.date_livraison_souhaitee) }} — {{ formatHeure(commande.heure_livraison_souhaitee) }}
+                  {{ formatDate(commande.date_livraison_souhaitee) }}
+                  <template v-if="commande.heure_livraison_souhaitee">
+                    à {{ formatHeure(commande.heure_livraison_souhaitee) }}
+                  </template>
                 </span>
               </div>
 
               <div v-if="commande.instructions_speciales" class="text-sm text-gray-600 mt-2">
                 <span class="font-medium text-gray-700">Instructions:</span>
                 {{ commande.instructions_speciales }}
+              </div>
+
+              <!-- Contact du vendeur : utile en cas de question sur la livraison -->
+              <div v-if="commande.vendeur?.telephone" class="text-sm text-gray-600 mt-3">
+                <span class="font-medium text-gray-700">Contacter le vendeur :</span>
+                <a :href="`tel:${commande.vendeur.telephone}`" class="text-gold-600 hover:text-gold-700">
+                  {{ commande.vendeur.telephone }}
+                </a>
               </div>
             </div>
 
@@ -158,9 +169,26 @@ File: src/views/CommandeDetail.vue
                 <div class="font-medium text-gray-700 mb-1">Paiement</div>
                 <div>Moyen: {{ getPaymentMethodLabel(commande.moyen_paiement) }}</div>
                 <div v-if="commande.telephone_paiement">Téléphone: {{ commande.telephone_paiement }}</div>
+                <div v-if="commande.date_paiement">
+                  Payée le {{ formatDateHeure(commande.date_paiement) }}
+                </div>
               </div>
             </div>
           </div>
+        </Card>
+
+        <!-- Suivi -->
+        <Card v-if="historiqueTrie.length" padding="lg">
+          <h2 class="font-display text-xl font-bold text-gray-800 mb-4">
+            Suivi de la commande
+          </h2>
+          <ol class="border-l-2 border-gold-200 pl-4 space-y-4">
+            <li v-for="etape in historiqueTrie" :key="etape.id">
+              <div class="font-medium text-gray-800">{{ getStatutLabel(etape.nouveau_statut) }}</div>
+              <div class="text-xs text-gray-500">{{ formatDateHeure(etape.created_at) }}</div>
+              <p v-if="etape.commentaire" class="text-sm text-gray-600 mt-1">{{ etape.commentaire }}</p>
+            </li>
+          </ol>
         </Card>
 
         <!-- Actions -->
@@ -322,7 +350,17 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api, { messageErreur } from '@/services/api'
 import { useToastStore } from '@/stores/toast'
-import { formatHeure } from '@/utils/format'
+import {
+  formatPrice,
+  formatHeure,
+  formatDateLongue as formatDate,
+  formatDateHeure,
+  libelleStatut as getStatutLabel,
+  classeStatut as getBadgeClass,
+  libellePaiement as getPaymentLabel,
+  classePaiement as getPaymentBadgeClass,
+  libelleMoyenPaiement as getPaymentMethodLabel,
+} from '@/utils/format'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { useLivraisonVendeurs, formatVille } from '@/composables/useLivraisonVendeurs'
@@ -365,73 +403,11 @@ const form = ref({
 
 const canEdit = computed(() => commande.value?.statut === 'en_attente')
 
-const formatPrice = (price) => {
-  return new Intl.NumberFormat('fr-FR').format(price)
-}
-
-const formatDate = (date) => {
-  if (!date) return '-'
-  return new Date(date).toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  })
-}
-
-const getStatutLabel = (statut) => {
-  const labels = {
-    'en_attente': 'En attente',
-    'confirmee': 'Confirmée',
-    'en_preparation': 'En préparation',
-    'prete': 'Prête',
-    'en_livraison': 'En livraison',
-    'livree': 'Livrée',
-    'annulee': 'Annulée'
-  }
-  return labels[statut] || statut
-}
-
-const getBadgeClass = (statut) => {
-  const classes = {
-    'en_attente': 'bg-yellow-100 text-yellow-700',
-    'confirmee': 'bg-blue-100 text-blue-700',
-    'en_preparation': 'bg-purple-100 text-purple-700',
-    'prete': 'bg-indigo-100 text-indigo-700',
-    'en_livraison': 'bg-orange-100 text-orange-700',
-    'livree': 'bg-green-100 text-green-700',
-    'annulee': 'bg-red-100 text-red-700'
-  }
-  return classes[statut] || 'bg-gray-100 text-gray-700'
-}
-
-const getPaymentLabel = (statut) => {
-  const labels = {
-    'en_attente': 'À payer',
-    'paye': 'Payé',
-    'echec': 'Échec',
-    'rembourse': 'Remboursé'
-  }
-  return labels[statut] || statut
-}
-
-const getPaymentBadgeClass = (statut) => {
-  const classes = {
-    'en_attente': 'bg-yellow-100 text-yellow-700',
-    'paye': 'bg-green-100 text-green-700',
-    'echec': 'bg-red-100 text-red-700',
-    'rembourse': 'bg-gray-100 text-gray-700'
-  }
-  return classes[statut] || 'bg-gray-100 text-gray-700'
-}
-
-const getPaymentMethodLabel = (method) => {
-  const labels = {
-    'orange_money': 'Orange Money',
-    'mtn_momo': 'MTN Mobile Money',
-    'especes': 'Espèces'
-  }
-  return labels[method] || method
-}
+// Étapes de la commande, de la plus ancienne à la plus récente
+const historiqueTrie = computed(() => {
+  return [...(commande.value?.historiques || [])]
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+})
 
 const getDeliveryIcon = (type) => {
   return type === 'livraison' ? Truck : Store

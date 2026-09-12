@@ -27,6 +27,14 @@ File: src/views/admin/AdminCommandes.vue
         </div>
       </div>
 
+      <!-- Repères du vendeur (l'admin dispose du tableau de bord) -->
+      <div v-if="!isAdmin && statsVendeur" class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <Card v-for="carte in cartesStats" :key="carte.cle" padding="md">
+          <div class="text-xs text-gray-500">{{ carte.label }}</div>
+          <div class="font-display text-2xl font-bold text-gold-600">{{ carte.valeur }}</div>
+        </Card>
+      </div>
+
       <Card padding="md" class="mb-6">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div class="md:col-span-2">
@@ -464,6 +472,7 @@ const { demander } = useConfirm()
 
 const commandes = ref([])
 const vendeurs = ref([])
+const statsVendeur = ref(null)
 const loading = ref(false)
 const error = ref('')
 
@@ -521,6 +530,30 @@ const optionsStatut = (commande) => {
     ? commande.statuts_suivants
     : Object.keys(STATUTS_COMMANDE).filter((statut) => statut !== commande?.statut)
   return [commande?.statut, ...suivants].filter(Boolean)
+}
+
+const cartesStats = computed(() => {
+  const stats = statsVendeur.value
+  if (!stats) return []
+
+  return [
+    { cle: 'a_traiter', label: 'À traiter', valeur: stats.a_traiter ?? 0 },
+    { cle: 'aujourd_hui', label: "Reçues aujourd'hui", valeur: stats.aujourd_hui ?? 0 },
+    { cle: 'livrees_ce_mois', label: 'Livrées ce mois', valeur: stats.livrees_ce_mois ?? 0 },
+    { cle: 'encaisse_ce_mois', label: 'Encaissé ce mois', valeur: `${formatPrice(stats.encaisse_ce_mois)} FCFA` },
+  ]
+})
+
+const fetchStatsVendeur = async () => {
+  if (isAdmin.value) return
+  try {
+    const response = await api.vendeur.stats()
+    if (response.data.success) {
+      statsVendeur.value = response.data.data
+    }
+  } catch (err) {
+    console.error('Erreur chargement des statistiques vendeur:', err)
+  }
 }
 
 const fetchVendeurs = async () => {
@@ -642,6 +675,7 @@ const onStatusChange = async (commande, event) => {
         closeDetail()
       }
       await fetchCommandes()
+      fetchStatsVendeur()
       notifyVendeurBadgeRefresh()
     }
   } catch (err) {
@@ -673,6 +707,7 @@ const confirmPayment = async (commande) => {
         closeDetail()
       }
       await fetchCommandes()
+      fetchStatsVendeur()
       notifyVendeurBadgeRefresh()
     }
   } catch (err) {
@@ -709,6 +744,7 @@ const closeDetail = () => {
 
 onMounted(() => {
   fetchVendeurs()
+  fetchStatsVendeur()
   fetchCommandes()
 })
 </script>

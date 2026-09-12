@@ -170,13 +170,19 @@ class CommandeController extends Controller
         $query = $this->queryForVendeur($request->user()->id);
 
         $stats = [
-            'livraisons_total' => (clone $query)->count(),
-            'livraisons_aujourd_hui' => (clone $query)->whereDate('created_at', today())->count(),
-            'en_cours' => (clone $query)->whereIn('statut', ['confirmee', 'en_preparation', 'prete', 'en_livraison'])->count(),
+            'a_traiter' => (clone $query)->visibleDansListes()->count(),
+            'aujourd_hui' => (clone $query)->whereDate('created_at', today())->count(),
+            'en_cours' => (clone $query)->whereIn('statut', Commande::STATUTS_EN_COURS)->count(),
             'livrees_ce_mois' => (clone $query)
                 ->where('statut', 'livree')
                 ->whereMonth('updated_at', now()->month)
+                ->whereYear('updated_at', now()->year)
                 ->count(),
+            'encaisse_ce_mois' => (clone $query)
+                ->where('statut_paiement', 'paye')
+                ->whereMonth('date_paiement', now()->month)
+                ->whereYear('date_paiement', now()->year)
+                ->sum('montant_total'),
         ];
 
         return response()->json([

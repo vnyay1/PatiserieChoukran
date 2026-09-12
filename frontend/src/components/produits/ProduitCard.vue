@@ -49,9 +49,14 @@ File: src/components/produits/ProduitCard.vue
     <!-- Contenu -->
     <div class="p-4">
       <!-- Nom -->
-      <h3 class="font-display font-semibold text-lg text-gray-800 mb-2 line-clamp-2">
+      <h3 class="font-display font-semibold text-lg text-gray-800 mb-1 line-clamp-2">
         {{ produit.nom }}
       </h3>
+
+      <!-- Vendeur : le panier crée une commande par vendeur -->
+      <p v-if="produit.createur?.nom_complet" class="text-xs text-gray-500 mb-2 truncate">
+        Vendu par {{ produit.createur.nom_complet }}
+      </p>
 
       <!-- Prix -->
       <div class="flex items-baseline space-x-2 mb-3">

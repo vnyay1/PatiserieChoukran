@@ -174,6 +174,7 @@ import Button from '@/components/common/Button.vue'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
+import { formatDateHeure } from '@/utils/format'
 
 const router = useRouter()
 const notificationsStore = useNotificationsStore()
@@ -204,15 +205,7 @@ const labelType = (type) => {
   return type
 }
 
-const formatDate = (value) => {
-  if (!value) return 'Date inconnue'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('fr-FR', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(date)
-}
+const formatDate = (value) => formatDateHeure(value) || 'Date inconnue'
 
 const buildFetchParams = () => {
   const params = {

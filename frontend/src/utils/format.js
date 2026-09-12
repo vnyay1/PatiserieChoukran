@@ -31,13 +31,15 @@ export const formatDateHeure = (valeur) => {
 // "14:30:00" -> "14:30" (colonne TIME renvoyée avec les secondes)
 export const formatHeure = (heure) => (heure ? String(heure).slice(0, 5) : '')
 
-// Date du jour au format AAAA-MM-JJ, dans le fuseau du navigateur (et non en UTC)
-export const aujourdhuiIso = () => {
-  const maintenant = new Date()
-  const mois = String(maintenant.getMonth() + 1).padStart(2, '0')
-  const jour = String(maintenant.getDate()).padStart(2, '0')
-  return `${maintenant.getFullYear()}-${mois}-${jour}`
+// AAAA-MM-JJ dans le fuseau du navigateur (toISOString donnerait la date UTC,
+// décalée d'un jour en soirée/matinée selon le fuseau)
+export const dateIso = (date) => {
+  const mois = String(date.getMonth() + 1).padStart(2, '0')
+  const jour = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${mois}-${jour}`
 }
+
+export const aujourdhuiIso = () => dateIso(new Date())
 
 export const STATUTS_COMMANDE = {
   en_attente: { label: 'En attente', classe: 'bg-yellow-100 text-yellow-700' },

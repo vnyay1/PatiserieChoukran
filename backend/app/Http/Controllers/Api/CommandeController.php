@@ -31,7 +31,7 @@ class CommandeController extends Controller
         }
 
         $query = Commande::where('user_id', $request->user()->id)
-            ->with(['ligneCommandes.produit', 'adresseLivraison', 'vendeur'])
+            ->with(['ligneCommandes.produit', 'adresseLivraison', 'vendeur:id,nom_complet,telephone'])
             ->orderBy('created_at', 'desc');
 
         // Filtre par statut ("en_cours" = toutes les commandes non terminées)
@@ -65,9 +65,8 @@ class CommandeController extends Controller
             ->with([
                 'ligneCommandes.produit',
                 'adresseLivraison',
-                'livreur',
-                'vendeur',
-                'historiques.modifiePar',
+                'vendeur:id,nom_complet,telephone',
+                'historiques.modifiePar:id,nom_complet,role',
             ])
             ->firstOrFail();
 
@@ -117,7 +116,7 @@ class CommandeController extends Controller
 
         $panierItems = Panier::where('user_id', $request->user()->id)
             ->nonExpire()
-            ->with(['produit.createur', 'vendeur'])
+            ->with(['produit.createur:id,nom_complet', 'vendeur:id,nom_complet'])
             ->get();
 
         if ($panierItems->isEmpty()) {
@@ -269,7 +268,7 @@ class CommandeController extends Controller
                         'modifie_par_user_id' => $request->user()->id,
                     ]);
 
-                    $commandes[] = $commande->load(['ligneCommandes.produit', 'adresseLivraison.quartierLivraison', 'vendeur']);
+                    $commandes[] = $commande->load(['ligneCommandes.produit', 'adresseLivraison.quartierLivraison', 'vendeur:id,nom_complet,telephone']);
 
                     if ($vendeur) {
                         $vendeursANotifier[] = [$commande, $vendeur];
@@ -461,7 +460,7 @@ class CommandeController extends Controller
             'montant_total' => $commande->montant_produits + $montantLivraison,
         ]);
 
-        $commande->load(['ligneCommandes.produit', 'adresseLivraison', 'vendeur', 'historiques.modifiePar']);
+        $commande->load(['ligneCommandes.produit', 'adresseLivraison', 'vendeur:id,nom_complet,telephone', 'historiques.modifiePar:id,nom_complet,role']);
 
         return response()->json([
             'success' => true,
@@ -521,7 +520,7 @@ class CommandeController extends Controller
 
         $panierItems = Panier::where('user_id', $request->user()->id)
             ->nonExpire()
-            ->with(['produit.createur', 'vendeur'])
+            ->with(['produit.createur:id,nom_complet', 'vendeur:id,nom_complet'])
             ->get();
 
         if ($panierItems->isEmpty()) {

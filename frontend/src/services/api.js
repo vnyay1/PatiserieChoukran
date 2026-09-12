@@ -186,6 +186,7 @@ export default {
 
   // Espace vendeur
   vendeur: {
+    stats: () => api.get('/vendeur/stats'),
     tarifs: {
       getAll: () => api.get('/vendeur/tarifs-livraison'),
       quartiers: () => api.get('/vendeur/tarifs-livraison/quartiers'),
