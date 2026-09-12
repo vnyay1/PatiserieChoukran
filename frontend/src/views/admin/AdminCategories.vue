@@ -66,7 +66,7 @@ File: src/views/admin/AdminCategories.vue
           </button>
         </div>
 
-        <form @submit.prevent="submitForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form class="grid grid-cols-1 md:grid-cols-2 gap-4" @submit.prevent="submitForm">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
             <input v-model="form.nom" type="text" class="input" required />
@@ -166,9 +166,9 @@ File: src/views/admin/AdminCategories.vue
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-3">
                     <img
-                      :src="resolveImageUrl(categorie.image)" @error="onImageError"
-                      :alt="categorie.nom"
+                      :src="resolveImageUrl(categorie.image)" :alt="categorie.nom"
                       class="h-12 w-12 rounded-lg object-cover border"
+                      @error="onImageError"
                     />
                     <div>
                       <div class="font-semibold text-gray-800">{{ categorie.nom }}</div>

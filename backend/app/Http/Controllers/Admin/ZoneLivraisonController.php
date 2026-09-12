@@ -31,7 +31,7 @@ class ZoneLivraisonController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('nom_zone', 'like', "%{$search}%")
-                  ->orWhere('ville', 'like', "%{$search}%");
+                    ->orWhere('ville', 'like', "%{$search}%");
             });
         }
 

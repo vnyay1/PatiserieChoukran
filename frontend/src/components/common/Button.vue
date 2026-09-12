@@ -11,7 +11,7 @@ File: src/components/common/Button.vue
     @click="handleClick"
   >
     <span v-if="loading" class="spinner mr-2"></span>
-    <component v-if="icon && !loading" :is="icon" :size="iconSize" class="mr-2" />
+    <component :is="icon" v-if="icon && !loading" :size="iconSize" class="mr-2" />
     <slot />
   </button>
 </template>

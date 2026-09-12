@@ -68,7 +68,7 @@ File: src/views/admin/AdminParametres.vue
           </button>
         </div>
 
-        <form @submit.prevent="submitForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form class="grid grid-cols-1 md:grid-cols-2 gap-4" @submit.prevent="submitForm">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Clé *</label>
             <input v-model="form.cle" type="text" class="input" required />
@@ -116,7 +116,7 @@ File: src/views/admin/AdminParametres.vue
               v-model="form.valeur"
               rows="3"
               class="input resize-none"
-              placeholder='{ "exemple": true }'
+              placeholder="{ &quot;exemple&quot;: true }"
             ></textarea>
           </div>
 

@@ -180,8 +180,8 @@ File: src/views/ProduitDetail.vue
                   min="1"
                   :max="produit.stock_disponible"
                   aria-label="Quantité"
-                  @blur="normaliserQuantite"
                   class="w-20 text-center text-lg font-semibold border-2 border-gray-200 rounded-lg py-2 focus:border-gold-500 focus:ring-2 focus:ring-gold-200 outline-none"
+                  @blur="normaliserQuantite"
                 />
 
                 <button
@@ -227,9 +227,9 @@ File: src/views/ProduitDetail.vue
         </h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <ProduitCard
-            v-for="produit in produitsSimilaires"
-            :key="produit.id"
-            :produit="produit"
+            v-for="similaire in produitsSimilaires"
+            :key="similaire.id"
+            :produit="similaire"
           />
         </div>
       </div>

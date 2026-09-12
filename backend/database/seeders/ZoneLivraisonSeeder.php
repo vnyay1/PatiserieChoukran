@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\ZoneLivraison;
+use Illuminate\Database\Seeder;
 
 class ZoneLivraisonSeeder extends Seeder
 {

@@ -95,7 +95,7 @@ class QuartierSeeder extends Seeder
     {
         $path = database_path($relativePath);
 
-        if (!file_exists($path)) {
+        if (! file_exists($path)) {
             return [];
         }
 

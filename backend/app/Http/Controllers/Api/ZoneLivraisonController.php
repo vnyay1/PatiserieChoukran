@@ -144,7 +144,7 @@ class ZoneLivraisonController extends Controller
             return (int) ($item->produit->created_by_user_id ?? 0) === $livreurId;
         });
 
-        if (!$allItemsOwnedByCreator) {
+        if (! $allItemsOwnedByCreator) {
             return response()->json([
                 'success' => false,
                 'message' => 'Votre panier contient des produits non attribués à ce livreur.',
@@ -178,7 +178,7 @@ class ZoneLivraisonController extends Controller
             ->active()
             ->first();
 
-        if (!$zone) {
+        if (! $zone) {
             return response()->json([
                 'success' => false,
                 'message' => 'Zone de livraison non trouvée',

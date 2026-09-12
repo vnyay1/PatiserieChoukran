@@ -76,7 +76,7 @@ File: src/views/admin/AdminProduits.vue
           </button>
         </div>
 
-        <form @submit.prevent="submitForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form class="grid grid-cols-1 md:grid-cols-2 gap-4" @submit.prevent="submitForm">
           <div class="md:col-span-2">
             <label class="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
             <input v-model="form.nom" type="text" class="input" required />
@@ -244,9 +244,9 @@ File: src/views/admin/AdminProduits.vue
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-3">
                     <img
-                      :src="resolveImageUrl(produit.image_principale)" @error="onImageError"
-                      :alt="produit.nom"
+                      :src="resolveImageUrl(produit.image_principale)" :alt="produit.nom"
                       class="h-12 w-12 rounded-lg object-cover border"
+                      @error="onImageError"
                     />
                     <div>
                       <div class="font-semibold text-gray-800">{{ produit.nom }}</div>

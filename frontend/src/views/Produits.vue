@@ -38,10 +38,10 @@ File: src/views/Produits.vue
         <aside class="hidden md:block w-64 flex-shrink-0">
           <div class="sticky top-32">
             <FiltersSidebar
-              v-model:selectedCategory="selectedCategory"
-              v-model:priceRange="priceRange"
-              v-model:showPromo="showPromo"
-              v-model:showVedette="showVedette"
+              v-model:selected-category="selectedCategory"
+              v-model:price-range="priceRange"
+              v-model:show-promo="showPromo"
+              v-model:show-vedette="showVedette"
               :categories="categories"
             />
           </div>
@@ -221,10 +221,10 @@ File: src/views/Produits.vue
           </div>
 
           <FiltersSidebar
-            v-model:selectedCategory="selectedCategory"
-            v-model:priceRange="priceRange"
-            v-model:showPromo="showPromo"
-            v-model:showVedette="showVedette"
+            v-model:selected-category="selectedCategory"
+            v-model:price-range="priceRange"
+            v-model:show-promo="showPromo"
+            v-model:show-vedette="showVedette"
             :categories="categories"
           />
 

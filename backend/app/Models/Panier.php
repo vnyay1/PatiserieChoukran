@@ -2,9 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
-use App\Models\ParametreSite;
+use Illuminate\Database\Eloquent\Model;
 
 class Panier extends Model
 {
@@ -97,7 +96,7 @@ class Panier extends Model
             if (empty($panier->date_expiration)) {
                 $panier->date_expiration = static::prochaineExpiration();
             }
-            $panier->sous_total = (float)($panier->prix_unitaire_actuel * $panier->quantite);
+            $panier->sous_total = (float) ($panier->prix_unitaire_actuel * $panier->quantite);
         });
     }
 }

@@ -74,7 +74,7 @@ File: src/views/admin/AdminZones.vue
           </button>
         </div>
 
-        <form @submit.prevent="submitForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form class="grid grid-cols-1 md:grid-cols-2 gap-4" @submit.prevent="submitForm">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Nom de zone *</label>
             <input v-model="form.nom_zone" type="text" class="input" required />

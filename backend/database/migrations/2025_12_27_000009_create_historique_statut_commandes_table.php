@@ -16,7 +16,7 @@ return new class extends Migration
             $table->text('commentaire')->nullable();
             $table->foreignId('modifie_par_user_id')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamp('created_at');
-            
+
             $table->index(['commande_id', 'created_at']);
         });
     }

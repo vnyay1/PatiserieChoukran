@@ -46,7 +46,7 @@ class AuthController extends Controller
             'data' => [
                 'user' => $user,
                 'token' => $token,
-            ]
+            ],
         ], 201);
     }
 
@@ -68,7 +68,7 @@ class AuthController extends Controller
         $user = User::where('telephone', $request->telephone)->first();
 
         // Vérifier si l'utilisateur existe et si le mot de passe est correct
-        if (!$user || !Hash::check($request->mot_de_passe, $user->mot_de_passe)) {
+        if (! $user || ! Hash::check($request->mot_de_passe, $user->mot_de_passe)) {
             throw ValidationException::withMessages([
                 'telephone' => ['Les identifiants fournis sont incorrects.'],
             ]);
@@ -94,7 +94,7 @@ class AuthController extends Controller
             'data' => [
                 'user' => $user,
                 'token' => $token,
-            ]
+            ],
         ]);
     }
 
@@ -158,8 +158,8 @@ class AuthController extends Controller
 
         $validated = $request->validate([
             'nom_complet' => 'sometimes|string|max:255',
-            'email' => 'sometimes|nullable|email|unique:users,email,' . $user->id,
-            'telephone' => 'sometimes|string|unique:users,telephone,' . $user->id . '|regex:/^\+237[0-9]{9}$/',
+            'email' => 'sometimes|nullable|email|unique:users,email,'.$user->id,
+            'telephone' => 'sometimes|string|unique:users,telephone,'.$user->id.'|regex:/^\+237[0-9]{9}$/',
             'adresse_principale' => 'nullable|string',
             'photo_profil' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
@@ -192,7 +192,7 @@ class AuthController extends Controller
         $user = $request->user();
 
         // Vérifier l'ancien mot de passe
-        if (!Hash::check($request->ancien_mot_de_passe, $user->mot_de_passe)) {
+        if (! Hash::check($request->ancien_mot_de_passe, $user->mot_de_passe)) {
             return response()->json([
                 'success' => false,
                 'message' => 'L\'ancien mot de passe est incorrect',
@@ -229,9 +229,9 @@ class AuthController extends Controller
         }
 
         if (str_starts_with($cleaned, '237')) {
-            return '+' . $cleaned;
+            return '+'.$cleaned;
         }
 
-        return '+237' . $cleaned;
+        return '+237'.$cleaned;
     }
 }

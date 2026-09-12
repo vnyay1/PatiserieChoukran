@@ -161,8 +161,8 @@ File: src/components/layout/Header.vue
               <button
                 type="button"
                 class="touch-target h-10 w-10 rounded-full border border-gray-200 flex items-center justify-center"
-                @click="toggleMobileNav(false)"
                 aria-label="Fermer le menu"
+                @click="toggleMobileNav(false)"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 18L18 6M6 6l12 12" />

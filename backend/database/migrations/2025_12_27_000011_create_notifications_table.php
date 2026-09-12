@@ -20,7 +20,7 @@ return new class extends Migration
             $table->timestamp('date_envoi')->nullable();
             $table->timestamp('date_lecture')->nullable();
             $table->timestamps();
-            
+
             $table->index(['user_id', 'est_lu', 'type']);
         });
     }

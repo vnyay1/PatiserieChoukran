@@ -18,8 +18,8 @@ class ParametreSite extends Model
     public static function get($cle, $default = null)
     {
         $parametre = static::where('cle', $cle)->first();
-        
-        if (!$parametre) {
+
+        if (! $parametre) {
             return $default;
         }
 
@@ -38,7 +38,7 @@ class ParametreSite extends Model
     // Cast de la valeur selon le type
     protected static function castValue($valeur, $type)
     {
-        return match($type) {
+        return match ($type) {
             'integer' => (int) $valeur,
             'boolean' => (bool) $valeur,
             'json' => json_decode($valeur, true),

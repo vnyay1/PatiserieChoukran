@@ -179,11 +179,11 @@ File: src/views/admin/AdminUsers.vue
       </Card>
 
       <!-- Détail utilisateur -->
-    <div
-      v-if="showDetail"
-      class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6 overflow-y-auto"
-    >
-       <div class="bg-white w-full max-w-3xl rounded-elegant shadow-card overflow-hidden max-h-[calc(90vh-80px)] md:max-h-[90vh] flex flex-col">
+      <div
+        v-if="showDetail"
+        class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6 overflow-y-auto"
+      >
+        <div class="bg-white w-full max-w-3xl rounded-elegant shadow-card overflow-hidden max-h-[calc(90vh-80px)] md:max-h-[90vh] flex flex-col">
           <div class="p-4 border-b border-gray-100 flex items-center justify-between">
             <h2 class="font-display text-xl font-bold text-gray-800">
               Détails utilisateur

@@ -119,17 +119,17 @@ File: src/views/Profil.vue
               >
                 <div class="flex items-start justify-between">
                   <div class="flex-1">
-                  <div class="flex items-center gap-2 mb-1">
-                    <span class="font-semibold">{{ adresse.libelle }}</span>
-                    <span v-if="adresse.est_principale" class="badge badge-primary text-xs">Principale</span>
-                  </div>
-                  <p class="text-sm text-gray-600">
-                    {{ adresse.quartier }}, {{ formatVille(adresse.ville) }}<br />
-                    {{ adresse.telephone_contact }}
-                  </p>
-                  <p v-if="!adresse.quartier_id" class="text-xs text-orange-600 mt-1">
-                    Quartier à préciser pour pouvoir être livré.
-                  </p>
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="font-semibold">{{ adresse.libelle }}</span>
+                      <span v-if="adresse.est_principale" class="badge badge-primary text-xs">Principale</span>
+                    </div>
+                    <p class="text-sm text-gray-600">
+                      {{ adresse.quartier }}, {{ formatVille(adresse.ville) }}<br />
+                      {{ adresse.telephone_contact }}
+                    </p>
+                    <p v-if="!adresse.quartier_id" class="text-xs text-orange-600 mt-1">
+                      Quartier à préciser pour pouvoir être livré.
+                    </p>
                   </div>
                   <div class="flex items-center gap-2 ml-3">
                     <button class="text-gray-500 hover:text-gray-700" @click="openEditAddress(adresse)">

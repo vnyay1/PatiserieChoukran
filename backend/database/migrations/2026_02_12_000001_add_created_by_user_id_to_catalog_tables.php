@@ -41,19 +41,14 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('categories', function (Blueprint $table) {
-            $table->dropForeign(['created_by_user_id']);
-            $table->dropColumn('created_by_user_id');
-        });
-
-        Schema::table('produits', function (Blueprint $table) {
-            $table->dropForeign(['created_by_user_id']);
-            $table->dropColumn('created_by_user_id');
-        });
-
-        Schema::table('zone_livraisons', function (Blueprint $table) {
-            $table->dropForeign(['created_by_user_id']);
-            $table->dropColumn('created_by_user_id');
-        });
+        // L'index doit disparaître avant la colonne : SQLite refuse de supprimer
+        // une colonne encore référencée par un index (MySQL le tolère).
+        foreach (['categories', 'produits', 'zone_livraisons'] as $nomTable) {
+            Schema::table($nomTable, function (Blueprint $table) {
+                $table->dropForeign(['created_by_user_id']);
+                $table->dropIndex(['created_by_user_id']);
+                $table->dropColumn('created_by_user_id');
+            });
+        }
     }
 };

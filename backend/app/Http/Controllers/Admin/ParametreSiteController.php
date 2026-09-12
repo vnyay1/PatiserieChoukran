@@ -151,8 +151,10 @@ class ParametreSiteController extends Controller
                     if (json_last_error() !== JSON_ERROR_NONE) {
                         abort(422, 'Valeur JSON invalide');
                     }
+
                     return $value;
                 }
+
                 return json_encode($value);
             default:
                 return (string) $value;

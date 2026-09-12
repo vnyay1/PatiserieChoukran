@@ -110,20 +110,6 @@ class AdresseController extends Controller
             $validated['ville'] = $validated['ville'] ?? $quartier->ville;
         }
 
-        $shouldGeocode = false;
-        if (array_key_exists('quartier', $validated) && $validated['quartier'] !== $adresse->quartier) {
-            $shouldGeocode = true;
-        }
-        if (array_key_exists('ville', $validated) && $validated['ville'] !== $adresse->ville) {
-            $shouldGeocode = true;
-        }
-
-        if ($shouldGeocode && (!array_key_exists('latitude', $validated) || $validated['latitude'] === null
-            || !array_key_exists('longitude', $validated) || $validated['longitude'] === null)) {
-            $quartier = $validated['quartier'] ?? $adresse->quartier;
-            $ville = $validated['ville'] ?? $adresse->ville;
-        }
-
         $adresse->update($validated);
 
         if ($validated['est_principale'] ?? false) {

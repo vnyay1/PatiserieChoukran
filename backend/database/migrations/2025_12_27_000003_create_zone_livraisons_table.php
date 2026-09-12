@@ -17,7 +17,7 @@ return new class extends Migration
             $table->integer('delai_livraison_max'); // en heures
             $table->boolean('est_active')->default(true);
             $table->timestamps();
-            
+
             $table->index(['ville', 'est_active']);
         });
     }

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class HistoriqueStatutCommande extends Model
 {
     public $timestamps = false;
-    
+
     protected $fillable = [
         'commande_id',
         'ancien_statut',
