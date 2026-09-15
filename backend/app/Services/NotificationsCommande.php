@@ -114,9 +114,15 @@ class NotificationsCommande
     {
         try {
             dispatch(function () use ($email, $nom, $sujet, $corps) {
-                Mail::raw($corps, function ($mail) use ($email, $nom, $sujet) {
-                    $mail->to($email, $nom)->subject($sujet);
-                });
+                // Jamais d'exception vers le worker : un échec après remise au SMTP
+                // entraînerait un nouvel essai, donc un doublon chez le destinataire
+                try {
+                    Mail::raw($corps, function ($mail) use ($email, $nom, $sujet) {
+                        $mail->to($email, $nom)->subject($sujet);
+                    });
+                } catch (\Throwable $e) {
+                    Log::warning('Échec de l\'envoi de l\'e-mail', ['sujet' => $sujet, 'error' => $e->getMessage()]);
+                }
             });
         } catch (\Throwable $e) {
             Log::warning('Échec de mise en file de l\'e-mail', [

@@ -5,6 +5,7 @@
 // File: bootstrap/app.php
 // ===================================
 
+use App\Exceptions\RegleMetierException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\LostConnectionDetector;
 use Illuminate\Database\QueryException;
@@ -42,6 +43,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->throttleApi();
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        // Refus d'une règle métier (transition interdite, paiement déjà confirmé…) :
+        // réponse 422 attendue, pas une erreur à journaliser avec sa pile d'appels
+        $exceptions->dontReport(RegleMetierException::class);
+
         // API : toutes les erreurs au format { success: false, message, errors? }
         $surApi = fn (Request $request) => $request->is('api/*');
 

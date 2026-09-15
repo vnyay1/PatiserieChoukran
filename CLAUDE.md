@@ -152,6 +152,13 @@ Use `vendeur` in new code.
 - `adresses` has a text column `quartier` (the name) and a `quartier_id` FK. The relation is deliberately named `Adresse::quartierLivraison()` (JSON key `quartier_livraison`). A relation named `quartier()` would replace the text column in the JSON whenever it is eager-loaded. `AdresseController` fills `quartier` and `ville` from the `Quartier` when the client sends only `quartier_id`.
 - Uploads go to the `public` disk under `produits/`, `categories/`, `profils/` and `boutiques/`.
 - In-app and email notifications go through `NotificationsCommande::creer()` / `envoyerEmail()` (queued). `NotificationsCompte` reuses them for account events.
+- Emails:
+  - every message handed to the mail transport is logged with its Message-ID in `storage/logs/mail.log` (`MessageSent` listener in `AppServiceProvider`). Use it to match counts with Brevo's logs;
+  - queued email closures never rethrow, so a worker retry cannot duplicate a mail;
+  - the invoice job claims `factures.envoyee_le` atomically before sending;
+  - `EmailsCommandeTest` pins the flow "order + confirmation" to exactly 2 emails.
+- `RegleMetierException` (a business-rule refusal rendered as 422) is excluded from error reporting.
+- PHPUnit runs with `LOG_CHANNEL=null`: tests never write to the dev `laravel.log`.
 
 ### Frontend
 - `src/services/api.js` is the only axios client. It adds the bearer token from the auth store, logs out and redirects to `login` on a 401, and groups methods by resource (e.g. `api.panier.add(...)`). The `admin.*` methods pick their prefix from the role: `/vendeur/catalogue` or `/vendeur/commandes` for vendors, `/admin/...` for admins. As a result, the `views/admin/*` screens serve both roles.

@@ -4,6 +4,9 @@ namespace App\Providers;
 
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Mail\Events\MessageSent;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -32,6 +35,24 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $this->definirLimiteurs();
+        $this->journaliserEmails();
+    }
+
+    /**
+     * Chaque e-mail remis au transport est tracé dans storage/logs/mail.log.
+     */
+    private function journaliserEmails(): void
+    {
+        Event::listen(MessageSent::class, function (MessageSent $event) {
+            $message = $event->message;
+
+            // En test, rien n'est écrit dans les journaux de développement
+            Log::channel($this->app->runningUnitTests() ? 'null' : 'mail')->info('E-mail envoyé', [
+                'a' => collect($message->getTo())->map(fn ($adresse) => $adresse->getAddress())->implode(', '),
+                'sujet' => $message->getSubject(),
+                'message_id' => $event->sent->getMessageId(),
+            ]);
+        });
     }
 
     /**

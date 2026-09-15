@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Mail\FactureCommandeMail;
 use App\Models\Commande;
+use App\Models\Facture;
 use App\Services\Factures;
 use App\Services\NotificationsCommande;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -46,15 +47,26 @@ class GenererEtEnvoyerFacture implements ShouldQueue
         }
 
         $email = $commande->user?->email;
-        if (! $email || $facture->envoyee_le) {
+        if (! $email) {
+            return;
+        }
+
+        // Réservation atomique avant l'envoi : un job rejoué, ou lancé deux fois en
+        // parallèle, ne renvoie jamais la facture
+        $reservee = Facture::whereKey($facture->id)
+            ->whereNull('envoyee_le')
+            ->update(['envoyee_le' => now(), 'email_destinataire' => $email]);
+
+        if ($reservee === 0) {
             return;
         }
 
         try {
-            Mail::to($email, $commande->user->nom_complet)->send(new FactureCommandeMail($facture, $commande));
-            $facture->update(['envoyee_le' => now(), 'email_destinataire' => $email]);
+            Mail::to($email, $commande->user->nom_complet)->send(new FactureCommandeMail($facture->fresh(), $commande));
         } catch (\Throwable $e) {
-            // La facture reste téléchargeable : l'échec d'envoi est seulement journalisé
+            // Envoi raté : la réservation est levée pour qu'un nouvel essai reste possible.
+            // La facture reste téléchargeable, l'échec est seulement journalisé.
+            Facture::whereKey($facture->id)->update(['envoyee_le' => null]);
             Log::warning('Échec de l\'envoi de la facture par e-mail', [
                 'facture' => $facture->numero_facture,
                 'error' => $e->getMessage(),

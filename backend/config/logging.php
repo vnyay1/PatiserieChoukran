@@ -65,6 +65,15 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Un e-mail réellement remis au transport (SMTP, log…) = une ligne, avec son
+        // Message-ID : permet de rapprocher les envois des journaux du fournisseur (Brevo).
+        'mail' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/mail.log'),
+            'level' => 'info',
+            'replace_placeholders' => true,
+        ],
+
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),
