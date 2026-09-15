@@ -26,7 +26,7 @@ If requests hang forever (a login button that keeps spinning), check MariaDB fir
 Backend (from `backend/`):
 ```bash
 composer install
-php artisan migrate --seed          # users, quartiers, zones, catégories, produits, tarifs vendeurs
+php artisan migrate --seed          # users, quartiers, catégories, produits, villes livrées par les vendeurs
 php artisan storage:link            # uploaded images are served from /storage
 php artisan serve                   # http://localhost:8000, API under /api/v1
 composer test                       # config:clear + PHPUnit on in-memory SQLite (phpunit.xml)
@@ -42,7 +42,7 @@ The seeded vendors:
 - have a delivery minimum: 5000 FCFA for Jean, 3000 FCFA for Awa;
 - Jean is also a featured vendor.
 
-`VendeurTarifLivraisonSeeder` makes every vendor serve every active quartier with a 30-60 min delay. It uses `insertOrIgnore`, so it never overwrites an existing row and can be rerun alone with `--class`.
+`VendeurVilleSeeder` fills the cities each vendor delivers to: Jean delivers Yaoundé only and Awa Douala only, so the catalogue visibly changes with the chosen city. Every other vendor delivers both cities. It uses `insertOrIgnore` and can be rerun alone with `--class`.
 
 With `QUEUE_CONNECTION=sync` (the XAMPP default), invoice emails go out during the vendor's "confirmer" request. Set `MAIL_MAILER=log` locally to avoid sending real mail.
 
@@ -95,7 +95,7 @@ All migrations must run on SQLite as well as MySQL:
 Use `vendeur` in new code.
 
 `bootstrap/app.php` registers the middleware aliases `admin`, `client`, `vendeur`, `actif` and `profil.vendeur`. Route groups in `routes/api.php`, all under `/api/v1`:
-- public: auth, catalogue, zones/quartiers, `vendeurs/{id}`, `conditions-vendeur`
+- public: auth, catalogue (optional `?ville=`), `livraison/quartiers`, `livraison/vendeur/{id}`, `vendeurs/{id}`, `conditions-vendeur`
 - `auth:sanctum`: profile, adresses, notifications, plus a nested `client` group for panier, commandes and `commandes/{id}/facture`
 - `auth:sanctum` + `admin`: `/admin/*`, including `rapports`
 - `auth:sanctum` + `vendeur`: `/vendeur/profil` (GET/PUT), then everything else under `/vendeur/*` behind `profil.vendeur`
@@ -117,7 +117,7 @@ Use `vendeur` in new code.
 - Public product JSON loads the creator with `Produit::VENDEUR_PUBLIC`: `id, nom_complet, logo_boutique, est_vendeur_vedette`, with no phone and no email. The badge reads `produit.createur.est_vendeur_vedette`.
 
 ### Vendor ownership
-`created_by_user_id` identifies a product's vendor; categories and zones also have this column. The `Admin\` Categorie, Produit and ZoneLivraison controllers are also mounted under `/vendeur/catalogue/*`. Each has a private `isVendeur()` that limits vendors to their own rows. Keep that scoping working for both entry points when editing them.
+`created_by_user_id` identifies a product's vendor; categories also have this column. The `Admin\` Categorie and Produit controllers are also mounted under `/vendeur/catalogue/*`. Each has a private `isVendeur()` that limits vendors to their own rows. Keep that scoping working for both entry points when editing them.
 
 ### Cart → orders (multi-vendor)
 - `paniers.vendeur_id` is copied from `produit.created_by_user_id` and re-synced when the cart is read and at checkout.
@@ -125,11 +125,16 @@ Use `vendeur` in new code.
 - `Api\CommandeController::store` groups the cart by `vendeur_id` and creates **one `Commande` per vendor** inside a `DB::transaction`. Each order gets its own delivery fee, `LigneCommande` rows, stock decrement and first `HistoriqueStatutCommande` entry. Vendors are notified after the commit (in-app `Notification` plus an email via `Mail::raw`). Business-rule failures throw `\InvalidArgumentException`, which is returned as a 422.
 - Delivery rules live in `App\Services\LivraisonVendeur`:
   - the fee is the same for everyone: the `frais_livraison_standard` parameter, 1500 FCFA by default, charged per vendor order;
-  - the vendor must serve the address's `quartier_id` through an active `VendeurTarifLivraison` row. The table name is historical: it holds only quartier, delays and `actif`, with no price;
+  - the vendor must deliver the address's city (`vendeur_villes`, managed from "Ma livraison"). The city is `Adresse::villeDeLivraison()`, i.e. the city of the chosen quartier. There are no delivery delays;
   - the vendor's products must reach `users.montant_minimum_livraison` (0 means no minimum). Pickup in store ignores the minimum and the fee.
-- Vendors manage their quartiers under `/vendeur/tarifs-livraison` and their minimum with `PUT /vendeur/livraison/minimum`.
-- The frontend previews all of this through the public `GET /livraison/quartiers/vendeur/{id}`, which returns `{ frais_livraison, montant_minimum_livraison, quartiers }`. The backend re-checks it authoritatively in `store()` and `update()`.
-- `calculate-shipping` is no longer called by the frontend. It is cart-based and still falls back to the legacy `ZoneLivraison` (`adresses.zone_livraison_id`, kept nullable for the transition period).
+- Vendors set their cities and minimum together with `GET/PUT /vendeur/livraison` (`Vendeur\LivraisonController`).
+- The frontend previews all of this through the public `GET /livraison/vendeur/{id}`, which returns `{ frais_livraison, montant_minimum_livraison, villes }`. The backend re-checks it authoritatively in `store()` and `update()`.
+- Catalogue filtered by city:
+  - the client picks a city (`stores/ville.js`, kept in `localStorage`, header selector and first-visit prompt);
+  - `api.js` adds `?ville=` to the catalogue calls (products, featured, new, promotions, similar, categories);
+  - the backend applies `Produit::scopeLivrableDans($ville)`, which keeps only products whose vendor delivers that city;
+  - a vendor's public page ignores the city and shows the cities they deliver.
+- The former zone system (`zone_livraisons`, `livreur_zone_livraisons`, `adresses.zone_livraison_id`, `calculate-shipping`) and the per-quartier coverage (`vendeur_tarifs_livraison`) were removed in `2026_09_15_000005_livraison_par_ville`.
 - Change order status with `Commande::changerStatut()`, which records history. `scopeArchivee` and `scopeVisibleDansListes` define which orders the operational lists hide (cancelled, or delivered and paid).
 
 ### Invoices and reports (dompdf)
@@ -148,8 +153,11 @@ Use `vendeur` in new code.
 - The password column is `mot_de_passe`, hashed by a mutator on `User`. Login is by `telephone`, which `AuthController` normalizes to `+237XXXXXXXXX`. Logging in revokes all previous tokens.
 - JSON responses use `{ success, message?, data }`.
 - Runtime settings are stored in `parametre_sites` and read and written with `ParametreSite::get()` / `set()`. Values are typed: string, integer, boolean or json.
-- `quartiers.ville` is an enum of lowercase `yaoundé` / `douala`. `zone_livraisons.ville` stores capitalized `Yaoundé` / `Douala` and is queried with `LIKE`.
-- `adresses` has a text column `quartier` (the name) and a `quartier_id` FK. The relation is deliberately named `Adresse::quartierLivraison()` (JSON key `quartier_livraison`). A relation named `quartier()` would replace the text column in the JSON whenever it is eager-loaded. `AdresseController` fills `quartier` and `ville` from the `Quartier` when the client sends only `quartier_id`.
+- Cities are the lowercase values `yaoundé` / `douala`:
+  - backend: `Quartier::VILLES`, `Quartier::regleVille()` for validation, `Quartier::libelleVille()` for display;
+  - frontend: `utils/villes.js`;
+  - admins manage quartiers at `/admin/quartiers`.
+- `adresses` has a text column `quartier` (the name) and a `quartier_id` FK. The relation is deliberately named `Adresse::quartierLivraison()` (JSON key `quartier_livraison`). A relation named `quartier()` would replace the text column in the JSON whenever it is eager-loaded. An address is created with `ville` and `quartier_id` (both required, and the quartier must belong to that city), plus a free, optional `zone` (sector, crossroads…). `AdresseController` copies the quartier name and city into the `quartier` / `ville` columns.
 - Uploads go to the `public` disk under `produits/`, `categories/`, `profils/` and `boutiques/`.
 - In-app and email notifications go through `NotificationsCommande::creer()` / `envoyerEmail()` (queued). `NotificationsCompte` reuses them for account events.
 - Emails:
@@ -167,16 +175,18 @@ Use `vendeur` in new code.
   - `requiresAuth`
   - `requiresAdmin`
   - `requiresCatalogueManager` / `requiresCommandesManager` (admin or vendeur)
-  - `requiresVendeur` (vendor-only pages `/admin/tarifs-livraison` "Ma livraison" and `/vendeur/profil-boutique`)
+  - `requiresVendeur` (vendor-only pages `/vendeur/livraison` "Ma livraison" and `/vendeur/profil-boutique`)
   - `guest`
   - `mobileOnly`
 
   Admins and vendors are redirected away from the client cart and order pages. A vendor whose `user.profil_vendeur_complet === false` is sent to `vendeur-profil-boutique` from any other route.
 - `composables/useLivraisonVendeurs.js` holds the multi-vendor logic shared by `Panier`, `Checkout` and `CommandeDetail`:
   - `grouperParVendeur(items)`;
-  - a per-vendor cache of `{ frais, minimum, quartiers }`;
-  - `livraisonDesGroupes(groupes, quartierId)`, which returns a status for each group (`ok | non_couvert | minimum_non_atteint | sans_quartier | sans_vendeur | chargement | erreur`), plus `frais`, `minimum` and `manque`.
-- `components/adresse/AdresseFormModal.vue` is the single address form, used by Checkout and Profil. It sends `quartier_id` only.
+  - a per-vendor cache of `{ frais, minimum, villes }`;
+  - `livraisonDesGroupes(groupes, ville)`, which returns a status for each group (`ok | non_couvert | minimum_non_atteint | sans_ville | sans_vendeur | chargement | erreur`), plus `frais`, `minimum` and `manque`.
+
+  `utils/villes.js` provides `villeAdresse()` and `libelleAdresse()`.
+- `components/adresse/AdresseFormModal.vue` is the single address form, used by Checkout and Profil. The fields come in order: city, then a quartier filtered by that city, then an optional zone.
 - `api.js` also exports `messageErreur(error, fallback)`, which returns the first validation error or else the backend message. The client times out after 30 s, and on a 403 `profil_vendeur_incomplet` it reloads the user and opens the shop-profile form.
 - Pinia stores: `auth` (token in `localStorage`, role getters), `panier`, `notifications` and `toast`.
 - Polling goes through `utils/sondagePartage.js`:

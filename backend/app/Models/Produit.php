@@ -78,6 +78,16 @@ class Produit extends Model
             });
     }
 
+    // Produits qu'un client de cette ville peut se faire livrer (null : pas de filtre)
+    public function scopeLivrableDans($query, ?string $ville)
+    {
+        if (! $ville) {
+            return $query;
+        }
+
+        return $query->whereHas('createur.villesLivraison', fn ($villes) => $villes->where('ville', $ville));
+    }
+
     // Produits des vendeurs mis en vedette par l'admin
     public function scopeVedette($query)
     {

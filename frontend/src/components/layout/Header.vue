@@ -7,10 +7,13 @@ File: src/components/layout/Header.vue
   <header class="bg-white shadow-sm sticky top-0 z-40 safe-top">
     <div class="container mx-auto px-4">
       <div class="flex items-center justify-between h-14 md:h-20">
-        <!-- Logo -->
-        <router-link to="/" class="flex items-center space-x-2">
-          <img src="/logo.png" alt="Choukrane" class="h-10 md:h-12 w-auto" loading="lazy" />
-        </router-link>
+        <!-- Logo et ville du client (le catalogue est filtré par ville) -->
+        <div class="flex items-center gap-2 md:gap-4 min-w-0">
+          <router-link to="/" class="flex items-center space-x-2 flex-shrink-0">
+            <img src="/logo.png" alt="Choukrane" class="h-10 md:h-12 w-auto" />
+          </router-link>
+          <VilleSelecteur v-if="!authStore.isAdmin && !authStore.isVendeur" />
+        </div>
 
         <!-- Mobile actions -->
         <div class="flex items-center gap-3 md:hidden">
@@ -235,6 +238,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useVendeurCommandesBadge } from '@/composables/useVendeurCommandesBadge'
+import VilleSelecteur from '@/components/layout/VilleSelecteur.vue'
 import { ShoppingCart, User, Info, Bell } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -263,6 +267,7 @@ const desktopNavItems = computed(() => {
     items.push({ name: 'admin-parametres', label: 'Paramètres', to: '/admin/parametres' })
     items.push({ name: 'admin-users', label: 'Utilisateurs', to: '/admin/users' })
     items.push({ name: 'admin-rapports', label: 'Rapports', to: '/admin/rapports' })
+    items.push({ name: 'admin-quartiers', label: 'Quartiers', to: '/admin/quartiers' })
   }
 
   if (authStore.isVendeur) {
@@ -272,13 +277,11 @@ const desktopNavItems = computed(() => {
   if (authStore.canManageCatalogue) {
     items.push({ name: 'admin-categories', label: 'Catégories', to: '/admin/categories' })
     items.push({ name: 'admin-produits', label: 'Produits', to: '/admin/produits' })
-    // Vendeur : quartiers desservis et minimum d'achat (utilisés au checkout) ; admin : zones (ancien système)
-    items.push(authStore.isVendeur
-      ? { name: 'admin-tarifs', label: 'Livraison', to: '/admin/tarifs-livraison' }
-      : { name: 'admin-zones', label: 'Zones', to: '/admin/zones-livraison' })
   }
 
   if (authStore.isVendeur) {
+    // Villes livrées et minimum d'achat (utilisés au checkout)
+    items.push({ name: 'vendeur-livraison', label: 'Livraison', to: '/vendeur/livraison' })
     items.push({ name: 'vendeur-profil-boutique', label: 'Ma boutique', to: '/vendeur/profil-boutique' })
   }
 
@@ -287,22 +290,13 @@ const desktopNavItems = computed(() => {
 
 const mobileNavItems = desktopNavItems
 
-const isActiveRoute = (name) => {
-  if (name === 'home') return route.name === 'home'
-  if (name === 'produits') return route.name === 'produits' || route.name === 'produit-detail'
-  if (name === 'commandes') return route.name === 'mes-commandes' || route.name === 'commande-detail'
-  if (name === 'admin-dashboard') return route.name === 'admin-dashboard'
-  if (name === 'admin-commandes') return route.name === 'admin-commandes'
-  if (name === 'admin-categories') return route.name === 'admin-categories'
-  if (name === 'admin-parametres') return route.name === 'admin-parametres'
-  if (name === 'admin-produits') return route.name === 'admin-produits'
-  if (name === 'admin-users') return route.name === 'admin-users'
-  if (name === 'admin-zones') return route.name === 'admin-zones'
-  if (name === 'admin-tarifs') return route.name === 'admin-tarifs'
-  if (name === 'admin-rapports') return route.name === 'admin-rapports'
-  if (name === 'vendeur-profil-boutique') return route.name === 'vendeur-profil-boutique'
-  return false
+// Entrées dont plusieurs pages sont « actives » ; les autres correspondent à une seule route
+const ROUTES_ACTIVES = {
+  produits: ['produits', 'produit-detail'],
+  commandes: ['mes-commandes', 'commande-detail'],
 }
+
+const isActiveRoute = (name) => (ROUTES_ACTIVES[name] || [name]).includes(route.name)
 
 const formatNotificationBadgeCount = (count) => {
   return count > 99 ? '99+' : count

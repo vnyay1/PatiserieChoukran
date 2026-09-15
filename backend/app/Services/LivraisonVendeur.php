@@ -3,13 +3,13 @@
 namespace App\Services;
 
 use App\Models\ParametreSite;
+use App\Models\Quartier;
 use App\Models\User;
-use App\Models\VendeurTarifLivraison;
 
 /**
  * Règles de livraison d'une commande vendeur, seule source de vérité du backend :
  * - les frais sont les mêmes pour tous (paramètre « frais_livraison_standard ») ;
- * - le vendeur doit desservir le quartier (vendeur_tarifs_livraison, actif) ;
+ * - le vendeur doit livrer la ville de l'adresse (vendeur_villes) ;
  * - le montant des produits doit atteindre le minimum fixé par le vendeur.
  * Le retrait en boutique n'est soumis à aucune de ces règles.
  */
@@ -23,38 +23,23 @@ class LivraisonVendeur
     }
 
     /**
-     * Frais et délais de livraison de ce vendeur vers ce quartier.
+     * Frais de livraison de ce vendeur vers cette ville.
      *
-     * @return array{frais: float, delai_min: int, delai_max: int, quartier: array}
-     *
-     * @throws \InvalidArgumentException quartier non desservi ou minimum non atteint
+     * @throws \InvalidArgumentException ville non livrée ou minimum non atteint
      */
-    public static function verifier(User $vendeur, int $quartierId, float $montantProduits): array
+    public static function verifier(User $vendeur, ?string $ville, float $montantProduits): float
     {
-        $desserte = VendeurTarifLivraison::where('vendeur_id', $vendeur->id)
-            ->where('quartier_id', $quartierId)
-            ->where('actif', true)
-            ->with('quartier')
-            ->first();
-
-        if (! $desserte || ($desserte->quartier && ! $desserte->quartier->actif)) {
-            throw new \InvalidArgumentException("Le vendeur « {$vendeur->nom_complet} » ne livre pas dans votre quartier.");
+        if (! $vendeur->livreDans($ville)) {
+            throw new \InvalidArgumentException(sprintf(
+                'Le vendeur « %s » ne livre pas à %s : choisissez le retrait en boutique ou retirez ses produits.',
+                $vendeur->nom_complet,
+                Quartier::libelleVille($ville) ?: 'cette adresse'
+            ));
         }
 
         self::verifierMinimum($vendeur, $montantProduits);
 
-        return [
-            'frais' => self::fraisStandard(),
-            'delai_min' => (int) $desserte->delai_min,
-            'delai_max' => (int) $desserte->delai_max,
-            'quartier' => [
-                'id' => $desserte->quartier?->id,
-                'nom' => $desserte->quartier?->nom,
-                'ville' => $desserte->quartier?->ville,
-                'delai_min' => (int) $desserte->delai_min,
-                'delai_max' => (int) $desserte->delai_max,
-            ],
-        ];
+        return self::fraisStandard();
     }
 
     /**

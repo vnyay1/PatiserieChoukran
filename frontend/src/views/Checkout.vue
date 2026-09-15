@@ -101,7 +101,7 @@ File: src/views/Checkout.vue
                   :key="adresse.id"
                   :value="adresse.id"
                 >
-                  {{ libelleAdresse(adresse) }}
+                  {{ libelleOption(adresse) }}
                 </option>
               </select>
               <p v-if="adresses.length === 0" class="text-xs text-gray-500 mt-1">
@@ -337,12 +337,9 @@ File: src/views/Checkout.vue
               <span>Livraison</span>
               <span v-if="groupe.statut === 'ok'" class="text-right">
                 {{ formatPrice(groupe.frais) }} FCFA
-                <span v-if="formatDelai(groupe.tarif)" class="block text-xs text-gray-500">
-                  Délai : {{ formatDelai(groupe.tarif) }}
-                </span>
               </span>
               <span v-else-if="groupe.statut === 'non_couvert'" class="text-right text-red-600">
-                Ce vendeur ne livre pas dans votre quartier
+                Ce vendeur ne livre pas à {{ formatVille(villeLivraison) }}
               </span>
               <span v-else-if="groupe.statut === 'minimum_non_atteint'" class="text-right text-red-600">
                 Dès {{ formatPrice(groupe.minimum) }} FCFA d'achat
@@ -398,21 +395,19 @@ import api, { messageErreur } from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import AdresseFormModal from '@/components/adresse/AdresseFormModal.vue'
-import {
-  useLivraisonVendeurs,
-  grouperParVendeur,
-  formatVille,
-  formatDelai,
-} from '@/composables/useLivraisonVendeurs'
+import { useLivraisonVendeurs, grouperParVendeur } from '@/composables/useLivraisonVendeurs'
+import { useVilleStore } from '@/stores/ville'
+import { formatVille, libelleAdresse, villeAdresse } from '@/utils/villes'
 import { aujourdhuiIso } from '@/utils/format'
 import { Truck, Store, Smartphone, Banknote } from 'lucide-vue-next'
 
 const router = useRouter()
 const panierStore = usePanierStore()
 const authStore = useAuthStore()
+const villeStore = useVilleStore()
 const {
   erreur: erreurTarifs,
-  chargerQuartiersVendeurs,
+  chargerLivraisonVendeurs,
   livraisonDesGroupes,
 } = useLivraisonVendeurs()
 
@@ -493,11 +488,12 @@ const hasDeliveryTimeError = computed(() => Boolean(deliveryTimeError.value))
 const selectedAdresse = computed(() => {
   return adresses.value.find((adresse) => String(adresse.id) === String(formData.value.adresse_livraison_id)) || null
 })
+const villeLivraison = computed(() => villeAdresse(selectedAdresse.value))
 
 // Une commande sera créée par groupe (vendeur)
 const groupes = computed(() => grouperParVendeur(panierStore.items))
 
-// Frais de livraison de chaque vendeur pour le quartier de l'adresse choisie
+// Livraison de chaque vendeur vers la ville de l'adresse choisie
 const livraisonParGroupe = computed(() => {
   if (!estLivraison.value) {
     return groupes.value.map((groupe) => ({
@@ -508,7 +504,7 @@ const livraisonParGroupe = computed(() => {
     }))
   }
 
-  return livraisonDesGroupes(groupes.value, selectedAdresse.value?.quartier_id || null)
+  return livraisonDesGroupes(groupes.value, villeLivraison.value)
 })
 
 const livraisonCalculee = computed(() => livraisonParGroupe.value.every((groupe) => groupe.statut === 'ok'))
@@ -524,7 +520,7 @@ const blocageEtape1 = computed(() => {
   const nonCouverts = livraisonParGroupe.value.filter((groupe) => groupe.statut === 'non_couvert')
   if (nonCouverts.length > 0) {
     const noms = nonCouverts.map((groupe) => groupe.vendeurNom).join(', ')
-    return `${noms} : pas de livraison dans ce quartier. Choisissez une autre adresse ou le retrait en boutique.`
+    return `${noms} : pas de livraison à ${formatVille(villeLivraison.value)}. Choisissez une autre adresse ou le retrait en boutique.`
   }
 
   // Minimum d'achat fixé par chaque vendeur pour accepter une livraison
@@ -558,8 +554,8 @@ const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR').format(price)
 }
 
-const libelleAdresse = (adresse) => {
-  const libelle = `${adresse.libelle || 'Adresse'} - ${adresse.quartier}, ${formatVille(adresse.ville)}`
+const libelleOption = (adresse) => {
+  const libelle = libelleAdresse(adresse)
   return adresse.quartier_id ? libelle : `${libelle} (quartier à préciser)`
 }
 
@@ -568,6 +564,7 @@ const fetchAdresses = async (adresseASelectionner = null) => {
     const response = await api.adresses.getAll()
     if (response.data.success) {
       adresses.value = response.data.data || []
+      villeStore.proposerDepuisAdresse(villeAdresse(adresses.value.find((adresse) => adresse.est_principale)))
 
       const existe = (id) => adresses.value.some((adresse) => String(adresse.id) === String(id))
       if (adresseASelectionner && existe(adresseASelectionner)) {
@@ -658,10 +655,10 @@ onMounted(async () => {
   fetchAdresses()
 })
 
-// Charge les conditions de livraison (quartiers, minimum) des vendeurs du panier
+// Charge les conditions de livraison (villes, minimum) des vendeurs du panier
 watch(
   () => groupes.value.map((groupe) => groupe.vendeurId).filter(Boolean).join(','),
-  () => chargerQuartiersVendeurs(groupes.value.map((groupe) => groupe.vendeurId)),
+  () => chargerLivraisonVendeurs(groupes.value.map((groupe) => groupe.vendeurId)),
   { immediate: true }
 )
 </script>

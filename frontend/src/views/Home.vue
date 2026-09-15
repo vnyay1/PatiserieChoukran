@@ -155,14 +155,16 @@ File: src/views/Home.vue
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useVilleStore } from '@/stores/ville'
 import api from '@/services/api'
 import Button from '@/components/common/Button.vue'
 import ProduitCard from '@/components/produits/ProduitCard.vue'
 import { resolveImageUrl, onImageError } from '@/utils/images'
 
 const authStore = useAuthStore()
+const villeStore = useVilleStore()
 
 const categories = ref([])
 const produitsFeatured = ref([])
@@ -195,10 +197,15 @@ const charger = async (requete, cible, chargement) => {
   }
 }
 
-onMounted(() => {
+const chargerAccueil = () => {
   // Les trois requêtes partent en même temps : la page s'affiche plus vite
   charger(api.categories.getAll(), categories, loadingCategories)
   charger(api.produits.getFeatured(), produitsFeatured, loadingProduits)
   charger(api.produits.getNouveautes(), produitsNouveautes, loadingNouveautes)
-})
+}
+
+onMounted(chargerAccueil)
+
+// Nouvelle ville : seuls les produits livrables y sont proposés
+watch(() => villeStore.ville, chargerAccueil)
 </script>

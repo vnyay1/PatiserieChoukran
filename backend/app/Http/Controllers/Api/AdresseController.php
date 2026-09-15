@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Adresse;
 use App\Models\Quartier;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class AdresseController extends Controller
 {
@@ -15,7 +16,7 @@ class AdresseController extends Controller
     public function index(Request $request)
     {
         $adresses = Adresse::where('user_id', $request->user()->id)
-            ->with(['zoneLivraison', 'quartierLivraison'])
+            ->with('quartierLivraison')
             ->orderBy('est_principale', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
@@ -27,43 +28,27 @@ class AdresseController extends Controller
     }
 
     /**
-     * Ajouter une nouvelle adresse
+     * Ajouter une nouvelle adresse : ville, puis quartier de cette ville (obligatoires),
+     * zone libre facultative
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'libelle' => 'nullable|string|max:100',
-            'quartier_id' => 'required|exists:quartiers,id',
-            'quartier' => 'nullable|string|max:255',
-            'ville' => 'nullable|string|max:255',
-            'zone_livraison_id' => 'nullable|exists:zone_livraisons,id,est_active,1',
-            'telephone_contact' => 'required|string|regex:/^\+237[0-9]{9}$/',
-            'point_repere' => 'nullable|string',
-            'complement_adresse' => 'nullable|string',
-            'est_principale' => 'boolean',
-        ]);
+        $validated = $request->validate($this->regles($request), $this->messages());
 
-        $quartier = Quartier::findOrFail($validated['quartier_id']);
-        $validated['quartier'] = $validated['quartier'] ?? $quartier->nom;
-        $validated['ville'] = $validated['ville'] ?? $quartier->ville;
+        $validated = $this->completerDepuisQuartier($validated);
         $validated['user_id'] = $request->user()->id;
 
         $adresse = Adresse::create($validated);
 
-        // Si c'est la première adresse ou si elle est définie comme principale
-        if ($validated['est_principale'] ?? false) {
-            $adresse->definirCommePrincipale();
-        }
-
-        // Si c'est la première adresse, la définir comme principale
-        if (Adresse::where('user_id', $request->user()->id)->count() === 1) {
+        // Adresse principale demandée, ou première adresse du client
+        if (($validated['est_principale'] ?? false) || Adresse::where('user_id', $request->user()->id)->count() === 1) {
             $adresse->definirCommePrincipale();
         }
 
         return response()->json([
             'success' => true,
             'message' => 'Adresse ajoutée avec succès',
-            'data' => $adresse->load(['zoneLivraison', 'quartierLivraison']),
+            'data' => $adresse->load('quartierLivraison'),
         ], 201);
     }
 
@@ -74,7 +59,7 @@ class AdresseController extends Controller
     {
         $adresse = Adresse::where('user_id', $request->user()->id)
             ->where('id', $id)
-            ->with(['zoneLivraison', 'quartierLivraison'])
+            ->with('quartierLivraison')
             ->firstOrFail();
 
         return response()->json([
@@ -92,23 +77,9 @@ class AdresseController extends Controller
             ->where('id', $id)
             ->firstOrFail();
 
-        $validated = $request->validate([
-            'libelle' => 'sometimes|nullable|string|max:100',
-            'quartier_id' => 'sometimes|exists:quartiers,id',
-            'quartier' => 'nullable|string|max:255',
-            'ville' => 'nullable|string|max:255',
-            'zone_livraison_id' => 'nullable|exists:zone_livraisons,id,est_active,1',
-            'telephone_contact' => 'sometimes|string|regex:/^\+237[0-9]{9}$/',
-            'point_repere' => 'nullable|string',
-            'complement_adresse' => 'nullable|string',
-            'est_principale' => 'boolean',
-        ]);
-
-        if (isset($validated['quartier_id'])) {
-            $quartier = Quartier::findOrFail($validated['quartier_id']);
-            $validated['quartier'] = $validated['quartier'] ?? $quartier->nom;
-            $validated['ville'] = $validated['ville'] ?? $quartier->ville;
-        }
+        // Changer de quartier impose d'indiquer sa ville (le quartier doit lui appartenir)
+        $validated = $request->validate($this->regles($request, $adresse), $this->messages());
+        $validated = $this->completerDepuisQuartier($validated);
 
         $adresse->update($validated);
 
@@ -119,7 +90,7 @@ class AdresseController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Adresse mise à jour',
-            'data' => $adresse->load(['zoneLivraison', 'quartierLivraison']),
+            'data' => $adresse->load('quartierLivraison'),
         ]);
     }
 
@@ -167,5 +138,53 @@ class AdresseController extends Controller
             'message' => 'Adresse définie comme principale',
             'data' => $adresse,
         ]);
+    }
+
+    private function regles(Request $request, ?Adresse $adresse = null): array
+    {
+        $creation = $adresse === null;
+        $obligatoire = $creation ? 'required' : 'required_with:quartier_id';
+
+        return [
+            'libelle' => 'sometimes|nullable|string|max:100',
+            'ville' => [$obligatoire, 'string', Quartier::regleVille()],
+            'quartier_id' => [
+                $creation ? 'required' : 'sometimes',
+                'integer',
+                Rule::exists('quartiers', 'id')
+                    ->where('actif', true)
+                    ->where('ville', $request->input('ville', $adresse?->ville)),
+            ],
+            'zone' => 'sometimes|nullable|string|max:150',
+            'telephone_contact' => ($creation ? 'required' : 'sometimes').'|string|regex:/^\+237[0-9]{9}$/',
+            'point_repere' => 'sometimes|nullable|string|max:255',
+            'complement_adresse' => 'sometimes|nullable|string|max:500',
+            'est_principale' => 'boolean',
+        ];
+    }
+
+    private function messages(): array
+    {
+        return [
+            'ville.required' => 'Choisissez votre ville.',
+            'ville.required_with' => 'Choisissez la ville du quartier.',
+            'ville.in' => 'Nous livrons uniquement à Yaoundé et à Douala.',
+            'quartier_id.required' => 'Choisissez votre quartier.',
+            'quartier_id.exists' => 'Ce quartier n\'existe pas dans la ville choisie.',
+        ];
+    }
+
+    // Le nom du quartier et la ville sont repris du quartier choisi (et non du texte envoyé)
+    private function completerDepuisQuartier(array $validated): array
+    {
+        if (isset($validated['quartier_id'])) {
+            $quartier = Quartier::findOrFail($validated['quartier_id']);
+            $validated['quartier'] = $quartier->nom;
+            $validated['ville'] = $quartier->ville;
+        } else {
+            unset($validated['ville']);
+        }
+
+        return $validated;
     }
 }

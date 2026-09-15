@@ -69,3 +69,9 @@ export const classeStatut = (statut) => STATUTS_COMMANDE[statut]?.classe || 'bg-
 export const libellePaiement = (statut) => STATUTS_PAIEMENT[statut]?.label || statut
 export const classePaiement = (statut) => STATUTS_PAIEMENT[statut]?.classe || 'bg-gray-100 text-gray-700'
 export const libelleMoyenPaiement = (moyen) => MOYENS_PAIEMENT[moyen] || moyen
+
+// Pour les recherches : « Bonabéri » et « bonaberi » doivent correspondre
+export const normaliserTexte = (texte) => String(texte || '')
+  .normalize('NFD')
+  .replace(/\p{Diacritic}/gu, '')
+  .toLowerCase()

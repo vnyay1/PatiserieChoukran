@@ -127,10 +127,7 @@ File: src/views/CommandeDetail.vue
               <div v-if="commande.type_livraison === 'livraison'" class="space-y-2 text-sm text-gray-600">
                 <div class="flex items-start gap-2">
                   <MapPin :size="16" class="mt-0.5" />
-                  <span>
-                    {{ commande.adresse_livraison?.libelle || 'Adresse' }} —
-                    {{ commande.adresse_livraison?.quartier }}, {{ formatVille(commande.adresse_livraison?.ville) }}
-                  </span>
+                  <span>{{ libelleAdresse(commande.adresse_livraison) || 'Adresse supprimée' }}</span>
                 </div>
                 <div class="flex items-center gap-2">
                   <Phone :size="16" />
@@ -251,7 +248,7 @@ File: src/views/CommandeDetail.vue
               <select v-model="form.adresse_livraison_id" class="input">
                 <option value="">Sélectionner une adresse</option>
                 <option v-for="adresse in adresses" :key="adresse.id" :value="adresse.id">
-                  {{ adresse.libelle || 'Adresse' }} - {{ adresse.quartier }}, {{ formatVille(adresse.ville) }}
+                  {{ libelleAdresse(adresse) }}
                 </option>
               </select>
             </div>
@@ -376,7 +373,8 @@ import {
 } from '@/utils/format'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
-import { useLivraisonVendeurs, formatVille } from '@/composables/useLivraisonVendeurs'
+import { useLivraisonVendeurs } from '@/composables/useLivraisonVendeurs'
+import { formatVille, libelleAdresse, villeAdresse } from '@/utils/villes'
 import { ArrowLeft, MapPin, Clock, Phone, Pencil, Trash2, Truck, Store, FileDown } from 'lucide-vue-next'
 import { resolveImageUrl, onImageError } from '@/utils/images'
 
@@ -398,7 +396,7 @@ const fraisLivraison = ref(0)
 const livraisonPossible = ref(false)
 const shippingError = ref('')
 
-const { erreur: erreurTarifs, estCharge, chargerQuartiersVendeurs, tarifPour, livraisonDe, manquePourMinimum } = useLivraisonVendeurs()
+const { erreur: erreurLivraison, estCharge, chargerLivraisonVendeurs, livreDans, livraisonDe, manquePourMinimum } = useLivraisonVendeurs()
 
 const telechargementFacture = ref(false)
 
@@ -488,7 +486,7 @@ const fetchAdresses = async () => {
 }
 
 // Livraison vérifiée avec le vendeur de CETTE commande (et non ceux du panier, vide une
-// fois la commande passée) : quartier desservi et montant minimum ; frais standard
+// fois la commande passée) : ville livrée et montant minimum ; frais standard
 const refreshShipping = async () => {
   shippingError.value = ''
   fraisLivraison.value = 0
@@ -513,15 +511,15 @@ const refreshShipping = async () => {
     return
   }
 
-  await chargerQuartiersVendeurs([vendeurCommandeId.value])
+  await chargerLivraisonVendeurs([vendeurCommandeId.value])
   if (!estCharge(vendeurCommandeId.value)) {
-    shippingError.value = erreurTarifs.value || 'Impossible de calculer les frais de livraison.'
+    shippingError.value = erreurLivraison.value || 'Impossible de calculer les frais de livraison.'
     return
   }
 
-  const tarif = tarifPour(vendeurCommandeId.value, adresse.quartier_id)
-  if (!tarif) {
-    shippingError.value = 'Le vendeur de cette commande ne livre pas dans ce quartier.'
+  const ville = villeAdresse(adresse)
+  if (!livreDans(vendeurCommandeId.value, ville)) {
+    shippingError.value = `Le vendeur de cette commande ne livre pas à ${formatVille(ville)}.`
     return
   }
 

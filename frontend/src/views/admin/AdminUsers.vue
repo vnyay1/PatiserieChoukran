@@ -313,8 +313,8 @@ File: src/views/admin/AdminUsers.vue
                     <span class="font-semibold">{{ formatPrice(selectedUser.stats.chiffre_affaires) }} FCFA</span>
                   </div>
                   <div class="flex items-center justify-between">
-                    <span>Quartiers desservis</span>
-                    <span class="font-semibold">{{ formatNumber(selectedUser.stats.quartiers_desservis) }}</span>
+                    <span>Villes livrées</span>
+                    <span class="font-semibold">{{ selectedUser.stats.villes_livraison?.map(formatVille).join(', ') || 'Aucune' }}</span>
                   </div>
                 </div>
               </Card>
@@ -382,6 +382,7 @@ import { formatPrice, formatPrice as formatNumber, formatDate } from '@/utils/fo
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { Search, Star } from 'lucide-vue-next'
+import { formatVille } from '@/utils/villes'
 
 const users = ref([])
 const loading = ref(false)
@@ -448,7 +449,7 @@ const getStatutClass = (statut) => {
 }
 
 const formatAdresse = (adresse) => {
-  return [adresse.quartier, adresse.ville, adresse.complement_adresse].filter(Boolean).join(', ')
+  return [adresse.zone, adresse.quartier, formatVille(adresse.ville), adresse.complement_adresse].filter(Boolean).join(', ')
 }
 
 const fetchUsers = async () => {

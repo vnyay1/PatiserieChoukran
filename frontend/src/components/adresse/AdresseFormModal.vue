@@ -24,35 +24,62 @@ File: src/components/adresse/AdresseFormModal.vue
           <input v-model="form.libelle" type="text" class="input" placeholder="Maison, Bureau..." />
         </div>
 
-        <div class="md:col-span-2">
+        <!-- 1. Ville : réduit la liste des quartiers -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Ville *</label>
+          <select v-model="form.ville" class="input" required @change="form.quartier_id = ''">
+            <option value="">Choisir la ville</option>
+            <option v-for="ville in VILLES" :key="ville.valeur" :value="ville.valeur">
+              {{ ville.libelle }}
+            </option>
+          </select>
+        </div>
+
+        <!-- 2. Quartier de cette ville (obligatoire) -->
+        <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Quartier *</label>
+          <select
+            v-model="form.quartier_id"
+            class="input"
+            required
+            :disabled="!form.ville || chargementQuartiers"
+          >
+            <option value="">
+              {{ !form.ville ? 'Choisissez d\'abord la ville' : (chargementQuartiers ? 'Chargement...' : 'Sélectionner un quartier') }}
+            </option>
+            <option v-for="quartier in quartiersFiltres" :key="quartier.id" :value="quartier.id">
+              {{ quartier.nom }}
+            </option>
+          </select>
+        </div>
+
+        <div v-if="form.ville" class="md:col-span-2 -mt-2">
           <input
             v-model="recherche"
             type="search"
-            class="input mb-2"
-            placeholder="Rechercher un quartier..."
+            class="input text-sm"
+            :placeholder="`Rechercher un quartier de ${formatVille(form.ville)}...`"
           />
-          <select v-model="form.quartier_id" class="input" required :disabled="chargementQuartiers">
-            <option value="">
-              {{ chargementQuartiers ? 'Chargement des quartiers...' : 'Sélectionner un quartier' }}
-            </option>
-            <optgroup
-              v-for="groupe in groupesFiltres"
-              :key="groupe.ville"
-              :label="groupe.label"
-            >
-              <option v-for="quartier in groupe.quartiers" :key="quartier.id" :value="quartier.id">
-                {{ quartier.nom }}
-              </option>
-            </optgroup>
-          </select>
-          <p v-if="adresseSansQuartier" class="text-xs text-orange-600 mt-1">
-            Cette adresse n'a pas encore de quartier reconnu ({{ adresse.quartier }}) :
-            choisissez-en un pour pouvoir être livré.
+          <p v-if="recherche && quartiersFiltres.length === 0" class="text-xs text-gray-500 mt-1">
+            Aucun quartier de {{ formatVille(form.ville) }} ne correspond à « {{ recherche }} ».
           </p>
-          <p v-else-if="recherche && groupesFiltres.length === 0" class="text-xs text-gray-500 mt-1">
-            Aucun quartier ne correspond à « {{ recherche }} ».
-          </p>
+        </div>
+
+        <p v-if="adresseSansQuartier" class="md:col-span-2 text-xs text-orange-600 -mt-2">
+          Cette adresse n'a pas encore de quartier reconnu ({{ adresse.quartier }}) :
+          choisissez-en un pour pouvoir être livré.
+        </p>
+
+        <!-- 3. Zone libre (facultative) -->
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Zone / secteur (facultatif)</label>
+          <input
+            v-model="form.zone"
+            type="text"
+            maxlength="150"
+            class="input"
+            placeholder="Ex. Carrefour Obili, entrée du lycée..."
+          />
         </div>
 
         <div>
@@ -108,7 +135,9 @@ File: src/components/adresse/AdresseFormModal.vue
 import { ref, computed, onMounted } from 'vue'
 import api, { messageErreur } from '@/services/api'
 import Button from '@/components/common/Button.vue'
-import { formatVille, normaliserTexte } from '@/composables/useLivraisonVendeurs'
+import { useVilleStore } from '@/stores/ville'
+import { normaliserTexte } from '@/utils/format'
+import { VILLES, formatVille, villeAdresse } from '@/utils/villes'
 
 const props = defineProps({
   // null = création, sinon l'adresse à modifier
@@ -124,12 +153,16 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'saved'])
 
+const villeStore = useVilleStore()
 const isEditing = computed(() => Boolean(props.adresse?.id))
 const adresseSansQuartier = computed(() => isEditing.value && !props.adresse?.quartier_id)
 
 const form = ref({
   libelle: props.adresse?.libelle || '',
+  // Nouvelle adresse : la ville choisie dans l'en-tête est proposée
+  ville: villeAdresse(props.adresse) || (isEditing.value ? '' : villeStore.ville || ''),
   quartier_id: props.adresse?.quartier_id || '',
+  zone: props.adresse?.zone || '',
   telephone_contact: props.adresse?.telephone_contact || props.telephoneParDefaut || '',
   point_repere: props.adresse?.point_repere || '',
   complement_adresse: props.adresse?.complement_adresse || '',
@@ -143,19 +176,14 @@ const recherche = ref('')
 const saving = ref(false)
 const error = ref('')
 
-const groupesFiltres = computed(() => {
+const quartiersFiltres = computed(() => {
   const terme = normaliserTexte(recherche.value.trim())
+  const quartiers = quartiersParVille.value[form.value.ville] || []
 
-  return Object.entries(quartiersParVille.value)
-    .map(([ville, quartiers]) => ({
-      ville,
-      label: formatVille(ville),
-      // Le quartier déjà sélectionné reste visible même s'il ne correspond pas à la recherche
-      quartiers: quartiers.filter((quartier) => !terme
-        || normaliserTexte(quartier.nom).includes(terme)
-        || Number(quartier.id) === Number(form.value.quartier_id)),
-    }))
-    .filter((groupe) => groupe.quartiers.length > 0)
+  // Le quartier déjà sélectionné reste visible même s'il ne correspond pas à la recherche
+  return quartiers.filter((quartier) => !terme
+    || normaliserTexte(quartier.nom).includes(terme)
+    || Number(quartier.id) === Number(form.value.quartier_id))
 })
 
 const fetchQuartiers = async () => {
@@ -176,10 +204,12 @@ const submit = async () => {
   saving.value = true
   error.value = ''
 
-  // Le backend déduit le nom du quartier et la ville à partir de quartier_id
+  // Le backend reprend le nom du quartier et sa ville à partir de quartier_id
   const payload = {
     libelle: form.value.libelle.trim() || null,
+    ville: form.value.ville,
     quartier_id: form.value.quartier_id,
+    zone: form.value.zone.trim() || null,
     telephone_contact: form.value.telephone_contact.trim(),
     point_repere: form.value.point_repere.trim() || null,
     complement_adresse: form.value.complement_adresse.trim() || null,

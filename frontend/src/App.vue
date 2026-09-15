@@ -26,6 +26,9 @@ File: src/App.vue
     <!-- Retours à l'écran (remplacent alert/confirm/prompt) -->
     <ToastContainer />
     <ConfirmDialog />
+
+    <!-- Première visite : le client choisit sa ville (catalogue filtré) -->
+    <ChoixVilleModal />
   </div>
 </template>
 
@@ -39,6 +42,7 @@ import Footer from '@/components/layout/Footer.vue'
 import BottomNav from '@/components/layout/BottomNav.vue'
 import ToastContainer from '@/components/common/ToastContainer.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import ChoixVilleModal from '@/components/common/ChoixVilleModal.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()

@@ -5,6 +5,7 @@
 
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
+import { useVilleStore } from '@/stores/ville'
 import { useToastStore } from '@/stores/toast'
 import router from '@/router'
 
@@ -109,6 +110,12 @@ const getCommandesPrefix = () => {
   return authStore.isVendeur ? '/vendeur/commandes' : '/admin/commandes'
 }
 
+// Catalogue : la ville choisie par le client filtre les produits (ceux qu'on peut lui livrer)
+const avecVille = (params = {}) => {
+  const ville = useVilleStore().ville
+  return ville ? { ville, ...params } : params
+}
+
 const fichierPdf = { responseType: 'blob', headers: { Accept: 'application/pdf, application/json' } }
 
 // Téléchargement (responseType blob) : une erreur JSON arrive elle aussi en Blob,
@@ -146,18 +153,18 @@ export default {
 
   // Catégories
   categories: {
-    getAll: () => api.get('/categories'),
-    getOne: (slug) => api.get(`/categories/${slug}`),
+    getAll: () => api.get('/categories', { params: avecVille() }),
+    getOne: (slug) => api.get(`/categories/${slug}`, { params: avecVille() }),
   },
 
   // Produits
   produits: {
-    getAll: (params) => api.get('/produits', { params }),
+    getAll: (params) => api.get('/produits', { params: avecVille(params) }),
     getOne: (slug) => api.get(`/produits/${slug}`),
-    getFeatured: () => api.get('/produits/featured'),
-    getNouveautes: () => api.get('/produits/nouveautes'),
-    getPromotions: () => api.get('/produits/promotions'),
-    getSimilar: (slug) => api.get(`/produits/${slug}/similar`),
+    getFeatured: () => api.get('/produits/featured', { params: avecVille() }),
+    getNouveautes: () => api.get('/produits/nouveautes', { params: avecVille() }),
+    getPromotions: () => api.get('/produits/promotions', { params: avecVille() }),
+    getSimilar: (slug) => api.get(`/produits/${slug}/similar`, { params: avecVille() }),
   },
 
   // Panier
@@ -178,7 +185,6 @@ export default {
     update: (id, data) => api.put(`/commandes/${id}`, data),
     cancel: (id) => api.post(`/commandes/${id}/cancel`),
     facture: (id) => api.get(`/commandes/${id}/facture`, fichierPdf),
-    calculateShipping: (data) => api.post('/commandes/calculate-shipping', data),
     stats: () => api.get('/commandes/stats'),
   },
 
@@ -202,18 +208,10 @@ export default {
     clearRead: () => api.delete('/notifications/clear-read'),
   },
 
-  // Zones de livraison
-  zones: {
-    getAll: () => api.get('/zones-livraison'),
-    byCity: (ville) => api.get(`/zones-livraison/ville/${ville}`),
-    byCityForCommande: (ville) => api.get(`/zones-livraison/ville/${ville}/commande`),
-    search: (data) => api.post('/zones-livraison/search', data),
-  },
-
-  // Livraison par quartier (tarifs définis par chaque vendeur)
+  // Livraison : quartiers par ville (adresses), villes et minimum d'un vendeur
   livraison: {
     quartiers: (params) => api.get('/livraison/quartiers', { params }),
-    quartiersByVendeur: (vendeurId) => api.get(`/livraison/quartiers/vendeur/${vendeurId}`),
+    vendeur: (vendeurId) => api.get(`/livraison/vendeur/${vendeurId}`),
   },
 
   // Pages publiques des vendeurs
@@ -232,15 +230,10 @@ export default {
         headers: { 'Content-Type': 'multipart/form-data' }
       }),
     },
+    // Ma livraison : villes livrées et montant minimum
     livraison: {
-      updateMinimum: (data) => api.put('/vendeur/livraison/minimum', data),
-    },
-    tarifs: {
-      getAll: () => api.get('/vendeur/tarifs-livraison'),
-      quartiers: () => api.get('/vendeur/tarifs-livraison/quartiers'),
-      create: (data) => api.post('/vendeur/tarifs-livraison', data),
-      update: (id, data) => api.put(`/vendeur/tarifs-livraison/${id}`, data),
-      remove: (id) => api.delete(`/vendeur/tarifs-livraison/${id}`),
+      get: () => api.get('/vendeur/livraison'),
+      update: (data) => api.put('/vendeur/livraison', data),
     },
   },
 
@@ -302,12 +295,11 @@ export default {
       updateRole: (id, data) => api.patch(`/admin/users/${id}/role`, data),
       updateVedette: (id, data) => api.patch(`/admin/users/${id}/vedette`, data),
     },
-    zones: {
-      getAll: (params) => api.get(`${getCataloguePrefix()}/zones-livraison`, { params }),
-      getOne: (id) => api.get(`${getCataloguePrefix()}/zones-livraison/${id}`),
-      create: (data) => api.post(`${getCataloguePrefix()}/zones-livraison`, data),
-      update: (id, data) => api.put(`${getCataloguePrefix()}/zones-livraison/${id}`, data),
-      remove: (id) => api.delete(`${getCataloguePrefix()}/zones-livraison/${id}`),
+    quartiers: {
+      getAll: (params) => api.get('/admin/quartiers', { params }),
+      create: (data) => api.post('/admin/quartiers', data),
+      update: (id, data) => api.put(`/admin/quartiers/${id}`, data),
+      remove: (id) => api.delete(`/admin/quartiers/${id}`),
     }
   }
 }

@@ -37,7 +37,7 @@ class CommandesClientTest extends TestCase
         $vendeur = $this->creerUtilisateur('vendeur');
         $quartier = $this->creerQuartier();
         $adresse = $this->creerAdresse($client, $quartier);
-        $this->creerTarif($vendeur, $quartier);
+        $this->livrerVille($vendeur, $quartier->ville);
         $produit = $this->creerProduit($vendeur);
 
         Sanctum::actingAs($client);

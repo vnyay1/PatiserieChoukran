@@ -14,21 +14,20 @@ use App\Http\Controllers\Admin\ProduitController as AdminProduitController;
 use App\Http\Controllers\Admin\QuartierController as AdminQuartierController;
 use App\Http\Controllers\Admin\RapportController as AdminRapportController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
-use App\Http\Controllers\Admin\ZoneLivraisonController as AdminZoneLivraisonController;
 use App\Http\Controllers\Api\AdresseController;
 // Admin Controllers
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategorieController;
 use App\Http\Controllers\Api\CommandeController;
+use App\Http\Controllers\Api\LivraisonController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PanierController;
 use App\Http\Controllers\Api\ProduitController;
 use App\Http\Controllers\Api\VendeurController;
-use App\Http\Controllers\Api\ZoneLivraisonController;
 use App\Http\Controllers\FactureController;
 use App\Http\Controllers\Vendeur\CommandeController as VendeurCommandeController;
+use App\Http\Controllers\Vendeur\LivraisonController as VendeurLivraisonController;
 use App\Http\Controllers\Vendeur\ProfilBoutiqueController as VendeurProfilBoutiqueController;
-use App\Http\Controllers\Vendeur\TarifLivraisonController as VendeurTarifLivraisonController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -63,15 +62,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/{slug}/similar', [ProduitController::class, 'similar']);
     });
 
-    // Zones de livraison
-    Route::prefix('zones-livraison')->group(function () {
-        Route::get('/', [ZoneLivraisonController::class, 'index']);
-        Route::get('/ville/{ville}', [ZoneLivraisonController::class, 'byCity']);
-        Route::post('/search', [ZoneLivraisonController::class, 'search']);
-    });
-
-    Route::get('livraison/quartiers', [ZoneLivraisonController::class, 'allQuartiers']);
-    Route::get('livraison/quartiers/vendeur/{vendeur}', [ZoneLivraisonController::class, 'quartiersByVendeur']);
+    // Livraison : quartiers par ville (adresses), villes et minimum d'un vendeur
+    Route::get('livraison/quartiers', [LivraisonController::class, 'quartiers']);
+    Route::get('livraison/vendeur/{id}', [LivraisonController::class, 'vendeur'])->whereNumber('id');
 
     // Pages publiques des vendeurs et conditions qu'ils acceptent
     Route::get('vendeurs/{id}', [VendeurController::class, 'show'])->whereNumber('id');
@@ -92,9 +85,6 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::middleware('client')->group(function () {
-            // Zones filtrées pour la commande client (par vendeur du panier)
-            Route::get('zones-livraison/ville/{ville}/commande', [ZoneLivraisonController::class, 'byCityForCommande']);
-
             // Panier (client uniquement)
             Route::prefix('panier')->group(function () {
                 Route::get('/', [PanierController::class, 'index']);
@@ -114,7 +104,6 @@ Route::prefix('v1')->group(function () {
                 Route::put('/{id}', [CommandeController::class, 'update']);
                 Route::post('/{id}/cancel', [CommandeController::class, 'cancel']);
                 Route::get('/{id}/facture', [FactureController::class, 'client'])->whereNumber('id');
-                Route::post('/calculate-shipping', [CommandeController::class, 'calculateShipping']);
             });
         });
 
@@ -201,15 +190,7 @@ Route::prefix('v1')->group(function () {
         Route::get('rapports', [AdminRapportController::class, 'index']);
         Route::get('rapports/mensuel', [AdminRapportController::class, 'mensuel']);
 
-        // Gestion des zones de livraison
-        Route::prefix('zones-livraison')->group(function () {
-            Route::get('/', [AdminZoneLivraisonController::class, 'index']);
-            Route::post('/', [AdminZoneLivraisonController::class, 'store']);
-            Route::get('/{id}', [AdminZoneLivraisonController::class, 'show']);
-            Route::put('/{id}', [AdminZoneLivraisonController::class, 'update']);
-            Route::delete('/{id}', [AdminZoneLivraisonController::class, 'destroy']);
-        });
-
+        // Quartiers proposés dans les adresses
         Route::apiResource('quartiers', AdminQuartierController::class);
     });
 
@@ -224,9 +205,9 @@ Route::prefix('v1')->group(function () {
 
         // Tout le reste exige un profil boutique complet
         Route::middleware('profil.vendeur')->group(function () {
-            Route::get('tarifs-livraison/quartiers', [VendeurTarifLivraisonController::class, 'quartiers']);
-            Route::apiResource('tarifs-livraison', VendeurTarifLivraisonController::class);
-            Route::put('livraison/minimum', [VendeurTarifLivraisonController::class, 'updateMinimum']);
+            // Ma livraison : villes livrées et montant minimum
+            Route::get('livraison', [VendeurLivraisonController::class, 'show']);
+            Route::put('livraison', [VendeurLivraisonController::class, 'update']);
 
             // Gestion des commandes du vendeur (uniquement ses propres produits)
             Route::prefix('commandes')->group(function () {
@@ -262,12 +243,6 @@ Route::prefix('v1')->group(function () {
                 Route::post('produits', [AdminProduitController::class, 'store']);
                 Route::put('produits/{id}', [AdminProduitController::class, 'update']);
                 Route::delete('produits/{id}', [AdminProduitController::class, 'destroy']);
-
-                Route::get('zones-livraison', [AdminZoneLivraisonController::class, 'index']);
-                Route::get('zones-livraison/{id}', [AdminZoneLivraisonController::class, 'show']);
-                Route::post('zones-livraison', [AdminZoneLivraisonController::class, 'store']);
-                Route::put('zones-livraison/{id}', [AdminZoneLivraisonController::class, 'update']);
-                Route::delete('zones-livraison/{id}', [AdminZoneLivraisonController::class, 'destroy']);
             });
         });
     });

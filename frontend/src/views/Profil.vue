@@ -124,7 +124,7 @@ File: src/views/Profil.vue
                       <span v-if="adresse.est_principale" class="badge badge-primary text-xs">Principale</span>
                     </div>
                     <p class="text-sm text-gray-600">
-                      {{ adresse.quartier }}, {{ formatVille(adresse.ville) }}<br />
+                      {{ [adresse.zone, adresse.quartier, formatVille(villeAdresse(adresse))].filter(Boolean).join(', ') }}<br />
                       {{ adresse.telephone_contact }}
                     </p>
                     <p v-if="!adresse.quartier_id" class="text-xs text-orange-600 mt-1">
@@ -217,7 +217,7 @@ import api, { messageErreur } from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import AdresseFormModal from '@/components/adresse/AdresseFormModal.vue'
-import { formatVille } from '@/composables/useLivraisonVendeurs'
+import { formatVille, villeAdresse } from '@/utils/villes'
 import { useConfirm } from '@/composables/useConfirm'
 import { User, MapPin, Lock, LogOut, Trash2, Pencil } from 'lucide-vue-next'
 

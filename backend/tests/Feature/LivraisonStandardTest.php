@@ -33,7 +33,7 @@ class LivraisonStandardTest extends TestCase
         $this->vendeur = $this->creerUtilisateur('vendeur', ['nom_complet' => 'Chez Jean', 'montant_minimum_livraison' => 5000]);
         $quartier = $this->creerQuartier();
         $this->adresse = $this->creerAdresse($this->client, $quartier);
-        $this->creerTarif($this->vendeur, $quartier);
+        $this->livrerVille($this->vendeur, $quartier->ville);
         $this->produit = $this->creerProduit($this->vendeur, ['prix_unitaire' => 2000]);
     }
 
@@ -102,16 +102,17 @@ class LivraisonStandardTest extends TestCase
     {
         Sanctum::actingAs($this->vendeur);
 
-        $this->getJson('/api/v1/vendeur/tarifs-livraison')
+        $this->getJson('/api/v1/vendeur/livraison')
             ->assertOk()
-            ->assertJsonPath('meta.montant_minimum_livraison', 5000)
-            ->assertJsonPath('meta.frais_livraison_standard', 1500);
+            ->assertJsonPath('data.montant_minimum_livraison', 5000)
+            ->assertJsonPath('data.frais_livraison_standard', 1500)
+            ->assertJsonPath('data.villes', ['yaoundé']);
 
-        $this->putJson('/api/v1/vendeur/livraison/minimum', ['montant_minimum_livraison' => -10])
+        $this->putJson('/api/v1/vendeur/livraison', ['montant_minimum_livraison' => -10, 'villes' => ['yaoundé']])
             ->assertStatus(422)
             ->assertJsonValidationErrors('montant_minimum_livraison');
 
-        $this->putJson('/api/v1/vendeur/livraison/minimum', ['montant_minimum_livraison' => 0])
+        $this->putJson('/api/v1/vendeur/livraison', ['montant_minimum_livraison' => 0, 'villes' => ['yaoundé']])
             ->assertOk()
             ->assertJsonPath('data.montant_minimum_livraison', 0);
 
@@ -124,7 +125,7 @@ class LivraisonStandardTest extends TestCase
     {
         Sanctum::actingAs($this->client);
 
-        $this->putJson('/api/v1/vendeur/livraison/minimum', ['montant_minimum_livraison' => 0])->assertForbidden();
+        $this->putJson('/api/v1/vendeur/livraison', ['montant_minimum_livraison' => 0, 'villes' => []])->assertForbidden();
         $this->assertEquals(5000, (float) $this->vendeur->fresh()->montant_minimum_livraison);
     }
 

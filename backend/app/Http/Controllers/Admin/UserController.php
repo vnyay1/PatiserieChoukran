@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Commande;
 use App\Models\Produit;
 use App\Models\User;
-use App\Models\VendeurTarifLivraison;
 use App\Services\NotificationsCompte;
 use Illuminate\Http\Request;
 
@@ -72,7 +71,7 @@ class UserController extends Controller
                 'commandes_recues' => (clone $commandesRecues)->count(),
                 'commandes_en_cours' => (clone $commandesRecues)->whereIn('statut', Commande::STATUTS_EN_COURS)->count(),
                 'chiffre_affaires' => (clone $commandesRecues)->where('statut_paiement', 'paye')->sum('montant_total'),
-                'quartiers_desservis' => VendeurTarifLivraison::where('vendeur_id', $user->id)->where('actif', true)->count(),
+                'villes_livraison' => $user->villesLivrees(),
             ];
         }
 

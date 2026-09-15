@@ -25,8 +25,8 @@ const AdminCommandes = () => import('@/views/admin/AdminCommandes.vue')
 const AdminParametres = () => import('@/views/admin/AdminParametres.vue')
 const AdminProduits = () => import('@/views/admin/AdminProduits.vue')
 const AdminUsers = () => import('@/views/admin/AdminUsers.vue')
-const AdminZones = () => import('@/views/admin/AdminZones.vue')
-const AdminTarifsLivraison = () => import('@/views/admin/AdminTarifsLivraison.vue')
+const AdminQuartiers = () => import('@/views/admin/AdminQuartiers.vue')
+const MaLivraison = () => import('@/views/vendeur/MaLivraison.vue')
 const AdminRapports = () => import('@/views/admin/AdminRapports.vue')
 const ProfilBoutique = () => import('@/views/vendeur/ProfilBoutique.vue')
 const VendeurProfil = () => import('@/views/VendeurProfil.vue')
@@ -156,15 +156,15 @@ const routes = [
     meta: { title: 'Administration Utilisateurs', requiresAuth: true, requiresAdmin: true }
   },
   {
-    path: '/admin/zones-livraison',
-    name: 'admin-zones',
-    component: AdminZones,
-    meta: { title: 'Administration Zones de livraison', requiresAuth: true, requiresCatalogueManager: true }
+    path: '/admin/quartiers',
+    name: 'admin-quartiers',
+    component: AdminQuartiers,
+    meta: { title: 'Quartiers', requiresAuth: true, requiresAdmin: true }
   },
   {
-    path: '/admin/tarifs-livraison',
-    name: 'admin-tarifs',
-    component: AdminTarifsLivraison,
+    path: '/vendeur/livraison',
+    name: 'vendeur-livraison',
+    component: MaLivraison,
     meta: { title: 'Ma livraison', requiresAuth: true, requiresVendeur: true }
   },
   {

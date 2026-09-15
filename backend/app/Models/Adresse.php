@@ -12,8 +12,8 @@ class Adresse extends Model
         'libelle',
         'quartier',
         'ville',
-        'zone_livraison_id',
         'quartier_id',
+        'zone',
         'telephone_contact',
         'point_repere',
         'complement_adresse',
@@ -30,16 +30,17 @@ class Adresse extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function zoneLivraison()
-    {
-        return $this->belongsTo(ZoneLivraison::class, 'zone_livraison_id');
-    }
-
     // Nommée quartierLivraison (et non quartier) pour ne pas écraser la colonne
     // texte `quartier` dans le JSON quand la relation est chargée.
     public function quartierLivraison(): BelongsTo
     {
         return $this->belongsTo(Quartier::class, 'quartier_id');
+    }
+
+    // Ville servant aux règles de livraison : celle du quartier choisi
+    public function villeDeLivraison(): ?string
+    {
+        return $this->quartierLivraison?->ville ?? $this->ville;
     }
 
     // Méthodes utiles
@@ -57,8 +58,9 @@ class Adresse extends Model
     public function getAdresseCompleteAttribute()
     {
         return trim(implode(', ', array_filter([
+            $this->zone,
             $this->quartier,
-            $this->ville,
+            Quartier::libelleVille($this->ville),
             $this->complement_adresse,
         ])));
     }

@@ -58,6 +58,12 @@ class User extends Authenticatable
         return $this->hasMany(Produit::class, 'created_by_user_id');
     }
 
+    // Villes où le vendeur livre (vendeur_villes)
+    public function villesLivraison()
+    {
+        return $this->hasMany(VendeurVille::class, 'vendeur_id');
+    }
+
     public function adresses()
     {
         return $this->hasMany(Adresse::class);
@@ -162,5 +168,18 @@ class User extends Authenticatable
     public function estVendeurEnActivite(): bool
     {
         return $this->isVendeur() && $this->isActif() && $this->estProfilVendeurComplet();
+    }
+
+    /**
+     * @return string[] valeurs de Quartier::VILLES
+     */
+    public function villesLivrees(): array
+    {
+        return $this->villesLivraison->pluck('ville')->sort()->values()->all();
+    }
+
+    public function livreDans(?string $ville): bool
+    {
+        return $ville !== null && in_array($ville, $this->villesLivrees(), true);
     }
 }

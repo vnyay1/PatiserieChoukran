@@ -8,7 +8,7 @@ use App\Models\Commande;
 use App\Models\Produit;
 use App\Models\Quartier;
 use App\Models\User;
-use App\Models\VendeurTarifLivraison;
+use App\Models\VendeurVille;
 use Illuminate\Support\Str;
 
 /**
@@ -94,16 +94,10 @@ trait CreeDonneesBoutique
         ]);
     }
 
-    // Le vendeur dessert ce quartier (les frais sont le tarif standard de la plateforme)
-    protected function creerTarif(User $vendeur, Quartier $quartier): VendeurTarifLivraison
+    // Le vendeur livre la ville de ce quartier (frais : tarif standard de la plateforme)
+    protected function livrerVille(User $vendeur, string $ville = 'yaoundé'): VendeurVille
     {
-        return VendeurTarifLivraison::create([
-            'vendeur_id' => $vendeur->id,
-            'quartier_id' => $quartier->id,
-            'delai_min' => 30,
-            'delai_max' => 60,
-            'actif' => true,
-        ]);
+        return VendeurVille::firstOrCreate(['vendeur_id' => $vendeur->id, 'ville' => $ville]);
     }
 
     protected function creerCommande(User $client, User $vendeur, array $attributs = []): Commande

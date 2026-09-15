@@ -18,7 +18,7 @@ class VendeurController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $vendeur = User::vendeursEnActivite()->findOrFail($id);
+        $vendeur = User::vendeursEnActivite()->with('villesLivraison')->findOrFail($id);
 
         return response()->json([
             'success' => true,
@@ -30,6 +30,7 @@ class VendeurController extends Controller
                 'description_boutique' => $vendeur->description_boutique,
                 'est_vendeur_vedette' => $vendeur->est_vendeur_vedette,
                 'montant_minimum_livraison' => (float) $vendeur->montant_minimum_livraison,
+                'villes_livraison' => $vendeur->villesLivrees(),
                 'membre_depuis' => $vendeur->created_at,
                 'nombre_produits' => Produit::visible()->where('created_by_user_id', $vendeur->id)->count(),
             ],

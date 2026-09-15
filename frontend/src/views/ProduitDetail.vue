@@ -106,7 +106,7 @@ File: src/views/ProduitDetail.vue
             {{ produit.nom }}
           </h1>
 
-          <!-- Vendeur : il livre les quartiers qu'il dessert, à partir de son minimum d'achat -->
+          <!-- Vendeur : il livre les villes qu'il a choisies, à partir de son minimum d'achat -->
           <router-link
             v-if="produit.createur?.nom_complet"
             :to="{ name: 'vendeur-profil', params: { id: produit.createur.id } }"
@@ -120,6 +120,17 @@ File: src/views/ProduitDetail.vue
             />
             <span>Vendu par <span class="font-medium text-gray-800 underline-offset-2 hover:underline">{{ produit.createur.nom_complet }}</span></span>
           </router-link>
+
+          <p v-if="livraisonVendeur" class="flex items-center gap-2 text-sm mb-4" :class="livrableIci ? 'text-gray-600' : 'text-orange-700'">
+            <Truck :size="16" />
+            <template v-if="!livraisonVendeur.villes.length">Retrait en boutique uniquement</template>
+            <template v-else-if="villeStore.ville && !livrableIci">
+              Pas de livraison à {{ villeStore.libelle }} (livré à {{ villesVendeur }}) : retrait en boutique possible
+            </template>
+            <template v-else>
+              Livré à {{ villesVendeur }}{{ livraisonVendeur.minimum > 0 ? ` dès ${formatPrice(livraisonVendeur.minimum)} FCFA d'achat` : '' }}
+            </template>
+          </p>
 
           <!-- Prix -->
           <div class="flex items-baseline gap-3 mb-6">
@@ -290,17 +301,37 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
 import { useToastStore } from '@/stores/toast'
+import { useVilleStore } from '@/stores/ville'
 import api from '@/services/api'
 import ProduitCard from '@/components/produits/ProduitCard.vue'
 import Button from '@/components/common/Button.vue'
 import { resolveImageUrl, onImageError } from '@/utils/images'
-import { ArrowLeft, Star, ShoppingCart, Minus, Plus, AlertTriangle } from 'lucide-vue-next'
+import { ArrowLeft, Star, ShoppingCart, Minus, Plus, AlertTriangle, Truck } from 'lucide-vue-next'
+import { formatVille } from '@/utils/villes'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const panierStore = usePanierStore()
 const toastStore = useToastStore()
+const villeStore = useVilleStore()
+
+// Villes et minimum du vendeur : prévient avant l'ajout au panier si la ville n'est pas livrée
+const livraisonVendeur = ref(null)
+const villesVendeur = computed(() => (livraisonVendeur.value?.villes || []).map(formatVille).join(' et '))
+const livrableIci = computed(() => !villeStore.ville || Boolean(livraisonVendeur.value?.villes.includes(villeStore.ville)))
+
+const fetchLivraisonVendeur = async (vendeurId) => {
+  livraisonVendeur.value = null
+  if (!vendeurId) return
+  try {
+    const response = await api.livraison.vendeur(vendeurId)
+    const data = response.data?.data || {}
+    livraisonVendeur.value = { villes: data.villes || [], minimum: Number(data.montant_minimum_livraison) || 0 }
+  } catch (error) {
+    console.error('Erreur chargement livraison du vendeur:', error)
+  }
+}
 
 const produit = ref(null)
 const produitsSimilaires = ref([])
@@ -348,8 +379,9 @@ const fetchProduit = async () => {
       const images = allImages.value
       currentImage.value = images[0] || resolveImageUrl(null)
       
-      // Charger les produits similaires
+      // Produits similaires et conditions de livraison du vendeur en parallèle
       fetchProduitsSimilaires()
+      fetchLivraisonVendeur(produit.value.createur?.id)
     }
   } catch (error) {
     console.error('Erreur chargement produit:', error)
@@ -403,6 +435,10 @@ const addToCart = async () => {
 
 onMounted(() => {
   fetchProduit()
+})
+
+watch(() => villeStore.ville, () => {
+  if (produit.value) fetchProduitsSimilaires()
 })
 
 watch(

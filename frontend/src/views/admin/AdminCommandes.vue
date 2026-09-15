@@ -351,6 +351,7 @@ File: src/views/admin/AdminCommandes.vue
                       <span v-if="selectedCommande.adresse_livraison.libelle" class="font-medium">
                         {{ selectedCommande.adresse_livraison.libelle }} —
                       </span>
+                      <template v-if="selectedCommande.adresse_livraison.zone">{{ selectedCommande.adresse_livraison.zone }}, </template>
                       {{ selectedCommande.adresse_livraison.quartier }},
                       {{ formatVille(selectedCommande.adresse_livraison.ville) }}
                     </div>
@@ -463,7 +464,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
-import { formatVille } from '@/composables/useLivraisonVendeurs'
+import { formatVille } from '@/utils/villes'
 import api, { messageErreur, lireErreurBlob } from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'

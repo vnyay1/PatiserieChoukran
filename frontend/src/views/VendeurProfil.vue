@@ -56,6 +56,10 @@ File: src/views/VendeurProfil.vue
                   {{ vendeur.email }}
                 </a>
                 <span class="inline-flex items-center gap-2">
+                  <MapPin :size="16" />
+                  {{ vendeur.villes_livraison?.length ? `Livre à ${vendeur.villes_livraison.map(formatVille).join(' et ')}` : 'Retrait en boutique uniquement' }}
+                </span>
+                <span class="inline-flex items-center gap-2">
                   <Truck :size="16" />
                   {{ vendeur.montant_minimum_livraison > 0
                     ? `Livraison dès ${formatPrice(vendeur.montant_minimum_livraison)} FCFA d'achat`
@@ -110,7 +114,8 @@ import Button from '@/components/common/Button.vue'
 import ProduitCard from '@/components/produits/ProduitCard.vue'
 import { resolveImageUrl } from '@/utils/images'
 import { formatPrice, formatDate } from '@/utils/format'
-import { Store, Star, Mail, Truck, Calendar } from 'lucide-vue-next'
+import { Store, Star, Mail, Truck, Calendar, MapPin } from 'lucide-vue-next'
+import { formatVille } from '@/utils/villes'
 
 const route = useRoute()
 const router = useRouter()
@@ -126,7 +131,8 @@ const totalProduits = ref(0)
 const chargerProduits = async (numeroPage = 1) => {
   loadingProduits.value = true
   try {
-    const response = await api.produits.getAll({ vendeur_id: route.params.id, page: numeroPage, per_page: 12 })
+    // ville: undefined -> la ville choisie ne filtre pas la vitrine du vendeur (ses villes sont affichées)
+    const response = await api.produits.getAll({ vendeur_id: route.params.id, ville: undefined, page: numeroPage, per_page: 12 })
     const pagination = response.data.data
     produits.value = numeroPage === 1 ? pagination.data : [...produits.value, ...pagination.data]
     page.value = pagination.current_page

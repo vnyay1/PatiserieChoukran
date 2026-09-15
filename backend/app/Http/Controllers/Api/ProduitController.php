@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Produit;
+use App\Models\Quartier;
 use Illuminate\Http\Request;
 
 class ProduitController extends Controller
@@ -19,6 +20,7 @@ class ProduitController extends Controller
         $validated = $request->validate([
             'categorie_id' => 'nullable|integer',
             'vendeur_id' => 'nullable|integer',
+            'ville' => 'nullable|'.Quartier::regleVille(),
             'search' => 'nullable|string|max:100',
             'prix_min' => 'nullable|numeric|min:0',
             'prix_max' => 'nullable|numeric|min:0',
@@ -27,8 +29,11 @@ class ProduitController extends Controller
             'per_page' => 'nullable|integer|min:1|max:50',
         ]);
 
-        // Seuls le nom, le logo et la mise en avant du vendeur sont exposés (pas son téléphone)
-        $query = Produit::with(['categorie', Produit::VENDEUR_PUBLIC])->visible();
+        // Seuls le nom, le logo et la mise en avant du vendeur sont exposés (pas son téléphone).
+        // Ville choisie par le client : seulement les produits qu'on peut lui livrer.
+        $query = Produit::with(['categorie', Produit::VENDEUR_PUBLIC])
+            ->visible()
+            ->livrableDans($validated['ville'] ?? null);
 
         if (! empty($validated['categorie_id'])) {
             $query->where('categorie_id', $validated['categorie_id']);
@@ -109,7 +114,7 @@ class ProduitController extends Controller
     /**
      * Produits similaires
      */
-    public function similar($slug)
+    public function similar(Request $request, $slug)
     {
         $produit = Produit::where('slug', $slug)->firstOrFail();
 
@@ -117,6 +122,7 @@ class ProduitController extends Controller
             ->where('id', '!=', $produit->id)
             ->with(Produit::VENDEUR_PUBLIC)
             ->visible()
+            ->livrableDans($this->ville($request))
             ->vendeursVedettesEnTete()
             ->limit(4)
             ->get();
@@ -130,10 +136,11 @@ class ProduitController extends Controller
     /**
      * Produits vedettes pour la page d'accueil : ceux des vendeurs mis en avant
      */
-    public function featured()
+    public function featured(Request $request)
     {
         $produits = Produit::vedette()
             ->visible()
+            ->livrableDans($this->ville($request))
             ->with(['categorie', Produit::VENDEUR_PUBLIC])
             ->orderBy('nombre_commandes', 'desc')
             ->orderBy('id', 'desc')
@@ -149,9 +156,10 @@ class ProduitController extends Controller
     /**
      * Nouveautés
      */
-    public function nouveautes()
+    public function nouveautes(Request $request)
     {
         $produits = Produit::visible()
+            ->livrableDans($this->ville($request))
             ->with(['categorie', Produit::VENDEUR_PUBLIC])
             ->orderBy('created_at', 'desc')
             ->limit(8)
@@ -166,10 +174,11 @@ class ProduitController extends Controller
     /**
      * Promotions
      */
-    public function promotions()
+    public function promotions(Request $request)
     {
         $produits = Produit::promotion()
             ->visible()
+            ->livrableDans($this->ville($request))
             ->with(['categorie', Produit::VENDEUR_PUBLIC])
             ->vendeursVedettesEnTete()
             ->orderBy('created_at', 'desc')
@@ -180,5 +189,10 @@ class ProduitController extends Controller
             'success' => true,
             'data' => $produits,
         ]);
+    }
+
+    private function ville(Request $request): ?string
+    {
+        return $request->validate(['ville' => 'nullable|'.Quartier::regleVille()])['ville'] ?? null;
     }
 }

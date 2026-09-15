@@ -247,6 +247,7 @@ import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api, { messageErreur } from '@/services/api'
 import { useToastStore } from '@/stores/toast'
+import { useVilleStore } from '@/stores/ville'
 import ProduitCard from '@/components/produits/ProduitCard.vue'
 import FiltersSidebar from '@/components/produits/FiltersSidebar.vue'
 import Button from '@/components/common/Button.vue'
@@ -255,6 +256,7 @@ import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight } from 'lucide-
 const route = useRoute()
 const router = useRouter()
 const toastStore = useToastStore()
+const villeStore = useVilleStore()
 
 const TRIS = {
   recent: { sort_by: 'created_at', sort_order: 'desc' },
@@ -457,6 +459,13 @@ watch(
 )
 
 fetchCategories()
+
+// Nouvelle ville : liste et compteurs des catégories rechargés, retour à la page 1
+watch(() => villeStore.ville, () => {
+  fetchCategories()
+  if (currentPage.value === 1) fetchProduits()
+  else mettreAJourUrl(1)
+})
 
 onBeforeUnmount(() => clearTimeout(searchTimeout))
 </script>

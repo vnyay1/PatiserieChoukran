@@ -66,7 +66,7 @@ const navItems = computed(() => {
       { name: 'produits', label: 'Produits', icon: ShoppingBag, to: '/produits' },
       { name: 'admin-commandes', label: 'Commandes', icon: Package, to: '/admin/commandes' },
       { name: 'admin-produits', label: 'Catalogue', icon: Shield, to: '/admin/produits' },
-      { name: 'admin-tarifs', label: 'Livraison', icon: Truck, to: '/admin/tarifs-livraison' },
+      { name: 'vendeur-livraison', label: 'Livraison', icon: Truck, to: '/vendeur/livraison' },
     ]
   }
 
@@ -79,22 +79,15 @@ const navItems = computed(() => {
   ]
 })
 
-const isActive = (name) => {
-  if (name === 'home') return route.name === 'home'
-  if (name === 'produits') return route.name === 'produits' || route.name === 'produit-detail'
-  if (name === 'panier') return route.name === 'panier' || route.name === 'checkout'
-  if (name === 'commandes') return route.name === 'mes-commandes' || route.name === 'commande-detail'
-  if (name === 'profil') return route.name === 'profil'
-  if (name === 'admin-dashboard') {
-    return route.name === 'admin-dashboard' || route.name === 'admin-produits' || route.name === 'admin-users' || route.name === 'admin-zones' || route.name === 'admin-categories' || route.name === 'admin-parametres' || route.name === 'admin-rapports'
-  }
-  if (name === 'admin-produits') return route.name === 'admin-produits'
-  if (name === 'admin-categories') return route.name === 'admin-categories'
-  if (name === 'admin-zones') return route.name === 'admin-zones'
-  if (name === 'admin-tarifs') return route.name === 'admin-tarifs'
-  if (name === 'admin-commandes') return route.name === 'admin-commandes'
-  if (name === 'admin-parametres') return route.name === 'admin-parametres'
-  return false
+// Entrées dont plusieurs pages sont « actives » ; les autres correspondent à une seule route
+const ROUTES_ACTIVES = {
+  produits: ['produits', 'produit-detail'],
+  panier: ['panier', 'checkout'],
+  commandes: ['mes-commandes', 'commande-detail'],
+  // L'onglet Admin regroupe les pages d'administration sans onglet propre
+  'admin-dashboard': ['admin-dashboard', 'admin-produits', 'admin-users', 'admin-quartiers', 'admin-categories', 'admin-rapports'],
 }
+
+const isActive = (name) => (ROUTES_ACTIVES[name] || [name]).includes(route.name)
 
 </script>

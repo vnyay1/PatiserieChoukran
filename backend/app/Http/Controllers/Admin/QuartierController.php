@@ -19,7 +19,7 @@ class QuartierController extends Controller
         ]);
 
         $query = Quartier::query()
-            ->withCount(['adresses', 'tarifs'])
+            ->withCount('adresses')
             ->when(isset($validated['ville']), fn ($q) => $q->where('ville', $validated['ville']))
             ->when(array_key_exists('actif', $validated), fn ($q) => $q->where('actif', $request->boolean('actif')))
             ->when(isset($validated['search']), function ($q) use ($validated) {
@@ -60,7 +60,7 @@ class QuartierController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        $quartier = Quartier::withCount(['adresses', 'tarifs'])->findOrFail($id);
+        $quartier = Quartier::withCount('adresses')->findOrFail($id);
 
         return response()->json([
             'success' => true,

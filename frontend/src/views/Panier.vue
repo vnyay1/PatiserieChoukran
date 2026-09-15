@@ -112,7 +112,8 @@ File: src/views/Panier.vue
                   <span v-else class="text-sm text-gray-500">À calculer</span>
                 </div>
                 <p v-if="livraisonEstimee" class="text-xs text-gray-500">
-                  Vers {{ adressePrincipale?.quartier }} (adresse principale), modifiable à l'étape suivante.
+                  {{ adressePrincipale ? `Vers ${adressePrincipale.quartier}, ${formatVille(villeLivraison)} (adresse principale)` : `À ${formatVille(villeLivraison)} (ville choisie)` }},
+                  modifiable à l'étape suivante.
                 </p>
 
                 <div class="divider-ornament"></div>
@@ -211,21 +212,24 @@ import api from '@/services/api'
 import PanierItem from '@/components/panier/PanierItem.vue'
 import Button from '@/components/common/Button.vue'
 import Card from '@/components/common/Card.vue'
-import { useLivraisonVendeurs, grouperParVendeur, formatDelai } from '@/composables/useLivraisonVendeurs'
+import { useLivraisonVendeurs, grouperParVendeur } from '@/composables/useLivraisonVendeurs'
+import { useVilleStore } from '@/stores/ville'
+import { formatVille, villeAdresse } from '@/utils/villes'
 import { Shield } from 'lucide-vue-next'
 
 const panierStore = usePanierStore()
 const toastStore = useToastStore()
-const { chargerQuartiersVendeurs, livraisonDesGroupes } = useLivraisonVendeurs()
+const villeStore = useVilleStore()
+const { chargerLivraisonVendeurs, livraisonDesGroupes } = useLivraisonVendeurs()
 
 const showClearConfirm = ref(false)
 // Sert à estimer les frais de livraison (l'adresse reste modifiable au checkout)
 const adressePrincipale = ref(null)
 
 const groupes = computed(() => grouperParVendeur(panierStore.items))
-const livraisonParGroupe = computed(() => {
-  return livraisonDesGroupes(groupes.value, adressePrincipale.value?.quartier_id || null)
-})
+// Estimation vers la ville de l'adresse principale, sinon la ville choisie dans l'en-tête
+const villeLivraison = computed(() => villeAdresse(adressePrincipale.value) || villeStore.ville)
+const livraisonParGroupe = computed(() => livraisonDesGroupes(groupes.value, villeLivraison.value))
 
 const livraisonEstimee = computed(() => {
   return livraisonParGroupe.value.length > 0 && livraisonParGroupe.value.every((groupe) => groupe.statut === 'ok')
@@ -239,15 +243,13 @@ const formatPrice = (price) => {
 }
 
 const messageLivraison = (groupe) => {
-  const quartier = adressePrincipale.value?.quartier
+  const ville = formatVille(villeLivraison.value)
 
   switch (groupe.statut) {
-    case 'ok': {
-      const delai = formatDelai(groupe.tarif)
-      return `Livraison estimée vers ${quartier} : ${formatPrice(groupe.frais)} FCFA${delai ? ` (${delai})` : ''}`
-    }
+    case 'ok':
+      return `Livraison estimée à ${ville} : ${formatPrice(groupe.frais)} FCFA`
     case 'non_couvert':
-      return `Ce vendeur ne livre pas à ${quartier} (retrait en boutique possible)`
+      return `Ce vendeur ne livre pas à ${ville} (retrait en boutique possible)`
     case 'minimum_non_atteint':
       return messageMinimum(groupe)
     case 'chargement':
@@ -283,10 +285,10 @@ const fetchAdressePrincipale = async () => {
 
 onMounted(fetchAdressePrincipale)
 
-// Charge les conditions de livraison (quartiers, minimum) des vendeurs du panier
+// Charge les conditions de livraison (villes, minimum) des vendeurs du panier
 watch(
   () => groupes.value.map((groupe) => groupe.vendeurId).filter(Boolean).join(','),
-  () => chargerQuartiersVendeurs(groupes.value.map((groupe) => groupe.vendeurId)),
+  () => chargerLivraisonVendeurs(groupes.value.map((groupe) => groupe.vendeurId)),
   { immediate: true }
 )
 
