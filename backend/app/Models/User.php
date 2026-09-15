@@ -44,11 +44,6 @@ class User extends Authenticatable
         return $this->hasMany(Commande::class);
     }
 
-    public function commandesVendues()
-    {
-        return $this->hasMany(Commande::class, 'vendeur_id');
-    }
-
     public function produits()
     {
         return $this->hasMany(Produit::class, 'created_by_user_id');

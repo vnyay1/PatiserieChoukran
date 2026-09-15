@@ -102,11 +102,6 @@ class Produit extends Model
         );
     }
 
-    public function scopeEnStock($query)
-    {
-        return $query->where('stock_disponible', '>', 0);
-    }
-
     public function scopePromotion($query)
     {
         return $query->whereNotNull('prix_promo');
@@ -121,15 +116,6 @@ class Produit extends Model
     public function getEnPromotionAttribute()
     {
         return ! is_null($this->prix_promo);
-    }
-
-    public function getPourcentageReductionAttribute()
-    {
-        if (! $this->en_promotion) {
-            return 0;
-        }
-
-        return round((($this->prix_unitaire - $this->prix_promo) / $this->prix_unitaire) * 100);
     }
 
     // Méthodes utiles

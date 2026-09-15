@@ -1,8 +1,9 @@
 Tous les points de cette liste ont été traités (branche amelioration/audit-complet).
 
 [x] "unread-count" qui tourne sans arrêt
-    -> le sondage est suspendu quand l'onglet est caché et repris au retour
-       (stores/notifications.js) ; la cloche est aussi accessible sur mobile.
+    -> un seul onglet interroge le serveur, toutes les 2 minutes, avec un
+       ralentissement progressif en cas d'erreur (utils/sondagePartage.js) ;
+       plus d'appel à chaque changement de page ; arrêt à la déconnexion.
 
 [x] Invité qui clique "ajouter au panier"
     -> redirection vers /login avec ?redirect=, puis retour sur la page d'origine
@@ -24,7 +25,7 @@ Tous les points de cette liste ont été traités (branche amelioration/audit-co
        images affichées côté client, dossier de destination créé.
 
 [x] Quartiers de Yaoundé et Douala dans les seeders
-    -> QuartierSeeder + VendeurTarifLivraisonSeeder.
+    -> QuartierSeeder + VendeurVilleSeeder (villes livrées par les vendeurs).
 
 [x] Panier limité à un seul vendeur
     -> le panier accepte plusieurs vendeurs et le checkout crée une commande
@@ -43,8 +44,8 @@ Tous les points de cette liste ont été traités (branche amelioration/audit-co
 
 [x] Livraison à prix standard (1500 FCFA) et montant minimum par vendeur
     -> paramètre frais_livraison_standard (modifiable dans Paramètres) ;
-       chaque vendeur fixe son minimum dans « Ma livraison » et garde le choix
-       de ses quartiers. Sous le minimum, seul le retrait en boutique est possible.
+       chaque vendeur fixe son minimum dans « Ma livraison ». Sous le minimum,
+       seul le retrait en boutique est possible.
 
 [x] Profil boutique obligatoire quand un utilisateur devient vendeur
     -> e-mail, logo, description et acceptation des conditions ; tant qu'il
@@ -61,6 +62,42 @@ Tous les points de cette liste ont été traités (branche amelioration/audit-co
     -> l'admin coche l'étoile d'un vendeur dans Utilisateurs : ses produits
        passent en tête du catalogue avec le badge « Vedette ».
 
+[x] Délais de livraison supprimés, livraison par ville
+    -> le vendeur coche les villes qu'il livre (Ma livraison) ; le client
+       choisit sa ville (en-tête, proposée à la première visite) et ne voit que
+       les produits livrables chez lui.
+
+[x] Adresses : ville, puis quartier (liste obligatoire), puis zone (texte libre)
+
+[x] Panier vidé automatiquement
+    -> durée réglable dans Admin > Paramètres > Réglages de la boutique.
+
+[x] Paiement NotchPay (Orange Money, MTN MoMo)
+    -> redirection vers la page NotchPay au checkout (un paiement pour toutes
+       les commandes), page /paiement/retour, webhook signé, bouton « Payer
+       maintenant ». Sans clé, les commandes restent à confirmer à la main.
+
+[x] Performances
+    -> OPcache activé dans XAMPP, paramètres en cache, accueil en un appel,
+       e-mails et factures après la réponse, images converties en WebP,
+       logos allégés, proxy Vite, index SQL, chunk vendor.
+
+[x] 4 e-mails Brevo au lieu de 2
+    -> l'application n'en envoie que 2 (vendeur + facture), vérifié par test ;
+       chaque envoi est tracé avec son Message-ID dans storage/logs/mail.log.
+       Les autres lignes Brevo sont des événements du même envoi (rebond vers
+       les adresses de démo .test / email.cm) : comparer les Message-ID.
+
+[x] Tables et colonnes inutiles supprimées, code mort retiré
+
+[x] Workflow CD
+    -> image publiée sur GHCR après une CI réussie sur master, déploiement SSH
+       dès que les secrets DEPLOY_* sont renseignés.
+
+[x] Conteneurs Docker créés et testés
+    -> ancienne base sauvegardée dans backups/, pile recréée avec les données
+       de démonstration.
+
 ---
 
 À faire par toi, hors code :
@@ -72,3 +109,12 @@ Tous les points de cette liste ont été traités (branche amelioration/audit-co
    commandes) par Brevo.
 3. Relire le texte des conditions des vendeurs (Admin > Paramètres,
    clé conditions_vendeur) et l'adapter à ton activité.
+4. NotchPay : la clé publique de backend/.env est refusée par NotchPay
+   (« Invalid API credentials ») ; la recopier depuis business.notchpay.co,
+   renseigner NOTCHPAY_WEBHOOK_HASH et déclarer le webhook
+   https://<domaine>/api/v1/webhooks/notchpay. Mêmes clés dans .env.docker.
+5. CD : créer les secrets DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY,
+   DEPLOY_KNOWN_HOSTS (et la variable DEPLOY_URL) ; déposer .env.docker dans
+   le dossier de déploiement du serveur.
+6. Redémarrer php artisan serve et npm run dev pour profiter d'OPcache et du
+   proxy Vite.

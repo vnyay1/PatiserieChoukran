@@ -68,7 +68,7 @@ class PanierExpirationTest extends TestCase
         ParametreSite::set('panier_duree_minutes', 10, 'integer');
         $this->travel(11)->minutes();
 
-        $this->getJson('/api/v1/panier/count')->assertJsonPath('data.count', 0);
+        $this->getJson('/api/v1/panier')->assertJsonPath('data.nombre_items', 0);
     }
 
     public function test_la_commande_planifiee_vide_les_paniers_abandonnes_de_tous_les_clients(): void

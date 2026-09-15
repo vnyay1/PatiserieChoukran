@@ -54,14 +54,4 @@ class Adresse extends Model
         $this->est_principale = true;
         $this->save();
     }
-
-    public function getAdresseCompleteAttribute()
-    {
-        return trim(implode(', ', array_filter([
-            $this->zone,
-            $this->quartier,
-            Quartier::libelleVille($this->ville),
-            $this->complement_adresse,
-        ])));
-    }
 }

@@ -122,24 +122,6 @@ class AdresseController extends Controller
         ]);
     }
 
-    /**
-     * Définir une adresse comme principale
-     */
-    public function setPrincipal(Request $request, $id)
-    {
-        $adresse = Adresse::where('user_id', $request->user()->id)
-            ->where('id', $id)
-            ->firstOrFail();
-
-        $adresse->definirCommePrincipale();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Adresse définie comme principale',
-            'data' => $adresse,
-        ]);
-    }
-
     private function regles(Request $request, ?Adresse $adresse = null): array
     {
         $creation = $adresse === null;

@@ -130,26 +130,6 @@ class ProduitController extends Controller
         ]);
     }
 
-    /**
-     * Promotions
-     */
-    public function promotions(Request $request)
-    {
-        $produits = Produit::promotion()
-            ->visible()
-            ->livrableDans($this->ville($request))
-            ->with(['categorie', Produit::VENDEUR_PUBLIC])
-            ->vendeursVedettesEnTete()
-            ->orderBy('created_at', 'desc')
-            ->limit(24)
-            ->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $produits,
-        ]);
-    }
-
     private function ville(Request $request): ?string
     {
         return $request->validate(['ville' => 'nullable|'.Quartier::regleVille()])['ville'] ?? null;

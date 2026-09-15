@@ -228,25 +228,6 @@ class ProduitController extends Controller
         ]);
     }
 
-    /**
-     * Mettre à jour le stock
-     */
-    public function updateStock(Request $request, $id)
-    {
-        $validated = $request->validate([
-            'stock_disponible' => 'required|integer|min:0',
-        ]);
-
-        $produit = Produit::findOrFail($id);
-        $produit->update($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Stock mis à jour',
-            'data' => $produit,
-        ]);
-    }
-
     private function findProduitForManagement(Request $request, $id): Produit
     {
         return Produit::query()

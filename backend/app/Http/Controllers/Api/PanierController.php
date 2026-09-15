@@ -169,23 +169,6 @@ class PanierController extends Controller
     }
 
     /**
-     * Nombre d'articles dans le panier (pour badge)
-     */
-    public function count(Request $request)
-    {
-        if ($response = $this->rejectAdmin($request)) {
-            return $response;
-        }
-
-        $this->purgeExpiredPanier($request);
-
-        return response()->json([
-            'success' => true,
-            'data' => ['count' => Panier::where('user_id', $request->user()->id)->count()],
-        ]);
-    }
-
-    /**
      * Panier complet : lignes, total et heure à laquelle il sera vidé sans nouvelle modification.
      */
     private function reponsePanier(Request $request, ?string $message = null, int $statut = 200): JsonResponse

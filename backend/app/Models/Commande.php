@@ -132,16 +132,6 @@ class Commande extends Model
         return $query->where('statut', 'livree');
     }
 
-    public function scopePayee($query)
-    {
-        return $query->where('statut_paiement', 'paye');
-    }
-
-    public function scopeEnAttentePaiement($query)
-    {
-        return $query->where('statut_paiement', 'en_attente');
-    }
-
     /**
      * Commandes considérées comme archivées pour les listes opérationnelles.
      * - annulée
@@ -322,11 +312,6 @@ class Commande extends Model
     public function isAnnulee()
     {
         return $this->statut === 'annulee';
-    }
-
-    public function isArchivee(): bool
-    {
-        return $this->isAnnulee() || ($this->isLivree() && $this->isPaid());
     }
 
     // Events

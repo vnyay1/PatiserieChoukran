@@ -59,7 +59,6 @@ Route::prefix('v1')->group(function () {
     // Produits
     Route::prefix('produits')->group(function () {
         Route::get('/', [ProduitController::class, 'index']);
-        Route::get('/promotions', [ProduitController::class, 'promotions']);
         Route::get('/{slug}', [ProduitController::class, 'show']);
         Route::get('/{slug}/similar', [ProduitController::class, 'similar']);
     });
@@ -68,9 +67,8 @@ Route::prefix('v1')->group(function () {
     Route::get('livraison/quartiers', [LivraisonController::class, 'quartiers']);
     Route::get('livraison/vendeur/{id}', [LivraisonController::class, 'vendeur'])->whereNumber('id');
 
-    // Pages publiques des vendeurs et conditions qu'ils acceptent
+    // Pages publiques des vendeurs
     Route::get('vendeurs/{id}', [VendeurController::class, 'show'])->whereNumber('id');
-    Route::get('conditions-vendeur', [VendeurController::class, 'conditions']);
 
     // Webhook NotchPay (signature vérifiée dans le contrôleur)
     Route::post('webhooks/notchpay', [PaiementController::class, 'webhook']);
@@ -93,7 +91,6 @@ Route::prefix('v1')->group(function () {
             // Panier (client uniquement)
             Route::prefix('panier')->group(function () {
                 Route::get('/', [PanierController::class, 'index']);
-                Route::get('/count', [PanierController::class, 'count']);
                 Route::post('/', [PanierController::class, 'store']);
                 Route::put('/{id}', [PanierController::class, 'update']);
                 Route::delete('/{id}', [PanierController::class, 'destroy']);
@@ -123,7 +120,6 @@ Route::prefix('v1')->group(function () {
             Route::get('/{id}', [AdresseController::class, 'show']);
             Route::put('/{id}', [AdresseController::class, 'update']);
             Route::delete('/{id}', [AdresseController::class, 'destroy']);
-            Route::post('/{id}/set-principal', [AdresseController::class, 'setPrincipal']);
         });
 
         // Notifications
@@ -176,7 +172,6 @@ Route::prefix('v1')->group(function () {
             Route::get('/{id}', [AdminProduitController::class, 'show']);
             Route::put('/{id}', [AdminProduitController::class, 'update']);
             Route::delete('/{id}', [AdminProduitController::class, 'destroy']);
-            Route::patch('/{id}/stock', [AdminProduitController::class, 'updateStock']);
         });
 
         // Gestion des commandes
@@ -223,8 +218,6 @@ Route::prefix('v1')->group(function () {
             // Gestion des commandes du vendeur (uniquement ses propres produits)
             Route::prefix('commandes')->group(function () {
                 Route::get('/', [VendeurCommandeController::class, 'index']);
-                Route::get('/en-cours', [VendeurCommandeController::class, 'enCours']);
-                Route::get('/stats', [VendeurCommandeController::class, 'stats']);
                 Route::get('/{id}', [VendeurCommandeController::class, 'show']);
                 Route::patch('/{id}/status', [VendeurCommandeController::class, 'updateStatus']);
                 Route::post('/{id}/confirm-payment', [VendeurCommandeController::class, 'confirmPayment']);

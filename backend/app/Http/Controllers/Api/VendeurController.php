@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\ParametreSite;
 use App\Models\Produit;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -33,19 +32,6 @@ class VendeurController extends Controller
                 'villes_livraison' => $vendeur->villesLivrees(),
                 'membre_depuis' => $vendeur->created_at,
                 'nombre_produits' => Produit::visible()->where('created_by_user_id', $vendeur->id)->count(),
-            ],
-        ]);
-    }
-
-    /**
-     * Conditions que les vendeurs acceptent (texte modifiable par l'admin).
-     */
-    public function conditions(): JsonResponse
-    {
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'conditions' => (string) ParametreSite::get('conditions_vendeur', ''),
             ],
         ]);
     }

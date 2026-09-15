@@ -164,7 +164,6 @@ export default {
   produits: {
     getAll: (params) => api.get('/produits', { params: avecVille(params) }),
     getOne: (slug) => api.get(`/produits/${slug}`),
-    getPromotions: () => api.get('/produits/promotions', { params: avecVille() }),
     getSimilar: (slug) => api.get(`/produits/${slug}/similar`, { params: avecVille() }),
   },
 
@@ -175,7 +174,6 @@ export default {
     update: (id, data) => api.put(`/panier/${id}`, data),
     remove: (id) => api.delete(`/panier/${id}`),
     clear: () => api.delete('/panier'),
-    count: () => api.get('/panier/count'),
   },
 
   // Commandes
@@ -202,7 +200,6 @@ export default {
     create: (data) => api.post('/adresses', data),
     update: (id, data) => api.put(`/adresses/${id}`, data),
     remove: (id) => api.delete(`/adresses/${id}`),
-    setPrincipal: (id) => api.post(`/adresses/${id}/set-principal`),
   },
 
   // Notifications
@@ -224,7 +221,6 @@ export default {
   // Pages publiques des vendeurs
   vendeurs: {
     getOne: (id) => api.get(`/vendeurs/${id}`),
-    conditions: () => api.get('/conditions-vendeur'),
   },
 
   // Espace vendeur

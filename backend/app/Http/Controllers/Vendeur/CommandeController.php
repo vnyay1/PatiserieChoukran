@@ -75,23 +75,6 @@ class CommandeController extends Controller
     }
 
     /**
-     * Commandes en cours du vendeur.
-     */
-    public function enCours(Request $request)
-    {
-        $commandes = $this->queryForVendeur($request->user()->id)
-            ->whereIn('statut', ['confirmee', 'en_preparation', 'prete', 'en_livraison'])
-            ->with(['user', 'ligneCommandes', 'adresseLivraison'])
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $commandes,
-        ]);
-    }
-
-    /**
      * Détail d'une commande du vendeur.
      */
     public function show(Request $request, $id)
