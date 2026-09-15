@@ -8,9 +8,11 @@ use Illuminate\Support\Facades\Http;
 
 /**
  * Client HTTP de l'API NotchPay (https://developer.notchpay.co) :
- * - POST /payments : crée le paiement et renvoie l'URL de la page de paiement ;
- * - GET /payments/{reference} : statut réel du paiement (pending, processing,
- *   complete, failed, canceled, expired) ;
+ * - POST /payments : crée le paiement et renvoie l'URL de la page de paiement ainsi
+ *   que la référence NotchPay (transaction.reference, « trx.… ») ; la nôtre revient
+ *   dans merchant_reference / trxref ;
+ * - GET /payments/{référence NotchPay} : statut réel du paiement (pending, processing,
+ *   complete, failed, canceled, expired). Avec notre référence, l'API répond 404 ;
  * - webhooks signés : HMAC-SHA256 du corps avec le secret du webhook (X-Notch-Signature).
  */
 class NotchPay
@@ -50,7 +52,8 @@ class NotchPay
 
         return [
             'url' => $url,
-            'notchpay_id' => $reponse->json('transaction.id'),
+            // L'API réelle ne renvoie pas transaction.id : l'identifiant utile est la référence trx.…
+            'notchpay_id' => $reponse->json('transaction.reference') ?? $reponse->json('transaction.id'),
         ];
     }
 

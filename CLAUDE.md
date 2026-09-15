@@ -45,7 +45,7 @@ The seeded vendors:
 
 `VendeurVilleSeeder` fills the cities each vendor delivers to: Jean delivers Yaoundé only and Awa Douala only, so the catalogue visibly changes with the chosen city. Every other vendor delivers both cities. It uses `insertOrIgnore` and can be rerun alone with `--class`.
 
-With `QUEUE_CONNECTION=sync` (the XAMPP default), emails and invoices are sent by the same PHP process right after the response (`SupportDiffere`). Set `MAIL_MAILER=log` locally to avoid sending real mail.
+With `QUEUE_CONNECTION=sync` (the XAMPP default), emails and invoices are sent by the same PHP process right after the response (`Support\Differe`). Set `MAIL_MAILER=log` locally to avoid sending real mail.
 
 Prefer `composer test`: it clears the config cache first. With a cached config, tests would use the MySQL connection from `.env` instead of in-memory SQLite, and `RefreshDatabase` would wipe the dev database.
 
@@ -152,7 +152,7 @@ Use `vendeur` in new code.
 
 ### Mobile money payments (NotchPay)
 - Config lives in `services.notchpay` (`NOTCHPAY_PUBLIC_KEY`, `NOTCHPAY_WEBHOOK_HASH`, `NOTCHPAY_CALLBACK_URL`). With no public key, `NotchPay::estConfigure()` is false and Orange Money / MTN MoMo orders stay to be confirmed by hand, as before. `tests/TestCase.php` blanks the keys and calls `Http::preventStrayRequests()`, so tests fake NotchPay with `Http::fake`.
-- One `Paiement` covers every order of a checkout (`commandes.paiement_id`). Its reference is `CHK-ymd-XXXXXXXX`. `Services\Paiements::demarrer()` creates it and calls `POST /payments`. `CommandeController::store` returns `paiement: { reference, url_paiement }`, or `erreur_paiement` when NotchPay fails; the orders are created either way. `POST /commandes/{id}/payer` restarts payment for a single unpaid order.
+- One `Paiement` covers every order of a checkout (`commandes.paiement_id`). Its reference is `CHK-ymd-XXXXXXXX`. The real API returns no `transaction.id`: NotchPay's own reference `transaction.reference` (`trx.…`) is stored in `paiements.notchpay_id`, and our reference comes back in `merchant_reference` / `trxref`. `GET /payments/{reference}` only accepts the `trx.…` reference and answers 404 to ours. In sandbox, `POST /payments/{trx}` with `channel: cm.mtn` and phone `+237680000000` completes a payment. `Services\Paiements::demarrer()` creates it and calls `POST /payments`. `CommandeController::store` returns `paiement: { reference, url_paiement }`, or `erreur_paiement` when NotchPay fails; the orders are created either way. `POST /commandes/{id}/payer` restarts payment for a single unpaid order.
 - The status is only ever trusted from `GET /payments/{reference}` (`Paiements::synchroniser()`, idempotent, row locked): on `complete` each order goes through `confirmerPaiement("NotchPay {ref}")`; on failed, canceled or expired, orders still `en_attente` become `echec`. Two paths call it:
   - the client returns to the SPA page `/paiement/retour` (`views/PaiementRetour.vue`), which polls `GET /paiements/{reference}`. The reference comes from the URL, or else from `sessionStorage` (`utils/paiement.js`);
   - the public webhook `POST /webhooks/notchpay` is checked with HMAC-SHA256 of the raw body (`X-Notch-Signature`) and matches our reference or `notchpay_id`.

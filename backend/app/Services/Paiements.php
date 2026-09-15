@@ -86,7 +86,8 @@ class Paiements
             return $paiement;
         }
 
-        $statutNotchPay = NotchPay::statut($paiement->reference);
+        // NotchPay ne retrouve un paiement que par sa propre référence (notchpay_id)
+        $statutNotchPay = NotchPay::statut($paiement->notchpay_id ?: $paiement->reference);
         $nouveauStatut = self::STATUTS[$statutNotchPay] ?? null;
 
         if (! $nouveauStatut) {

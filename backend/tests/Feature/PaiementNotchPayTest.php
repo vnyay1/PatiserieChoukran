@@ -43,10 +43,16 @@ class PaiementNotchPayTest extends TestCase
     public function test_le_checkout_mobile_money_cree_un_seul_paiement_notchpay_pour_toutes_les_commandes(): void
     {
         Http::fake([
-            'api.notchpay.co/payments' => Http::response([
+            'api.notchpay.co/payments' => fn (RequeteHttp $requete) => Http::response([
                 'status' => 'Accepted',
-                'transaction' => ['id' => 'trx.abc', 'status' => 'pending'],
-                'authorization_url' => 'https://pay.notchpay.co/trx.abc',
+                'code' => 201,
+                'transaction' => [
+                    'reference' => 'trx.test_abc',
+                    'merchant_reference' => $requete['reference'],
+                    'trxref' => $requete['reference'],
+                    'status' => 'pending',
+                ],
+                'authorization_url' => 'https://pay.notchpay.co/test.abc',
             ], 201),
         ]);
 
@@ -57,13 +63,13 @@ class PaiementNotchPayTest extends TestCase
             'telephone_paiement' => '+237690000999',
         ])->assertCreated();
 
-        $reponse->assertJsonPath('paiement.url_paiement', 'https://pay.notchpay.co/trx.abc')
+        $reponse->assertJsonPath('paiement.url_paiement', 'https://pay.notchpay.co/test.abc')
             ->assertJsonCount(2, 'data');
 
         $paiement = Paiement::firstOrFail();
         $this->assertSame($reponse->json('paiement.reference'), $paiement->reference);
         $this->assertEquals(5000, (float) $paiement->montant);
-        $this->assertSame('trx.abc', $paiement->notchpay_id);
+        $this->assertSame('trx.test_abc', $paiement->notchpay_id);
         $this->assertSame(2, Commande::where('paiement_id', $paiement->id)->count());
 
         Http::assertSent(fn (RequeteHttp $requete) => $requete->url() === 'https://api.notchpay.co/payments'
@@ -111,9 +117,12 @@ class PaiementNotchPayTest extends TestCase
     {
         [$paiement, $commandes] = $this->paiementEnAttente();
 
-        Http::fake(["api.notchpay.co/payments/{$paiement->reference}" => Http::sequence()
-            ->push(['transaction' => ['status' => 'pending']])
-            ->push(['transaction' => ['status' => 'complete']])]);
+        Http::fake([
+            'api.notchpay.co/payments/trx.test_1' => Http::sequence()
+                ->push(['transaction' => ['reference' => 'trx.test_1', 'status' => 'pending']])
+                ->push(['transaction' => ['reference' => 'trx.test_1', 'status' => 'complete']]),
+            'api.notchpay.co/payments/*' => Http::response(['message' => 'Payment Not Found'], 404),
+        ]);
 
         Sanctum::actingAs($this->client);
         $this->getJson("/api/v1/paiements/{$paiement->reference}")->assertOk()->assertJsonPath('data.statut', 'en_attente');
@@ -128,6 +137,11 @@ class PaiementNotchPayTest extends TestCase
             $this->assertSame("NotchPay {$paiement->reference}", $commande->reference_paiement);
         }
 
+        Http::assertNotSent(fn (RequeteHttp $requete) => str_contains($requete->url(), 'CHK-TEST-0001'));
+
+        // Retour avec la référence NotchPay ajoutée par la page de paiement
+        $this->getJson('/api/v1/paiements/trx.test_1')->assertOk()->assertJsonPath('data.reference', 'CHK-TEST-0001');
+
         // Un autre client ne voit pas ce paiement
         Sanctum::actingAs($this->creerUtilisateur('client'));
         $this->getJson("/api/v1/paiements/{$paiement->reference}")->assertNotFound();
@@ -136,9 +150,10 @@ class PaiementNotchPayTest extends TestCase
     public function test_le_webhook_signe_confirme_le_paiement_une_seule_fois(): void
     {
         [$paiement, $commandes] = $this->paiementEnAttente();
-        Http::fake(["api.notchpay.co/payments/{$paiement->reference}" => Http::response(['transaction' => ['status' => 'complete']])]);
+        Http::fake(['api.notchpay.co/payments/trx.test_1' => Http::response(['transaction' => ['reference' => 'trx.test_1', 'status' => 'complete']])]);
 
-        $corps = json_encode(['type' => 'payment.complete', 'data' => ['reference' => $paiement->reference, 'status' => 'complete']]);
+        // Format réel : data.reference est la référence NotchPay, la nôtre est dans merchant_reference
+        $corps = json_encode(['type' => 'payment.complete', 'data' => ['reference' => 'trx.test_1', 'merchant_reference' => $paiement->reference, 'status' => 'complete']]);
 
         $this->call('POST', '/api/v1/webhooks/notchpay', [], [], [], $this->entetes('signature-fausse'), $corps)
             ->assertStatus(401);
@@ -160,8 +175,8 @@ class PaiementNotchPayTest extends TestCase
     {
         [$paiement, $commandes] = $this->paiementEnAttente();
         Http::fake([
-            "api.notchpay.co/payments/{$paiement->reference}" => Http::response(['transaction' => ['status' => 'canceled']]),
-            'api.notchpay.co/payments' => Http::response(['authorization_url' => 'https://pay.notchpay.co/nouveau', 'transaction' => ['id' => 'trx.2']], 201),
+            'api.notchpay.co/payments/trx.test_1' => Http::response(['transaction' => ['reference' => 'trx.test_1', 'status' => 'canceled']]),
+            'api.notchpay.co/payments' => Http::response(['authorization_url' => 'https://pay.notchpay.co/nouveau', 'transaction' => ['reference' => 'trx.test_2']], 201),
         ]);
 
         Sanctum::actingAs($this->client);
@@ -173,6 +188,7 @@ class PaiementNotchPayTest extends TestCase
             ->assertJsonPath('data.url_paiement', 'https://pay.notchpay.co/nouveau');
 
         $this->assertNotSame($paiement->id, $commandes->first()->fresh()->paiement_id);
+        $this->assertSame('trx.test_2', $commandes->first()->fresh()->paiement->notchpay_id);
 
         // Commande en espèces : pas de paiement en ligne
         $especes = $this->creerCommande($this->client, $this->vendeurA);
@@ -209,6 +225,7 @@ class PaiementNotchPayTest extends TestCase
             'user_id' => $this->client->id,
             'montant' => 4000,
             'moyen_paiement' => 'orange_money',
+            'notchpay_id' => 'trx.test_1',
         ]);
         Commande::whereIn('id', $commandes->pluck('id'))->update(['paiement_id' => $paiement->id]);
 

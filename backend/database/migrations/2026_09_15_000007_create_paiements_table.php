@@ -21,6 +21,7 @@ return new class extends Migration
             $table->enum('moyen_paiement', ['orange_money', 'mtn_momo']);
             $table->string('telephone', 20)->nullable();
             $table->enum('statut', ['en_attente', 'complete', 'echec', 'annule', 'expire'])->default('en_attente');
+            // Référence NotchPay du paiement (« trx.… »), seule clé acceptée par GET /payments/{reference}
             $table->string('notchpay_id', 100)->nullable();
             $table->timestamp('paye_le')->nullable();
             $table->timestamps();
