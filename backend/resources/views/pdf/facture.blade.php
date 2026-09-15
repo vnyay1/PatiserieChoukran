@@ -82,9 +82,6 @@
                         @if ($adresse->complement_adresse)<span class="gris">{{ $adresse->complement_adresse }}</span><br>@endif
                     @endif
                     <span class="gris">Contact : {{ $commande->telephone_livraison ?? $adresse?->telephone_contact }}</span>
-                    @if ($commande->date_livraison_souhaitee)
-                        <br><span class="gris">Souhaitée le {{ $commande->date_livraison_souhaitee->format('d/m/Y') }}{{ $commande->heure_livraison_souhaitee ? ' à '.substr($commande->heure_livraison_souhaitee, 0, 5) : '' }}</span>
-                    @endif
                 @else
                     <div class="etiquette">Retrait en boutique</div>
                     À récupérer auprès du vendeur.

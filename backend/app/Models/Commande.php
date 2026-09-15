@@ -55,8 +55,6 @@ class Commande extends Model
         'type_livraison',
         'adresse_livraison_id',
         'telephone_livraison',
-        'date_livraison_souhaitee',
-        'heure_livraison_souhaitee',
         'instructions_speciales',
         'moyen_paiement',
         'telephone_paiement',
@@ -69,8 +67,6 @@ class Commande extends Model
         'montant_produits' => 'decimal:2',
         'montant_livraison' => 'decimal:2',
         'montant_total' => 'decimal:2',
-        // Sérialisée en "AAAA-MM-JJ" (utilisable tel quel par <input type="date">)
-        'date_livraison_souhaitee' => 'date:Y-m-d',
         'date_paiement' => 'datetime',
     ];
 

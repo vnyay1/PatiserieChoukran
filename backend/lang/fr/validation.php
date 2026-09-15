@@ -186,9 +186,6 @@ return [
         'quartier_id' => [
             'unique' => 'Vous avez déjà un tarif pour ce quartier.',
         ],
-        'date_livraison_souhaitee' => [
-            'after_or_equal' => 'La date de livraison ne peut pas être dans le passé.',
-        ],
     ],
 
     /*
@@ -220,8 +217,6 @@ return [
         'adresse_id' => 'adresse',
         'adresse_livraison_id' => 'adresse de livraison',
         'type_livraison' => 'mode de livraison',
-        'date_livraison_souhaitee' => 'date de livraison souhaitée',
-        'heure_livraison_souhaitee' => 'heure de livraison souhaitée',
         'instructions_speciales' => 'instructions spéciales',
         'moyen_paiement' => 'moyen de paiement',
         'reference_paiement' => 'référence de paiement',

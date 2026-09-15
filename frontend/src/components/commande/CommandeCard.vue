@@ -42,7 +42,6 @@ File: src/components/commande/CommandeCard.vue
           <component :is="getDeliveryIcon(commande.type_livraison)" :size="16" />
           <span>
             {{ commande.type_livraison === 'livraison' ? 'Livraison' : 'Retrait en boutique' }}
-            {{ commande.date_livraison_souhaitee ? ` - ${formatDate(commande.date_livraison_souhaitee)}` : '' }}
           </span>
         </div>
       </div>

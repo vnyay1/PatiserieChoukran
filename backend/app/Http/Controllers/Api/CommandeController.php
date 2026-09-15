@@ -14,7 +14,6 @@ use App\Services\NotchPay;
 use App\Services\NotificationsCommande;
 use App\Services\Paiements;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -93,28 +92,10 @@ class CommandeController extends Controller
             'type_livraison' => 'required|in:livraison,retrait_boutique',
             'adresse_livraison_id' => 'exclude_unless:type_livraison,livraison|required|exists:adresses,id',
             'telephone_livraison' => 'exclude_unless:type_livraison,livraison|required|string',
-            'date_livraison_souhaitee' => 'exclude_unless:type_livraison,livraison|required|date|after_or_equal:today',
-            'heure_livraison_souhaitee' => 'exclude_unless:type_livraison,livraison|required|date_format:H:i|after_or_equal:09:00|before_or_equal:18:00',
             'instructions_speciales' => 'nullable|string|max:500',
             'moyen_paiement' => 'required|in:orange_money,mtn_momo,especes',
             'telephone_paiement' => 'required_unless:moyen_paiement,especes|string',
-        ], [
-            'heure_livraison_souhaitee.after_or_equal' => 'L\'heure de livraison doit être comprise entre 09:00 et 18:00.',
-            'heure_livraison_souhaitee.before_or_equal' => 'L\'heure de livraison doit être comprise entre 09:00 et 18:00.',
         ]);
-
-        if ($validated['type_livraison'] === 'livraison') {
-            $erreurCreneau = $this->verifierCreneauLivraison(
-                $validated['date_livraison_souhaitee'],
-                $validated['heure_livraison_souhaitee']
-            );
-            if ($erreurCreneau) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $erreurCreneau,
-                ], 422);
-            }
-        }
 
         Panier::purgerExpires($request->user()->id);
 
@@ -219,8 +200,6 @@ class CommandeController extends Controller
                         'telephone_livraison' => $validated['type_livraison'] === 'livraison'
                             ? ($validated['telephone_livraison'] ?? null)
                             : null,
-                        'date_livraison_souhaitee' => $validated['date_livraison_souhaitee'] ?? null,
-                        'heure_livraison_souhaitee' => $validated['heure_livraison_souhaitee'] ?? null,
                         'instructions_speciales' => $validated['instructions_speciales'] ?? null,
                         'moyen_paiement' => $validated['moyen_paiement'],
                         'telephone_paiement' => $validated['telephone_paiement'] ?? null,
@@ -359,33 +338,12 @@ class CommandeController extends Controller
             'type_livraison' => 'sometimes|in:livraison,retrait_boutique',
             'adresse_livraison_id' => 'nullable|exists:adresses,id',
             'telephone_livraison' => 'nullable|string',
-            'date_livraison_souhaitee' => 'nullable|sometimes|date|after_or_equal:today',
-            'heure_livraison_souhaitee' => 'nullable|sometimes|date_format:H:i|after_or_equal:09:00|before_or_equal:18:00',
             'instructions_speciales' => 'nullable|string|max:500',
             'moyen_paiement' => 'sometimes|in:orange_money,mtn_momo,especes',
             'telephone_paiement' => 'nullable|string',
-        ], [
-            'heure_livraison_souhaitee.after_or_equal' => 'L\'heure de livraison doit être comprise entre 09:00 et 18:00.',
-            'heure_livraison_souhaitee.before_or_equal' => 'L\'heure de livraison doit être comprise entre 09:00 et 18:00.',
         ]);
 
         $typeLivraison = $validated['type_livraison'] ?? $commande->type_livraison;
-
-        // Nouveau créneau demandé : il doit être dans le futur
-        $dateActuelle = $commande->date_livraison_souhaitee?->format('Y-m-d');
-        $heureActuelle = $commande->heure_livraison_souhaitee ? substr($commande->heure_livraison_souhaitee, 0, 5) : null;
-        $nouvelleDate = $validated['date_livraison_souhaitee'] ?? $dateActuelle;
-        $nouvelleHeure = $validated['heure_livraison_souhaitee'] ?? $heureActuelle;
-
-        if ($typeLivraison === 'livraison' && ($nouvelleDate !== $dateActuelle || $nouvelleHeure !== $heureActuelle)) {
-            $erreurCreneau = $this->verifierCreneauLivraison($nouvelleDate, $nouvelleHeure);
-            if ($erreurCreneau) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $erreurCreneau,
-                ], 422);
-            }
-        }
 
         $adresseLivraisonId = $typeLivraison === 'livraison'
             ? ($validated['adresse_livraison_id'] ?? $commande->adresse_livraison_id)
@@ -447,8 +405,6 @@ class CommandeController extends Controller
             'type_livraison' => $typeLivraison,
             'adresse_livraison_id' => $adresseLivraisonId,
             'telephone_livraison' => $telephoneLivraison,
-            'date_livraison_souhaitee' => $validated['date_livraison_souhaitee'] ?? $commande->date_livraison_souhaitee,
-            'heure_livraison_souhaitee' => $validated['heure_livraison_souhaitee'] ?? $commande->heure_livraison_souhaitee,
             'instructions_speciales' => $validated['instructions_speciales'] ?? $commande->instructions_speciales,
             'moyen_paiement' => $moyenPaiement,
             'telephone_paiement' => $telephonePaiement,
@@ -492,27 +448,6 @@ class CommandeController extends Controller
             'success' => true,
             'data' => $stats,
         ]);
-    }
-
-    /**
-     * Le créneau de livraison demandé doit être à venir (fuseau de l'application).
-     * Renvoie un message d'erreur, ou null si le créneau est valide.
-     */
-    private function verifierCreneauLivraison(?string $date, ?string $heure): ?string
-    {
-        if (! $date || ! $heure) {
-            return null;
-        }
-
-        try {
-            $creneau = Carbon::parse($date)->setTimeFromTimeString(substr($heure, 0, 5));
-        } catch (\Throwable) {
-            return 'Date ou heure de livraison invalide.';
-        }
-
-        return $creneau->isPast()
-            ? 'Ce créneau de livraison est déjà passé : choisissez une heure à venir.'
-            : null;
     }
 
     private function syncPanierVendeurIds(Collection $panierItems): void

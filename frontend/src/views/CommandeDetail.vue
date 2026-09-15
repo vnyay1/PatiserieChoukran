@@ -136,16 +136,6 @@ File: src/views/CommandeDetail.vue
                 </div>
               </div>
 
-              <div v-if="commande.date_livraison_souhaitee" class="flex items-center gap-2 text-sm text-gray-600 mt-3">
-                <Clock :size="16" />
-                <span>
-                  {{ formatDate(commande.date_livraison_souhaitee) }}
-                  <template v-if="commande.heure_livraison_souhaitee">
-                    à {{ formatHeure(commande.heure_livraison_souhaitee) }}
-                  </template>
-                </span>
-              </div>
-
               <div v-if="commande.instructions_speciales" class="text-sm text-gray-600 mt-2">
                 <span class="font-medium text-gray-700">Instructions:</span>
                 {{ commande.instructions_speciales }}
@@ -264,20 +254,6 @@ File: src/views/CommandeDetail.vue
               </select>
             </div>
 
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                Date souhaitée
-              </label>
-              <input v-model="form.date_livraison_souhaitee" type="date" class="input" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                Heure souhaitée
-              </label>
-              <input v-model="form.heure_livraison_souhaitee" type="time" class="input" />
-            </div>
-
             <div v-if="form.type_livraison === 'livraison'">
               <label class="block text-sm font-medium text-gray-700 mb-2">
                 Téléphone de livraison
@@ -374,7 +350,6 @@ import { telechargerBlob } from '@/utils/telechargement'
 import { memoriserReferencePaiement } from '@/utils/paiement'
 import {
   formatPrice,
-  formatHeure,
   formatDateLongue as formatDate,
   formatDateHeure,
   libelleStatut as getStatutLabel,
@@ -387,7 +362,7 @@ import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { useLivraisonVendeurs } from '@/composables/useLivraisonVendeurs'
 import { formatVille, libelleAdresse, villeAdresse } from '@/utils/villes'
-import { ArrowLeft, MapPin, Clock, Phone, Pencil, Trash2, Truck, Store, FileDown } from 'lucide-vue-next'
+import { ArrowLeft, MapPin, Phone, Pencil, Trash2, Truck, Store, FileDown } from 'lucide-vue-next'
 import { resolveImageUrl, onImageError } from '@/utils/images'
 
 const route = useRoute()
@@ -430,8 +405,6 @@ const vendeurCommandeId = computed(() => commande.value?.vendeur_id ?? null)
 const form = ref({
   type_livraison: 'livraison',
   adresse_livraison_id: '',
-  date_livraison_souhaitee: '',
-  heure_livraison_souhaitee: '',
   telephone_livraison: '',
   instructions_speciales: '',
   moyen_paiement: 'orange_money',
@@ -475,9 +448,6 @@ const initFormFromCommande = () => {
   form.value = {
     type_livraison: commande.value.type_livraison || 'livraison',
     adresse_livraison_id: commande.value.adresse_livraison_id || '',
-    date_livraison_souhaitee: commande.value.date_livraison_souhaitee || '',
-    // "14:30:00" -> "14:30" : format attendu par <input type="time"> et par l'API (H:i)
-    heure_livraison_souhaitee: formatHeure(commande.value.heure_livraison_souhaitee),
     telephone_livraison: commande.value.telephone_livraison || '',
     instructions_speciales: commande.value.instructions_speciales || '',
     moyen_paiement: commande.value.moyen_paiement || 'orange_money',

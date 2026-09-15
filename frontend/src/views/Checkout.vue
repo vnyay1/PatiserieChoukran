@@ -130,38 +130,6 @@ File: src/views/Checkout.vue
               </button>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                  Date de livraison souhaitée *
-                </label>
-                <input
-                  v-model="formData.date_livraison_souhaitee"
-                  type="date"
-                  :min="minDate"
-                  class="input"
-                  required
-                />
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                  Heure souhaitée *
-                </label>
-                <input
-                  v-model="formData.heure_livraison_souhaitee"
-                  type="time"
-                  :min="heureMin"
-                  :max="deliveryEndTime"
-                  class="input"
-                  required
-                />
-                <p v-if="hasDeliveryTimeError" class="text-xs text-red-600 mt-1">
-                  {{ deliveryTimeError }}
-                </p>
-              </div>
-            </div>
-
             <div class="mb-4">
               <label class="block text-sm font-medium text-gray-700 mb-2">
                 Téléphone de contact
@@ -402,7 +370,6 @@ import AdresseFormModal from '@/components/adresse/AdresseFormModal.vue'
 import { useLivraisonVendeurs, grouperParVendeur } from '@/composables/useLivraisonVendeurs'
 import { useVilleStore } from '@/stores/ville'
 import { formatVille, libelleAdresse, villeAdresse } from '@/utils/villes'
-import { aujourdhuiIso } from '@/utils/format'
 import { memoriserReferencePaiement } from '@/utils/paiement'
 import { Truck, Store, Smartphone, Banknote } from 'lucide-vue-next'
 
@@ -429,8 +396,6 @@ const erreurPaiement = ref('')
 const formData = ref({
   type_livraison: 'livraison',
   adresse_livraison_id: '',
-  date_livraison_souhaitee: '',
-  heure_livraison_souhaitee: '',
   telephone_livraison: authStore.user?.telephone || '',
   instructions_speciales: '',
   moyen_paiement: 'orange_money',
@@ -442,54 +407,7 @@ const paymentMethods = [
   { value: 'mtn_momo', label: 'MTN Mobile Money', description: 'Paiement instantané', icon: Smartphone, color: 'text-yellow-500' },
   { value: 'especes', label: 'Espèces à la livraison', description: 'Payer en liquide', icon: Banknote, color: 'text-green-500' },
 ]
-const deliveryStartTime = '09:00'
-const deliveryEndTime = '18:00'
-
-// Livraison possible dès aujourd'hui (date locale, pas UTC), à une heure à venir
-const minDate = computed(() => aujourdhuiIso())
-const livraisonAujourdhui = computed(() => formData.value.date_livraison_souhaitee === minDate.value)
-
-const heureMaintenant = () => {
-  const maintenant = new Date()
-  return `${String(maintenant.getHours()).padStart(2, '0')}:${String(maintenant.getMinutes()).padStart(2, '0')}`
-}
-
-const heureMin = computed(() => {
-  if (!livraisonAujourdhui.value) return deliveryStartTime
-  const maintenant = heureMaintenant()
-  return maintenant > deliveryStartTime ? maintenant : deliveryStartTime
-})
-
 const estLivraison = computed(() => formData.value.type_livraison === 'livraison')
-
-const deliveryTimeError = computed(() => {
-  if (!estLivraison.value) {
-    return ''
-  }
-
-  const requestedTime = formData.value.heure_livraison_souhaitee
-  if (!requestedTime) {
-    return ''
-  }
-
-  const isTimeFormatValid = /^([01]\d|2[0-3]):[0-5]\d$/.test(requestedTime)
-  if (!isTimeFormatValid) {
-    return 'Format d\'heure invalide.'
-  }
-
-  if (requestedTime < deliveryStartTime || requestedTime > deliveryEndTime) {
-    return `L'heure de livraison doit être comprise entre ${deliveryStartTime} et ${deliveryEndTime}.`
-  }
-
-  if (livraisonAujourdhui.value && requestedTime <= heureMaintenant()) {
-    return heureMaintenant() >= deliveryEndTime
-      ? 'Plus de livraison possible aujourd\'hui : choisissez une autre date.'
-      : 'Cette heure est déjà passée : choisissez une heure à venir.'
-  }
-
-  return ''
-})
-const hasDeliveryTimeError = computed(() => Boolean(deliveryTimeError.value))
 
 const selectedAdresse = computed(() => {
   return adresses.value.find((adresse) => String(adresse.id) === String(formData.value.adresse_livraison_id)) || null
@@ -552,7 +470,6 @@ const isStep1Blocked = computed(() => {
   return estLivraison.value && (
     !selectedAdresse.value
     || !selectedAdresse.value.quartier_id
-    || hasDeliveryTimeError.value
   )
 })
 

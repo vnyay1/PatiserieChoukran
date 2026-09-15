@@ -26,14 +26,9 @@ class NotificationsCommande
         $montant = number_format((float) $commande->montant_total, 0, ',', ' ');
         $retrait = $commande->type_livraison !== 'livraison';
 
-        $quand = $commande->date_livraison_souhaitee
-            ? ' le '.$commande->date_livraison_souhaitee->format('d/m/Y')
-                .($commande->heure_livraison_souhaitee ? ' à '.substr($commande->heure_livraison_souhaitee, 0, 5) : '')
-            : '';
-
         $modalite = $retrait
             ? 'Retrait en boutique'
-            : 'Livraison à '.($commande->adresseLivraison?->quartier ?? 'l\'adresse du client').$quand;
+            : 'Livraison à '.($commande->adresseLivraison?->quartier ?? 'l\'adresse du client');
 
         $message = "{$commande->user?->nom_complet} a commandé {$nombreArticles} article(s) pour {$montant} FCFA. {$modalite}.";
 

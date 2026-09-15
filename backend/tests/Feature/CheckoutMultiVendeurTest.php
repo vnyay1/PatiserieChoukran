@@ -224,8 +224,6 @@ class CheckoutMultiVendeurTest extends TestCase
             'type_livraison' => 'livraison',
             'adresse_livraison_id' => $this->adresse->id,
             'telephone_livraison' => '+237690000003',
-            'date_livraison_souhaitee' => now()->addDay()->toDateString(),
-            'heure_livraison_souhaitee' => '10:00',
             'moyen_paiement' => 'especes',
         ];
     }

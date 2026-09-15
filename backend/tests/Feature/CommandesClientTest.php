@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\CreeDonneesBoutique;
 use Tests\TestCase;
@@ -29,10 +28,8 @@ class CommandesClientTest extends TestCase
         $this->getJson('/api/v1/commandes')->assertOk()->assertJsonPath('data.total', 4);
     }
 
-    public function test_un_creneau_de_livraison_deja_passe_est_refuse(): void
+    public function test_la_livraison_se_commande_sans_date_ni_heure(): void
     {
-        Carbon::setTestNow(Carbon::parse('2026-09-11 15:00'));
-
         $client = $this->creerUtilisateur('client');
         $vendeur = $this->creerUtilisateur('vendeur');
         $quartier = $this->creerQuartier();
@@ -43,41 +40,29 @@ class CommandesClientTest extends TestCase
         Sanctum::actingAs($client);
         $this->postJson('/api/v1/panier', ['produit_id' => $produit->id, 'quantite' => 1])->assertCreated();
 
-        $payload = [
+        // Une date ou une heure envoyée par un ancien client est simplement ignorée
+        $this->postJson('/api/v1/commandes', [
             'type_livraison' => 'livraison',
             'adresse_livraison_id' => $adresse->id,
             'telephone_livraison' => $client->telephone,
-            'date_livraison_souhaitee' => '2026-09-11',
+            'date_livraison_souhaitee' => '2020-01-01',
+            'heure_livraison_souhaitee' => '23:00',
             'moyen_paiement' => 'especes',
-        ];
-
-        // Aujourd'hui mais à une heure déjà passée
-        $this->postJson('/api/v1/commandes', $payload + ['heure_livraison_souhaitee' => '10:00'])
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'Ce créneau de livraison est déjà passé : choisissez une heure à venir.');
-
-        // Aujourd'hui, plus tard dans la journée : accepté
-        $this->postJson('/api/v1/commandes', $payload + ['heure_livraison_souhaitee' => '17:00'])
+        ])
             ->assertCreated()
-            ->assertJsonPath('data.0.date_livraison_souhaitee', '2026-09-11');
-
-        Carbon::setTestNow();
+            ->assertJsonMissingPath('data.0.date_livraison_souhaitee')
+            ->assertJsonMissingPath('data.0.heure_livraison_souhaitee');
     }
 
-    public function test_modifier_une_commande_sans_changer_l_heure_reste_possible(): void
+    public function test_le_client_modifie_les_instructions_d_une_commande_en_attente(): void
     {
         $client = $this->creerUtilisateur('client');
         $vendeur = $this->creerUtilisateur('vendeur');
-        $commande = $this->creerCommande($client, $vendeur, [
-            'date_livraison_souhaitee' => now()->addDays(2)->toDateString(),
-            'heure_livraison_souhaitee' => '14:30:00',
-        ]);
+        $commande = $this->creerCommande($client, $vendeur);
 
         Sanctum::actingAs($client);
 
         $this->putJson("/api/v1/commandes/{$commande->id}", [
-            'date_livraison_souhaitee' => $commande->date_livraison_souhaitee->format('Y-m-d'),
-            'heure_livraison_souhaitee' => '14:30',
             'instructions_speciales' => 'Sonner deux fois',
         ])
             ->assertOk()

@@ -371,10 +371,6 @@ File: src/views/admin/AdminCommandes.vue
                     📞 {{ selectedCommande.telephone_livraison }}
                   </a>
                 </template>
-                <div v-if="selectedCommande.date_livraison_souhaitee" class="text-sm text-gray-700 mt-2">
-                  🕒 {{ formatDateLongue(selectedCommande.date_livraison_souhaitee) }}
-                  <span v-if="selectedCommande.heure_livraison_souhaitee">à {{ formatHeure(selectedCommande.heure_livraison_souhaitee) }}</span>
-                </div>
                 <div v-if="selectedCommande.instructions_speciales" class="text-sm text-gray-700 mt-2 p-2 rounded-lg bg-gold-50">
                   {{ selectedCommande.instructions_speciales }}
                 </div>
@@ -477,9 +473,7 @@ import {
   STATUTS_PAIEMENT,
   formatPrice,
   formatDate,
-  formatDateLongue,
   formatDateHeure,
-  formatHeure,
   libelleStatut,
   classeStatut,
   libellePaiement,

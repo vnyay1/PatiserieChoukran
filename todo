@@ -16,9 +16,9 @@ Tous les points de cette liste ont été traités (branche amelioration/audit-co
 [x] Étiquette "payé" sur une commande annulée
     -> masquée partout (CommandeCard, AdminCommandes, CommandeDetail).
 
-[x] Date souhaitée >= date système au checkout
-    -> contrôlée côté front et côté back, avec refus des créneaux déjà passés ;
-       le fuseau de l'application est Africa/Douala.
+[x] Date et heure de livraison souhaitées
+    -> supprimées : le client ne choisit plus de créneau, le vendeur le contacte
+       au téléphone de livraison (colonnes retirées de la table commandes).
 
 [x] Upload de l'image de catégorie
     -> limite portée à 5 Mo, aperçu dans le formulaire, contrôle du format,
