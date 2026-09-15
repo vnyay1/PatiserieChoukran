@@ -184,8 +184,14 @@ export default {
     create: (data) => api.post('/commandes', data),
     update: (id, data) => api.put(`/commandes/${id}`, data),
     cancel: (id) => api.post(`/commandes/${id}/cancel`),
+    payer: (id) => api.post(`/commandes/${id}/payer`),
     facture: (id) => api.get(`/commandes/${id}/facture`, fichierPdf),
     stats: () => api.get('/commandes/stats'),
+  },
+
+  // Paiements mobile money (NotchPay)
+  paiements: {
+    verifier: (reference) => api.get(`/paiements/${encodeURIComponent(reference)}`),
   },
 
   // Adresses

@@ -15,6 +15,7 @@ const Panier = () => import('@/views/Panier.vue')
 const Checkout = () => import('@/views/Checkout.vue')
 const MesCommandes = () => import('@/views/MesCommandes.vue')
 const CommandeDetail = () => import('@/views/CommandeDetail.vue')
+const PaiementRetour = () => import('@/views/PaiementRetour.vue')
 const Notifications = () => import('@/views/Notifications.vue')
 const Profil = () => import('@/views/Profil.vue')
 const Login = () => import('@/views/Login.vue')
@@ -89,6 +90,18 @@ const routes = [
     name: 'commande-detail',
     component: CommandeDetail,
     meta: { title: 'Détail Commande', requiresAuth: true }
+  },
+  {
+    // Page de retour configurée comme callback NotchPay (NOTCHPAY_CALLBACK_URL)
+    path: '/paiement/retour',
+    name: 'paiement-retour',
+    component: PaiementRetour,
+    meta: { title: 'Paiement', requiresAuth: true }
+  },
+  {
+    // Ancien chemin de callback, conservé si NOTCHPAY_CALLBACK_URL y pointe
+    path: '/payments/callback',
+    redirect: (to) => ({ name: 'paiement-retour', query: to.query }),
   },
   {
     path: '/notifications',

@@ -241,7 +241,7 @@ File: src/views/Checkout.vue
               required
             />
             <p class="text-xs text-gray-500 mt-1">
-              Vous recevrez une demande de paiement sur ce numéro
+              Après confirmation, vous serez redirigé vers la page de paiement sécurisée NotchPay
             </p>
           </div>
 
@@ -274,6 +274,10 @@ File: src/views/Checkout.vue
             Vous pouvez suivre leur avancement dans « Mes commandes ».
           </p>
         </div>
+
+        <p v-if="erreurPaiement" class="mb-6 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+          {{ erreurPaiement }}
+        </p>
 
         <div class="space-y-3 mb-6">
           <div
@@ -399,6 +403,7 @@ import { useLivraisonVendeurs, grouperParVendeur } from '@/composables/useLivrai
 import { useVilleStore } from '@/stores/ville'
 import { formatVille, libelleAdresse, villeAdresse } from '@/utils/villes'
 import { aujourdhuiIso } from '@/utils/format'
+import { memoriserReferencePaiement } from '@/utils/paiement'
 import { Truck, Store, Smartphone, Banknote } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -419,6 +424,7 @@ const adresseEnEdition = ref(null)
 const adresses = ref([])
 const orderError = ref('')
 const commandesCreees = ref([])
+const erreurPaiement = ref('')
 
 const formData = ref({
   type_livraison: 'livraison',
@@ -629,9 +635,18 @@ const submitOrder = async () => {
       // Le backend renvoie une commande par vendeur
       const data = response.data.data
       commandesCreees.value = Array.isArray(data) ? data : [data]
-      currentStep.value = 3
       // Le panier a été vidé côté serveur : on resynchronise le store
       await panierStore.fetch()
+
+      // Mobile money : un seul paiement NotchPay pour toutes les commandes du panier
+      const urlPaiement = response.data.paiement?.url_paiement
+      if (urlPaiement) {
+        memoriserReferencePaiement(response.data.paiement.reference)
+        window.location.assign(urlPaiement)
+        return
+      }
+      erreurPaiement.value = response.data.erreur_paiement || ''
+      currentStep.value = 3
     } else {
       orderError.value = response.data?.message || 'Erreur lors de la création de la commande.'
     }

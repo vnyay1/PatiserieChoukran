@@ -63,6 +63,7 @@ class Commande extends Model
         'telephone_paiement',
         'reference_paiement',
         'date_paiement',
+        'paiement_id',
         'livreur_id',
     ];
 
@@ -109,6 +110,12 @@ class Commande extends Model
     public function facture()
     {
         return $this->hasOne(Facture::class);
+    }
+
+    // Dernier paiement mobile money (NotchPay) tenté pour cette commande
+    public function paiement()
+    {
+        return $this->belongsTo(Paiement::class);
     }
 
     // Scopes

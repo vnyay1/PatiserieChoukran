@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\CategorieController;
 use App\Http\Controllers\Api\CommandeController;
 use App\Http\Controllers\Api\LivraisonController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\PaiementController;
 use App\Http\Controllers\Api\PanierController;
 use App\Http\Controllers\Api\ProduitController;
 use App\Http\Controllers\Api\VendeurController;
@@ -71,6 +72,9 @@ Route::prefix('v1')->group(function () {
     Route::get('vendeurs/{id}', [VendeurController::class, 'show'])->whereNumber('id');
     Route::get('conditions-vendeur', [VendeurController::class, 'conditions']);
 
+    // Webhook NotchPay (signature vérifiée dans le contrôleur)
+    Route::post('webhooks/notchpay', [PaiementController::class, 'webhook']);
+
     // ===================================
     // ROUTES PROTÉGÉES (authentification requise)
     // ===================================
@@ -105,7 +109,11 @@ Route::prefix('v1')->group(function () {
                 Route::put('/{id}', [CommandeController::class, 'update']);
                 Route::post('/{id}/cancel', [CommandeController::class, 'cancel']);
                 Route::get('/{id}/facture', [FactureController::class, 'client'])->whereNumber('id');
+                Route::post('/{id}/payer', [PaiementController::class, 'payer'])->whereNumber('id');
             });
+
+            // Retour du client depuis la page de paiement NotchPay
+            Route::get('paiements/{reference}', [PaiementController::class, 'show']);
         });
 
         // Adresses

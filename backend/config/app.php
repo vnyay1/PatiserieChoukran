@@ -54,6 +54,9 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // Adresse de la SPA (retours de paiement) ; en Docker c'est la même origine que l'API
+    'frontend_url' => rtrim((string) env('FRONTEND_URL', 'http://localhost:5173'), '/'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

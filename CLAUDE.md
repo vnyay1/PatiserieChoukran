@@ -139,6 +139,14 @@ Use `vendeur` in new code.
 - The former zone system (`zone_livraisons`, `livreur_zone_livraisons`, `adresses.zone_livraison_id`, `calculate-shipping`) and the per-quartier coverage (`vendeur_tarifs_livraison`) were removed in `2026_09_15_000005_livraison_par_ville`.
 - Change order status with `Commande::changerStatut()`, which records history. `scopeArchivee` and `scopeVisibleDansListes` define which orders the operational lists hide (cancelled, or delivered and paid).
 
+### Mobile money payments (NotchPay)
+- Config lives in `services.notchpay` (`NOTCHPAY_PUBLIC_KEY`, `NOTCHPAY_WEBHOOK_HASH`, `NOTCHPAY_CALLBACK_URL`). With no public key, `NotchPay::estConfigure()` is false and Orange Money / MTN MoMo orders stay to be confirmed by hand, as before. `tests/TestCase.php` blanks the keys and calls `Http::preventStrayRequests()`, so tests fake NotchPay with `Http::fake`.
+- One `Paiement` covers every order of a checkout (`commandes.paiement_id`). Its reference is `CHK-ymd-XXXXXXXX`. `Services\Paiements::demarrer()` creates it and calls `POST /payments`. `CommandeController::store` returns `paiement: { reference, url_paiement }`, or `erreur_paiement` when NotchPay fails; the orders are created either way. `POST /commandes/{id}/payer` restarts payment for a single unpaid order.
+- The status is only ever trusted from `GET /payments/{reference}` (`Paiements::synchroniser()`, idempotent, row locked): on `complete` each order goes through `confirmerPaiement("NotchPay {ref}")`; on failed, canceled or expired, orders still `en_attente` become `echec`. Two paths call it:
+  - the client returns to the SPA page `/paiement/retour` (`views/PaiementRetour.vue`), which polls `GET /paiements/{reference}`. The reference comes from the URL, or else from `sessionStorage` (`utils/paiement.js`);
+  - the public webhook `POST /webhooks/notchpay` is checked with HMAC-SHA256 of the raw body (`X-Notch-Signature`) and matches our reference or `notchpay_id`.
+- The callback defaults to `FRONTEND_URL/paiement/retour`. `GET /payments/callback` (in `routes/web.php`, and a SPA redirect of the same path) forwards the older callback URL there.
+
 ### Invoices and reports (dompdf)
 - **Invoices.** Moving an order to `confirmee` dispatches `GenererEtEnvoyerFacture` from `changerStatut()`, whoever confirms it:
   - `Services\Factures::generer()` is idempotent and creates one `Facture` per order. Numbers are `FAC-AAAAMM-NNNN`; the PDF is written to `factures/AAAA/MM/` on the private `local` disk;

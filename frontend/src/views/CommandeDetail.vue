@@ -181,6 +181,16 @@ File: src/views/CommandeDetail.vue
                 <div v-if="commande.date_paiement">
                   Payée le {{ formatDateHeure(commande.date_paiement) }}
                 </div>
+                <Button
+                  v-if="peutPayerEnLigne"
+                  variant="primary"
+                  size="sm"
+                  class="mt-3 w-full"
+                  :loading="ouverturePaiement"
+                  @click="payerMaintenant"
+                >
+                  Payer maintenant ({{ formatPrice(commande.montant_total) }} FCFA)
+                </Button>
               </div>
             </div>
           </div>
@@ -360,6 +370,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api, { messageErreur, lireErreurBlob } from '@/services/api'
 import { useToastStore } from '@/stores/toast'
 import { telechargerBlob } from '@/utils/telechargement'
+import { memoriserReferencePaiement } from '@/utils/paiement'
 import {
   formatPrice,
   formatHeure,
@@ -429,6 +440,26 @@ const form = ref({
 
 const canEdit = computed(() => commande.value?.statut === 'en_attente')
 
+// Paiement NotchPay proposé tant qu'une commande mobile money n'est ni payée ni annulée
+const paiementEnLigne = ref(false)
+const ouverturePaiement = ref(false)
+const peutPayerEnLigne = computed(() => paiementEnLigne.value
+  && ['orange_money', 'mtn_momo'].includes(commande.value?.moyen_paiement)
+  && commande.value?.statut_paiement !== 'paye'
+  && commande.value?.statut !== 'annulee')
+
+const payerMaintenant = async () => {
+  ouverturePaiement.value = true
+  try {
+    const response = await api.commandes.payer(commande.value.id)
+    memoriserReferencePaiement(response.data.data.reference)
+    window.location.assign(response.data.data.url_paiement)
+  } catch (err) {
+    toastStore.erreur(messageErreur(err, 'Impossible d\'ouvrir le paiement pour le moment.'))
+    ouverturePaiement.value = false
+  }
+}
+
 // Étapes de la commande, de la plus ancienne à la plus récente
 const historiqueTrie = computed(() => {
   return [...(commande.value?.historiques || [])]
@@ -462,6 +493,7 @@ const fetchCommande = async () => {
     const response = await api.commandes.getOne(route.params.id)
     if (response.data.success) {
       commande.value = response.data.data
+      paiementEnLigne.value = Boolean(response.data.paiement_en_ligne)
       initFormFromCommande()
       await fetchAdresses()
     } else {

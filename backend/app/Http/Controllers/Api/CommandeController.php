@@ -10,7 +10,9 @@ use App\Models\Panier;
 use App\Models\Produit;
 use App\Models\User;
 use App\Services\LivraisonVendeur;
+use App\Services\NotchPay;
 use App\Services\NotificationsCommande;
+use App\Services\Paiements;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -66,12 +68,15 @@ class CommandeController extends Controller
                 'vendeur:id,nom_complet,telephone',
                 'historiques.modifiePar:id,nom_complet,role',
                 'facture:id,commande_id,numero_facture,envoyee_le',
+                'paiement:id,reference,statut',
             ])
             ->firstOrFail();
 
         return response()->json([
             'success' => true,
             'data' => $commande,
+            // Le bouton « Payer maintenant » n'est proposé que si NotchPay est configuré
+            'paiement_en_ligne' => NotchPay::estConfigure(),
         ]);
     }
 
@@ -270,10 +275,25 @@ class CommandeController extends Controller
                 NotificationsCommande::nouvelleCommande($commande, $vendeur);
             }
 
+            // Mobile money : un seul paiement NotchPay pour toutes les commandes créées.
+            // En cas d'échec, les commandes restent valables et le paiement peut être relancé.
+            $paiement = null;
+            $erreurPaiement = null;
+            if (in_array($validated['moyen_paiement'], Paiements::MOYENS, true) && NotchPay::estConfigure()) {
+                try {
+                    ['paiement' => $modele, 'url' => $url] = Paiements::demarrer(collect($commandes), $request->user());
+                    $paiement = ['reference' => $modele->reference, 'url_paiement' => $url];
+                } catch (\RuntimeException $e) {
+                    $erreurPaiement = $e->getMessage();
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => count($commandes).' commande(s) créée(s) avec succès',
                 'data' => $commandes,
+                'paiement' => $paiement,
+                'erreur_paiement' => $erreurPaiement,
             ], 201);
         } catch (\InvalidArgumentException $e) {
             return response()->json([
