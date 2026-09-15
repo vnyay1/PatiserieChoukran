@@ -114,7 +114,6 @@ class CommandeController extends Controller
         Panier::purgerExpires($request->user()->id);
 
         $panierItems = Panier::where('user_id', $request->user()->id)
-            ->nonExpire()
             ->with(['produit.createur:id,nom_complet', 'vendeur:id,nom_complet'])
             ->get();
 

@@ -20,6 +20,9 @@ File: src/views/admin/AdminParametres.vue
         </Button>
       </div>
 
+      <ReglagesBoutique />
+
+      <h2 class="font-display text-lg font-bold text-gray-800 mb-3">Tous les paramètres</h2>
       <Card padding="md" class="mb-6">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div class="md:col-span-2">
@@ -223,6 +226,7 @@ import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import ReglagesBoutique from '@/components/admin/ReglagesBoutique.vue'
 import { Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-vue-next'
 
 const toastStore = useToastStore()

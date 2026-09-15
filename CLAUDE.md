@@ -121,7 +121,9 @@ Use `vendeur` in new code.
 
 ### Cart → orders (multi-vendor)
 - `paniers.vendeur_id` is copied from `produit.created_by_user_id` and re-synced when the cart is read and at checkout.
-- Cart lines expire at `date_expiration`. The lifetime comes from `ParametreSite::get('panier_expiration_heures', 24)`, and every panier endpoint purges expired rows first.
+- The whole cart is emptied after `panier_duree_minutes` (default 1440) without any modification. The deadline is computed from `MAX(paniers.updated_at)`, so a changed setting applies to existing carts at once. Every panier endpoint purges first (`Panier::purgerExpires()`), `panier:purge-expired` runs every 5 minutes, and add/update/remove call `Panier::prolonger()`.
+- Panier endpoints return the full cart `{ items, total, nombre_items, expire_le, duree_minutes }`, so the store needs no second request. `stores/panier.js` refetches at `expire_le` and `Panier.vue` shows the deadline.
+- Admins edit cart duration, delivery fee and vendor terms on the Settings page (`components/admin/ReglagesBoutique.vue` → `GET/PUT /admin/reglages`).
 - `Api\CommandeController::store` groups the cart by `vendeur_id` and creates **one `Commande` per vendor** inside a `DB::transaction`. Each order gets its own delivery fee, `LigneCommande` rows, stock decrement and first `HistoriqueStatutCommande` entry. Vendors are notified after the commit (in-app `Notification` plus an email via `Mail::raw`). Business-rule failures throw `\InvalidArgumentException`, which is returned as a 422.
 - Delivery rules live in `App\Services\LivraisonVendeur`:
   - the fee is the same for everyone: the `frais_livraison_standard` parameter, 1500 FCFA by default, charged per vendor order;

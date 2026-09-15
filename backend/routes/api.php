@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\ParametreSiteController as AdminParametreSiteCont
 use App\Http\Controllers\Admin\ProduitController as AdminProduitController;
 use App\Http\Controllers\Admin\QuartierController as AdminQuartierController;
 use App\Http\Controllers\Admin\RapportController as AdminRapportController;
+use App\Http\Controllers\Admin\ReglagesController as AdminReglagesController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AdresseController;
 // Admin Controllers
@@ -146,6 +147,10 @@ Route::prefix('v1')->group(function () {
             Route::put('/{id}', [AdminCategorieController::class, 'update']);
             Route::delete('/{id}', [AdminCategorieController::class, 'destroy']);
         });
+
+        // Réglages de la boutique (durée du panier, frais de livraison, conditions vendeurs)
+        Route::get('reglages', [AdminReglagesController::class, 'show']);
+        Route::put('reglages', [AdminReglagesController::class, 'update']);
 
         // Gestion des paramètres du site
         Route::prefix('parametres')->group(function () {

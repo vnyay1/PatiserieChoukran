@@ -36,8 +36,9 @@ Artisan::command('rapports:mensuels {--mois= : Mois au format AAAA-MM (par défa
     return 0;
 })->purpose('Génère le rapport mensuel des vendeurs (PDF et CSV) et prévient les admins');
 
-// Les endpoints du panier purgent aussi à la volée : une passe par heure suffit
-Schedule::command('panier:purge-expired')->hourly();
+// Paniers restés sans modification au-delà de la durée réglée par l'admin : vidés
+// toutes les 5 minutes (les endpoints du panier les vident aussi à la volée)
+Schedule::command('panier:purge-expired')->everyFiveMinutes();
 
 // Le 1er de chaque mois : rapport du mois écoulé, prêt dans l'espace admin
 Schedule::command('rapports:mensuels')->monthlyOn(1, '06:00');

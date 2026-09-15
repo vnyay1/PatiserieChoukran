@@ -126,6 +126,12 @@ File: src/views/Panier.vue
                 <p v-if="groupes.length > 1" class="text-xs text-gray-500">
                   {{ groupes.length }} commandes seront créées, une par vendeur.
                 </p>
+
+                <!-- Durée réglée par l'admin : sans modification, le panier est vidé -->
+                <p v-if="panierStore.expireLe" class="flex items-start gap-2 text-xs text-gray-500 bg-gray-50 rounded-lg p-2">
+                  <Clock :size="14" class="mt-0.5 flex-shrink-0" />
+                  <span>Sans modification, ce panier sera vidé automatiquement le {{ formatDateHeure(panierStore.expireLe) }}.</span>
+                </p>
               </div>
 
               <!-- Bouton commander -->
@@ -215,7 +221,8 @@ import Card from '@/components/common/Card.vue'
 import { useLivraisonVendeurs, grouperParVendeur } from '@/composables/useLivraisonVendeurs'
 import { useVilleStore } from '@/stores/ville'
 import { formatVille, villeAdresse } from '@/utils/villes'
-import { Shield } from 'lucide-vue-next'
+import { Shield, Clock } from 'lucide-vue-next'
+import { formatDateHeure } from '@/utils/format'
 
 const panierStore = usePanierStore()
 const toastStore = useToastStore()

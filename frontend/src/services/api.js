@@ -270,6 +270,11 @@ export default {
       }),
       remove: (id) => api.delete(`${getCataloguePrefix()}/categories/${id}`),
     },
+    // Réglages de la boutique : durée du panier, frais de livraison, conditions vendeurs
+    reglages: {
+      get: () => api.get('/admin/reglages'),
+      update: (data) => api.put('/admin/reglages', data),
+    },
     parametres: {
       getAll: (params) => api.get('/admin/parametres', { params }),
       getOne: (id) => api.get(`/admin/parametres/${id}`),
