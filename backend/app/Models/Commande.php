@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use App\Exceptions\RegleMetierException;
+use App\Jobs\GenererEtEnvoyerFacture;
 use App\Services\NotificationsCommande;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class Commande extends Model
 {
@@ -102,6 +104,11 @@ class Commande extends Model
     public function historiques()
     {
         return $this->hasMany(HistoriqueStatutCommande::class);
+    }
+
+    public function facture()
+    {
+        return $this->hasOne(Facture::class);
     }
 
     // Scopes
@@ -264,6 +271,19 @@ class Commande extends Model
         // Après la transaction : client prévenu (ou vendeur si le client annule)
         $this->loadMissing(['user', 'vendeur']);
         NotificationsCommande::statutChange($this, $ancienStatut, $userId, $commentaire);
+
+        // Commande validée par le vendeur (ou l'admin) : facture générée et envoyée au client.
+        // Par la file d'attente en production ; une erreur ne remet jamais en cause le statut.
+        if ($nouveauStatut === 'confirmee') {
+            try {
+                GenererEtEnvoyerFacture::dispatch($this->id);
+            } catch (\Throwable $e) {
+                Log::error('Échec de la facturation de la commande', [
+                    'commande_id' => $this->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     /**

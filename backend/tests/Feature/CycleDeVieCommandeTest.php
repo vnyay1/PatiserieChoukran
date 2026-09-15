@@ -68,8 +68,9 @@ class CycleDeVieCommandeTest extends TestCase
             'commentaire' => 'Prête vers 16h',
         ])->assertOk();
 
-        $notification = Notification::where('user_id', $client->id)->latest('id')->firstOrFail();
-        $this->assertSame("Commande {$commande->numero_commande} : Confirmée", $notification->titre);
+        $notification = Notification::where('user_id', $client->id)
+            ->where('titre', "Commande {$commande->numero_commande} : Confirmée")
+            ->firstOrFail();
         $this->assertStringContainsString('Prête vers 16h', $notification->message);
         $this->assertSame("/mes-commandes/{$commande->id}", $notification->url_action);
 

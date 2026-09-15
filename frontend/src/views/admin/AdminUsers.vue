@@ -58,7 +58,16 @@ File: src/views/admin/AdminUsers.vue
             </select>
           </div>
 
-          <div class="md:col-span-4 flex flex-wrap gap-3">
+          <div class="md:col-span-4 flex flex-wrap items-center gap-3">
+            <label class="inline-flex items-center gap-2 mr-auto">
+              <input
+                v-model="filters.vedette"
+                type="checkbox"
+                class="rounded border-gray-300 text-gold-600 focus:ring-gold-500"
+                @change="applyFilters"
+              />
+              <span class="text-sm text-gray-700">Vendeurs en vedette uniquement</span>
+            </label>
             <Button variant="outline" @click="resetFilters">
               Réinitialiser
             </Button>
@@ -127,6 +136,22 @@ File: src/views/admin/AdminUsers.vue
                       <option value="admin">Admin</option>
                       <option value="vendeur">Vendeur</option>
                     </select>
+                    <!-- Vedette : les produits du vendeur passent en tête du catalogue -->
+                    <button
+                      v-if="user.role === 'vendeur'"
+                      type="button"
+                      class="p-1 rounded-full hover:bg-gold-50 disabled:opacity-50"
+                      :class="user.est_vendeur_vedette ? 'text-gold-500' : 'text-gray-300 hover:text-gold-400'"
+                      :title="user.est_vendeur_vedette ? 'En vedette : cliquer pour retirer' : 'Mettre en vedette'"
+                      :aria-label="user.est_vendeur_vedette ? 'Retirer de la vedette' : 'Mettre en vedette'"
+                      :disabled="updatingVedetteId === user.id"
+                      @click="toggleVedette(user)"
+                    >
+                      <Star :size="18" :fill="user.est_vendeur_vedette ? 'currentColor' : 'none'" />
+                    </button>
+                  </div>
+                  <div v-if="user.role === 'vendeur' && !user.profil_vendeur_complet" class="text-xs text-orange-600 mt-1">
+                    Profil boutique à compléter
                   </div>
                 </td>
                 <td class="px-4 py-3">
@@ -219,9 +244,34 @@ File: src/views/admin/AdminUsers.vue
                   <span class="badge" :class="getStatutClass(selectedUser.statut)">
                     {{ getStatutLabel(selectedUser.statut) }}
                   </span>
+                  <span v-if="selectedUser.role === 'vendeur' && selectedUser.est_vendeur_vedette" class="badge badge-primary">
+                    Vedette
+                  </span>
+                  <span v-if="selectedUser.role === 'vendeur' && !selectedUser.profil_vendeur_complet" class="badge bg-orange-100 text-orange-700">
+                    Profil boutique incomplet
+                  </span>
                 </div>
                 <div class="text-xs text-gray-400 mt-3">
                   Inscrit le {{ formatDate(selectedUser.created_at) }}
+                </div>
+                <div v-if="selectedUser.role === 'vendeur'" class="mt-4 flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    :icon="Star"
+                    :icon-size="16"
+                    :loading="updatingVedetteId === selectedUser.id"
+                    @click="toggleVedette(selectedUser)"
+                  >
+                    {{ selectedUser.est_vendeur_vedette ? 'Retirer de la vedette' : 'Mettre en vedette' }}
+                  </Button>
+                  <router-link
+                    v-if="selectedUser.profil_vendeur_complet"
+                    :to="{ name: 'vendeur-profil', params: { id: selectedUser.id } }"
+                    class="btn-outline py-1.5 px-3 text-sm"
+                  >
+                    Page publique
+                  </router-link>
                 </div>
               </Card>
 
@@ -331,7 +381,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { formatPrice, formatPrice as formatNumber, formatDate } from '@/utils/format'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
-import { Search } from 'lucide-vue-next'
+import { Search, Star } from 'lucide-vue-next'
 
 const users = ref([])
 const loading = ref(false)
@@ -341,6 +391,7 @@ const perPage = ref(15)
 const totalUsers = ref(0)
 const updatingStatusId = ref(null)
 const updatingRoleId = ref(null)
+const updatingVedetteId = ref(null)
 
 const authStore = useAuthStore()
 const toastStore = useToastStore()
@@ -350,6 +401,7 @@ const filters = ref({
   search: '',
   role: '',
   statut: '',
+  vedette: false,
 })
 
 const totalPages = computed(() => {
@@ -412,6 +464,7 @@ const fetchUsers = async () => {
     if (filters.value.search) params.search = filters.value.search
     if (filters.value.role) params.role = filters.value.role
     if (filters.value.statut) params.statut = filters.value.statut
+    if (filters.value.vedette) params.vedette = 1
 
     const response = await api.admin.users.getAll(params)
     if (response.data.success) {
@@ -436,6 +489,7 @@ const resetFilters = () => {
   filters.value.search = ''
   filters.value.role = ''
   filters.value.statut = ''
+  filters.value.vedette = false
   applyFilters()
 }
 
@@ -504,7 +558,9 @@ const onRoleChange = async (user, event) => {
 
   const confirmed = await confirmer({
     titre: 'Changer le rôle',
-    message: `${user.nom_complet} deviendra « ${getRoleLabel(nextRole)} ».`,
+    message: nextRole === 'vendeur'
+      ? `${user.nom_complet} deviendra « Vendeur ». Avant de pouvoir vendre, il devra compléter son profil boutique (e-mail, logo, description et conditions).`
+      : `${user.nom_complet} deviendra « ${getRoleLabel(nextRole)} ».`,
     libelleConfirmer: 'Confirmer',
   })
   if (!confirmed) {
@@ -516,9 +572,10 @@ const onRoleChange = async (user, event) => {
   try {
     const response = await api.admin.users.updateRole(user.id, { role: nextRole })
     if (response.data.success) {
-      user.role = response.data.data.role
+      const { role, est_vendeur_vedette: vedette, profil_vendeur_complet: complet } = response.data.data
+      Object.assign(user, { role, est_vendeur_vedette: vedette, profil_vendeur_complet: complet })
       if (selectedUser.value?.id === user.id) {
-        selectedUser.value.role = response.data.data.role
+        Object.assign(selectedUser.value, { role, est_vendeur_vedette: vedette, profil_vendeur_complet: complet })
       }
       toastStore.succes('Rôle mis à jour.')
     }
@@ -527,6 +584,28 @@ const onRoleChange = async (user, event) => {
     toastStore.erreur(messageErreur(err, 'Erreur lors de la mise à jour du rôle.'))
   } finally {
     updatingRoleId.value = null
+  }
+}
+
+const toggleVedette = async (user) => {
+  const nouvelleValeur = !user.est_vendeur_vedette
+  updatingVedetteId.value = user.id
+
+  try {
+    const response = await api.admin.users.updateVedette(user.id, { est_vendeur_vedette: nouvelleValeur })
+    const vedette = Boolean(response.data.data?.est_vendeur_vedette)
+    // La ligne du tableau et la fenêtre de détail sont deux objets distincts
+    const ligne = users.value.find((item) => item.id === user.id)
+    if (ligne) ligne.est_vendeur_vedette = vedette
+    if (selectedUser.value?.id === user.id) selectedUser.value.est_vendeur_vedette = vedette
+    toastStore.succes(response.data.message || 'Mise en avant mise à jour.')
+    if (filters.value.vedette && !vedette) {
+      fetchUsers()
+    }
+  } catch (err) {
+    toastStore.erreur(messageErreur(err, 'Impossible de modifier la mise en avant.'))
+  } finally {
+    updatingVedetteId.value = null
   }
 }
 

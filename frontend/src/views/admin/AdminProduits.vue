@@ -183,14 +183,6 @@ File: src/views/admin/AdminProduits.vue
               />
               <span class="text-sm text-gray-700">Produit disponible</span>
             </label>
-            <label class="inline-flex items-center gap-2">
-              <input
-                v-model="form.est_vedette"
-                type="checkbox"
-                class="rounded border-gray-300 text-gold-600 focus:ring-gold-500"
-              />
-              <span class="text-sm text-gray-700">Produit vedette</span>
-            </label>
           </div>
 
           <div class="md:col-span-2 flex gap-3">
@@ -271,7 +263,7 @@ File: src/views/admin/AdminProduits.vue
                     <span class="badge" :class="produit.est_disponible ? 'badge-success' : 'badge-danger'">
                       {{ produit.est_disponible ? 'Disponible' : 'Indisponible' }}
                     </span>
-                    <span v-if="produit.est_vedette" class="badge badge-primary">Vedette</span>
+                    <span v-if="produit.createur?.est_vendeur_vedette" class="badge badge-primary" title="Vendeur mis en vedette par l'admin">Vedette</span>
                   </div>
                 </td>
                 <td class="px-4 py-3">
@@ -354,7 +346,6 @@ const filters = ref({
     promo_active: false,
     stock_disponible: 0,
     est_disponible: true,
-    est_vedette: false,
   })
 
 const imagePrincipale = ref(null)
@@ -449,7 +440,6 @@ const resetForm = () => {
     promo_active: false,
     stock_disponible: 0,
     est_disponible: true,
-    est_vedette: false,
   }
   imagePrincipale.value = null
   imagesSecondaires.value = []
@@ -477,7 +467,6 @@ const openEdit = (produit) => {
     promo_active: !!produit.prix_promo,
     stock_disponible: produit.stock_disponible,
     est_disponible: !!produit.est_disponible,
-    est_vedette: !!produit.est_vedette,
   }
   imagePrincipale.value = null
   imagesSecondaires.value = []
@@ -538,7 +527,6 @@ const buildFormData = () => {
   data.append('prix_unitaire', form.value.prix_unitaire)
   data.append('stock_disponible', form.value.stock_disponible)
   data.append('est_disponible', form.value.est_disponible ? 1 : 0)
-  data.append('est_vedette', form.value.est_vedette ? 1 : 0)
 
   if (form.value.description) {
     data.append('description', form.value.description)

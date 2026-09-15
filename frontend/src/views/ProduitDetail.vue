@@ -39,8 +39,9 @@ File: src/views/ProduitDetail.vue
 
             <!-- Badge vedette -->
             <div
-              v-if="produit.est_vedette"
+              v-if="produit.createur?.est_vendeur_vedette"
               class="absolute top-4 left-4 bg-gold-500 text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1"
+              title="Vendeur en vedette"
             >
               <Star :size="16" fill="white" />
               Vedette
@@ -105,10 +106,20 @@ File: src/views/ProduitDetail.vue
             {{ produit.nom }}
           </h1>
 
-          <!-- Vendeur : ses frais de livraison s'appliquent selon votre quartier -->
-          <p v-if="produit.createur?.nom_complet" class="text-sm text-gray-600 mb-4">
-            Vendu par <span class="font-medium text-gray-800">{{ produit.createur.nom_complet }}</span>
-          </p>
+          <!-- Vendeur : il livre les quartiers qu'il dessert, à partir de son minimum d'achat -->
+          <router-link
+            v-if="produit.createur?.nom_complet"
+            :to="{ name: 'vendeur-profil', params: { id: produit.createur.id } }"
+            class="inline-flex items-center gap-2 text-sm text-gray-600 mb-4 hover:text-gold-700"
+          >
+            <img
+              v-if="produit.createur.logo_boutique"
+              :src="resolveImageUrl(produit.createur.logo_boutique, { placeholder: false })"
+              :alt="produit.createur.nom_complet"
+              class="h-8 w-8 rounded-full object-cover border bg-white"
+            />
+            <span>Vendu par <span class="font-medium text-gray-800 underline-offset-2 hover:underline">{{ produit.createur.nom_complet }}</span></span>
+          </router-link>
 
           <!-- Prix -->
           <div class="flex items-baseline gap-3 mb-6">

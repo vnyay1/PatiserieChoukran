@@ -60,8 +60,8 @@ class PanierController extends Controller
 
         $produit = Produit::findOrFail($validated['produit_id']);
 
-        // Vérifier la disponibilité
-        if (! $produit->est_disponible) {
+        // Disponible et en vente sur la boutique (catégorie active, vendeur actif au profil complet)
+        if (! Produit::visible()->whereKey($produit->id)->exists()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Ce produit n\'est pas disponible',

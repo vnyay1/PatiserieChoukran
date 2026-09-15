@@ -10,6 +10,8 @@ import router from '@/router'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1',
+  // Sans délai, un serveur figé laissait les boutons tourner indéfiniment
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
@@ -39,9 +41,12 @@ api.interceptors.response.use(
   async (error) => {
     const toastStore = useToastStore()
 
-    // Pas de réponse : serveur injoignable ou connexion coupée (hors annulation volontaire)
+    // Pas de réponse : serveur injoignable, trop lent ou connexion coupée (hors annulation volontaire)
     if (!error.response) {
-      if (!axios.isCancel(error)) {
+      if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+        error.message = 'Le serveur met trop de temps à répondre. Réessayez dans quelques instants.'
+        toastStore.erreur(error.message)
+      } else if (!axios.isCancel(error)) {
         toastStore.erreur('Impossible de joindre le serveur. Vérifiez votre connexion internet.')
       }
       return Promise.reject(error)
@@ -76,6 +81,15 @@ api.interceptors.response.use(
       }
     }
 
+    // Erreur 403 - Vendeur dont le profil boutique est incomplet (ex. promu pendant sa session)
+    if (error.response.status === 403 && error.response.data?.code === 'profil_vendeur_incomplet') {
+      const authStore = useAuthStore()
+      await authStore.fetchUser()
+      if (router.currentRoute.value.name !== 'vendeur-profil-boutique') {
+        await router.push({ name: 'vendeur-profil-boutique' })
+      }
+    }
+
     // Erreur 429 - Trop de requêtes
     if (error.response.status === 429) {
       toastStore.erreur(error.response.data?.message || 'Trop de requêtes, veuillez patienter quelques instants.')
@@ -95,10 +109,27 @@ const getCommandesPrefix = () => {
   return authStore.isVendeur ? '/vendeur/commandes' : '/admin/commandes'
 }
 
+const fichierPdf = { responseType: 'blob', headers: { Accept: 'application/pdf, application/json' } }
+
+// Téléchargement (responseType blob) : une erreur JSON arrive elle aussi en Blob,
+// on la relit pour que messageErreur() retrouve le message du backend
+export const lireErreurBlob = async (error) => {
+  const data = error?.response?.data
+  if (typeof Blob !== 'undefined' && data instanceof Blob) {
+    try {
+      error.response.data = JSON.parse(await data.text())
+    } catch {
+      error.response.data = {}
+    }
+  }
+  return error
+}
+
 // Message lisible d'une erreur API : première erreur de validation, sinon message du backend
 export const messageErreur = (error, fallback = 'Une erreur est survenue.') => {
   const erreursValidation = Object.values(error?.response?.data?.errors || {})
-  return erreursValidation[0]?.[0] || error?.response?.data?.message || fallback
+  const delaiDepasse = !error?.response && ['ECONNABORTED', 'ETIMEDOUT'].includes(error?.code)
+  return erreursValidation[0]?.[0] || error?.response?.data?.message || (delaiDepasse ? error.message : null) || fallback
 }
 
 // Méthodes API
@@ -146,6 +177,7 @@ export default {
     create: (data) => api.post('/commandes', data),
     update: (id, data) => api.put(`/commandes/${id}`, data),
     cancel: (id) => api.post(`/commandes/${id}/cancel`),
+    facture: (id) => api.get(`/commandes/${id}/facture`, fichierPdf),
     calculateShipping: (data) => api.post('/commandes/calculate-shipping', data),
     stats: () => api.get('/commandes/stats'),
   },
@@ -184,9 +216,25 @@ export default {
     quartiersByVendeur: (vendeurId) => api.get(`/livraison/quartiers/vendeur/${vendeurId}`),
   },
 
+  // Pages publiques des vendeurs
+  vendeurs: {
+    getOne: (id) => api.get(`/vendeurs/${id}`),
+    conditions: () => api.get('/conditions-vendeur'),
+  },
+
   // Espace vendeur
   vendeur: {
     stats: () => api.get('/vendeur/stats'),
+    // Profil boutique : multipart (logo), envoyé en POST + _method=PUT
+    profil: {
+      get: () => api.get('/vendeur/profil'),
+      update: (data) => api.post('/vendeur/profil', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      }),
+    },
+    livraison: {
+      updateMinimum: (data) => api.put('/vendeur/livraison/minimum', data),
+    },
     tarifs: {
       getAll: () => api.get('/vendeur/tarifs-livraison'),
       quartiers: () => api.get('/vendeur/tarifs-livraison/quartiers'),
@@ -207,6 +255,16 @@ export default {
       updateStatus: (id, data) => api.patch(`${getCommandesPrefix()}/${id}/status`, data),
       confirmPayment: (id, data) => api.post(`${getCommandesPrefix()}/${id}/confirm-payment`, data),
       assignVendeur: (id, data) => api.post(`/admin/commandes/${id}/assign-vendeur`, data),
+      facture: (id) => api.get(`${getCommandesPrefix()}/${id}/facture`, fichierPdf),
+    },
+    rapports: {
+      list: () => api.get('/admin/rapports'),
+      apercu: (mois) => api.get('/admin/rapports/mensuel', { params: { mois, format: 'json' } }),
+      telecharger: (mois, format) => api.get('/admin/rapports/mensuel', {
+        params: { mois, format },
+        responseType: 'blob',
+        headers: { Accept: format === 'pdf' ? 'application/pdf, application/json' : 'text/csv, application/json' },
+      }),
     },
     categories: {
       getAll: (params) => api.get(`${getCataloguePrefix()}/categories`, { params }),
@@ -242,6 +300,7 @@ export default {
       getOne: (id) => api.get(`/admin/users/${id}`),
       updateStatus: (id, data) => api.patch(`/admin/users/${id}/status`, data),
       updateRole: (id, data) => api.patch(`/admin/users/${id}/role`, data),
+      updateVedette: (id, data) => api.patch(`/admin/users/${id}/vedette`, data),
     },
     zones: {
       getAll: (params) => api.get(`${getCataloguePrefix()}/zones-livraison`, { params }),

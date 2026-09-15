@@ -18,6 +18,7 @@ class ProduitController extends Controller
     {
         $validated = $request->validate([
             'categorie_id' => 'nullable|integer',
+            'vendeur_id' => 'nullable|integer',
             'search' => 'nullable|string|max:100',
             'prix_min' => 'nullable|numeric|min:0',
             'prix_max' => 'nullable|numeric|min:0',
@@ -26,11 +27,16 @@ class ProduitController extends Controller
             'per_page' => 'nullable|integer|min:1|max:50',
         ]);
 
-        // Seul le nom du vendeur est exposé (pas son téléphone ni son e-mail)
-        $query = Produit::with(['categorie', 'createur:id,nom_complet'])->visible();
+        // Seuls le nom, le logo et la mise en avant du vendeur sont exposés (pas son téléphone)
+        $query = Produit::with(['categorie', Produit::VENDEUR_PUBLIC])->visible();
 
         if (! empty($validated['categorie_id'])) {
             $query->where('categorie_id', $validated['categorie_id']);
+        }
+
+        // Page publique d'un vendeur
+        if (! empty($validated['vendeur_id'])) {
+            $query->where('created_by_user_id', $validated['vendeur_id']);
         }
 
         if (! empty($validated['search'])) {
@@ -58,6 +64,9 @@ class ProduitController extends Controller
             $query->whereRaw('COALESCE(prix_promo, prix_unitaire) <= ?', [(int) ceil($validated['prix_max'])]);
         }
 
+        // Les produits des vendeurs vedettes restent en tête, quel que soit le tri choisi
+        $query->vendeursVedettesEnTete();
+
         // Tri (colonne et sens validés ci-dessus)
         $sortBy = $validated['sort_by'] ?? 'created_at';
         $sortOrder = $validated['sort_order'] ?? 'desc';
@@ -84,7 +93,7 @@ class ProduitController extends Controller
     public function show($slug)
     {
         $produit = Produit::where('slug', $slug)
-            ->with(['categorie', 'createur:id,nom_complet'])
+            ->with(['categorie', Produit::VENDEUR_PUBLIC])
             ->visible()
             ->firstOrFail();
 
@@ -106,8 +115,9 @@ class ProduitController extends Controller
 
         $similaires = Produit::where('categorie_id', $produit->categorie_id)
             ->where('id', '!=', $produit->id)
-            ->with('createur:id,nom_complet')
+            ->with(Produit::VENDEUR_PUBLIC)
             ->visible()
+            ->vendeursVedettesEnTete()
             ->limit(4)
             ->get();
 
@@ -118,13 +128,15 @@ class ProduitController extends Controller
     }
 
     /**
-     * Produits vedettes pour la page d'accueil
+     * Produits vedettes pour la page d'accueil : ceux des vendeurs mis en avant
      */
     public function featured()
     {
         $produits = Produit::vedette()
             ->visible()
-            ->with(['categorie', 'createur:id,nom_complet'])
+            ->with(['categorie', Produit::VENDEUR_PUBLIC])
+            ->orderBy('nombre_commandes', 'desc')
+            ->orderBy('id', 'desc')
             ->limit(8)
             ->get();
 
@@ -140,7 +152,7 @@ class ProduitController extends Controller
     public function nouveautes()
     {
         $produits = Produit::visible()
-            ->with(['categorie', 'createur:id,nom_complet'])
+            ->with(['categorie', Produit::VENDEUR_PUBLIC])
             ->orderBy('created_at', 'desc')
             ->limit(8)
             ->get();
@@ -158,7 +170,9 @@ class ProduitController extends Controller
     {
         $produits = Produit::promotion()
             ->visible()
-            ->with(['categorie', 'createur:id,nom_complet'])
+            ->with(['categorie', Produit::VENDEUR_PUBLIC])
+            ->vendeursVedettesEnTete()
+            ->orderBy('created_at', 'desc')
             ->limit(24)
             ->get();
 

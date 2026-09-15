@@ -52,7 +52,13 @@ File: src/views/CommandeDetail.vue
                 Créée le {{ formatDate(commande.created_at) }}
               </p>
               <p v-if="commande.vendeur?.nom_complet" class="text-sm text-gray-600">
-                Vendeur : {{ commande.vendeur.nom_complet }}
+                Vendeur :
+                <router-link
+                  :to="{ name: 'vendeur-profil', params: { id: commande.vendeur.id } }"
+                  class="text-gold-600 hover:text-gold-700"
+                >
+                  {{ commande.vendeur.nom_complet }}
+                </router-link>
               </p>
             </div>
             <div class="text-right">
@@ -60,6 +66,12 @@ File: src/views/CommandeDetail.vue
               <div class="price text-2xl">{{ formatPrice(commande.montant_total) }} FCFA</div>
               <div v-if="commande.statut !== 'annulee'" :class="['badge mt-2', getPaymentBadgeClass(commande.statut_paiement)]">
                 {{ getPaymentLabel(commande.statut_paiement) }}
+              </div>
+              <!-- Facture générée quand le vendeur confirme la commande -->
+              <div v-if="commande.facture" class="mt-3">
+                <Button variant="outline" size="sm" :icon="FileDown" :icon-size="16" :loading="telechargementFacture" @click="telechargerFacture">
+                  Facture {{ commande.facture.numero_facture }}
+                </Button>
               </div>
             </div>
           </div>
@@ -292,7 +304,7 @@ File: src/views/CommandeDetail.vue
           </div>
 
           <p v-if="form.type_livraison === 'livraison' && livraisonPossible" class="text-sm text-gray-700 mt-3">
-            Frais de livraison : {{ fraisLivraison > 0 ? formatPrice(fraisLivraison) + ' FCFA' : 'Gratuit' }}
+            Frais de livraison : {{ formatPrice(fraisLivraison) }} FCFA
           </p>
           <p v-if="shippingError" class="text-sm text-red-600 mt-3">
             {{ shippingError }}
@@ -348,8 +360,9 @@ File: src/views/CommandeDetail.vue
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import api, { messageErreur } from '@/services/api'
+import api, { messageErreur, lireErreurBlob } from '@/services/api'
 import { useToastStore } from '@/stores/toast'
+import { telechargerBlob } from '@/utils/telechargement'
 import {
   formatPrice,
   formatHeure,
@@ -364,7 +377,7 @@ import {
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { useLivraisonVendeurs, formatVille } from '@/composables/useLivraisonVendeurs'
-import { ArrowLeft, MapPin, Clock, Phone, Pencil, Trash2, Truck, Store } from 'lucide-vue-next'
+import { ArrowLeft, MapPin, Clock, Phone, Pencil, Trash2, Truck, Store, FileDown } from 'lucide-vue-next'
 import { resolveImageUrl, onImageError } from '@/utils/images'
 
 const route = useRoute()
@@ -385,7 +398,22 @@ const fraisLivraison = ref(0)
 const livraisonPossible = ref(false)
 const shippingError = ref('')
 
-const { erreur: erreurTarifs, estCharge, chargerQuartiersVendeurs, tarifPour } = useLivraisonVendeurs()
+const { erreur: erreurTarifs, estCharge, chargerQuartiersVendeurs, tarifPour, livraisonDe, manquePourMinimum } = useLivraisonVendeurs()
+
+const telechargementFacture = ref(false)
+
+const telechargerFacture = async () => {
+  telechargementFacture.value = true
+  try {
+    const response = await api.commandes.facture(commande.value.id)
+    telechargerBlob(response, `${commande.value.facture.numero_facture}.pdf`)
+  } catch (err) {
+    await lireErreurBlob(err)
+    toastStore.erreur(messageErreur(err, 'Impossible de télécharger la facture.'))
+  } finally {
+    telechargementFacture.value = false
+  }
+}
 
 // Commandes antérieures au sprint : le vendeur n'était enregistré que dans livreur_id
 const vendeurCommandeId = computed(() => commande.value?.vendeur_id ?? commande.value?.livreur_id ?? null)
@@ -459,8 +487,8 @@ const fetchAdresses = async () => {
   }
 }
 
-// Frais recalculés avec le tarif du vendeur de CETTE commande
-// (et non celui du panier, vide une fois la commande passée)
+// Livraison vérifiée avec le vendeur de CETTE commande (et non ceux du panier, vide une
+// fois la commande passée) : quartier desservi et montant minimum ; frais standard
 const refreshShipping = async () => {
   shippingError.value = ''
   fraisLivraison.value = 0
@@ -497,7 +525,14 @@ const refreshShipping = async () => {
     return
   }
 
-  fraisLivraison.value = Number(tarif.tarif) || 0
+  const manque = manquePourMinimum(vendeurCommandeId.value, commande.value.montant_produits)
+  if (manque > 0) {
+    const { minimum } = livraisonDe(vendeurCommandeId.value)
+    shippingError.value = `Ce vendeur livre à partir de ${formatPrice(minimum)} FCFA d'achat (il manque ${formatPrice(manque)} FCFA) : gardez le retrait en boutique.`
+    return
+  }
+
+  fraisLivraison.value = livraisonDe(vendeurCommandeId.value).frais
   livraisonPossible.value = true
 }
 

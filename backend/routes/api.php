@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ParametreSiteController as AdminParametreSiteController;
 use App\Http\Controllers\Admin\ProduitController as AdminProduitController;
 use App\Http\Controllers\Admin\QuartierController as AdminQuartierController;
+use App\Http\Controllers\Admin\RapportController as AdminRapportController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\ZoneLivraisonController as AdminZoneLivraisonController;
 use App\Http\Controllers\Api\AdresseController;
@@ -22,8 +23,11 @@ use App\Http\Controllers\Api\CommandeController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PanierController;
 use App\Http\Controllers\Api\ProduitController;
+use App\Http\Controllers\Api\VendeurController;
 use App\Http\Controllers\Api\ZoneLivraisonController;
+use App\Http\Controllers\FactureController;
 use App\Http\Controllers\Vendeur\CommandeController as VendeurCommandeController;
+use App\Http\Controllers\Vendeur\ProfilBoutiqueController as VendeurProfilBoutiqueController;
 use App\Http\Controllers\Vendeur\TarifLivraisonController as VendeurTarifLivraisonController;
 use Illuminate\Support\Facades\Route;
 
@@ -69,6 +73,10 @@ Route::prefix('v1')->group(function () {
     Route::get('livraison/quartiers', [ZoneLivraisonController::class, 'allQuartiers']);
     Route::get('livraison/quartiers/vendeur/{vendeur}', [ZoneLivraisonController::class, 'quartiersByVendeur']);
 
+    // Pages publiques des vendeurs et conditions qu'ils acceptent
+    Route::get('vendeurs/{id}', [VendeurController::class, 'show'])->whereNumber('id');
+    Route::get('conditions-vendeur', [VendeurController::class, 'conditions']);
+
     // ===================================
     // ROUTES PROTÉGÉES (authentification requise)
     // ===================================
@@ -105,6 +113,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('/{id}', [CommandeController::class, 'show']);
                 Route::put('/{id}', [CommandeController::class, 'update']);
                 Route::post('/{id}/cancel', [CommandeController::class, 'cancel']);
+                Route::get('/{id}/facture', [FactureController::class, 'client'])->whereNumber('id');
                 Route::post('/calculate-shipping', [CommandeController::class, 'calculateShipping']);
             });
         });
@@ -176,6 +185,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/{id}/assign-livreur', [AdminCommandeController::class, 'assignLivreur']);
             Route::post('/{id}/assign-vendeur', [AdminCommandeController::class, 'assignLivreur']);
             Route::post('/{id}/confirm-payment', [AdminCommandeController::class, 'confirmPayment']);
+            Route::get('/{id}/facture', [FactureController::class, 'admin'])->whereNumber('id');
         });
 
         // Gestion des utilisateurs
@@ -184,7 +194,12 @@ Route::prefix('v1')->group(function () {
             Route::get('/{id}', [AdminUserController::class, 'show']);
             Route::patch('/{id}/status', [AdminUserController::class, 'updateStatus']);
             Route::patch('/{id}/role', [AdminUserController::class, 'updateRole']);
+            Route::patch('/{id}/vedette', [AdminUserController::class, 'updateVedette']);
         });
+
+        // Rapports mensuels des vendeurs (aperçu JSON, PDF, CSV)
+        Route::get('rapports', [AdminRapportController::class, 'index']);
+        Route::get('rapports/mensuel', [AdminRapportController::class, 'mensuel']);
 
         // Gestion des zones de livraison
         Route::prefix('zones-livraison')->group(function () {
@@ -203,48 +218,57 @@ Route::prefix('v1')->group(function () {
     // ===================================
 
     Route::middleware(['auth:sanctum', 'actif', 'vendeur'])->prefix('vendeur')->group(function () {
-        Route::get('tarifs-livraison/quartiers', [VendeurTarifLivraisonController::class, 'quartiers']);
-        Route::apiResource('tarifs-livraison', VendeurTarifLivraisonController::class);
+        // Profil boutique : accessible même incomplet (c'est là qu'on le complète)
+        Route::get('profil', [VendeurProfilBoutiqueController::class, 'show']);
+        Route::put('profil', [VendeurProfilBoutiqueController::class, 'update']);
 
-        // Gestion des commandes du vendeur (uniquement ses propres produits)
-        Route::prefix('commandes')->group(function () {
-            Route::get('/', [VendeurCommandeController::class, 'index']);
-            Route::get('/en-cours', [VendeurCommandeController::class, 'enCours']);
-            Route::get('/stats', [VendeurCommandeController::class, 'stats']);
-            Route::get('/{id}', [VendeurCommandeController::class, 'show']);
-            Route::patch('/{id}/status', [VendeurCommandeController::class, 'updateStatus']);
-            Route::post('/{id}/confirm-payment', [VendeurCommandeController::class, 'confirmPayment']);
-        });
+        // Tout le reste exige un profil boutique complet
+        Route::middleware('profil.vendeur')->group(function () {
+            Route::get('tarifs-livraison/quartiers', [VendeurTarifLivraisonController::class, 'quartiers']);
+            Route::apiResource('tarifs-livraison', VendeurTarifLivraisonController::class);
+            Route::put('livraison/minimum', [VendeurTarifLivraisonController::class, 'updateMinimum']);
 
-        // Alias historiques "livraisons" (compatibilité)
-        Route::get('livraisons', [VendeurCommandeController::class, 'index']);
-        Route::get('livraisons/en-cours', [VendeurCommandeController::class, 'enCours']);
-        Route::get('livraisons/{id}', [VendeurCommandeController::class, 'show']);
-        Route::patch('livraisons/{id}/status', [VendeurCommandeController::class, 'updateStatus']);
-        Route::post('livraisons/{id}/confirm-payment', [VendeurCommandeController::class, 'confirmPayment']);
+            // Gestion des commandes du vendeur (uniquement ses propres produits)
+            Route::prefix('commandes')->group(function () {
+                Route::get('/', [VendeurCommandeController::class, 'index']);
+                Route::get('/en-cours', [VendeurCommandeController::class, 'enCours']);
+                Route::get('/stats', [VendeurCommandeController::class, 'stats']);
+                Route::get('/{id}', [VendeurCommandeController::class, 'show']);
+                Route::patch('/{id}/status', [VendeurCommandeController::class, 'updateStatus']);
+                Route::post('/{id}/confirm-payment', [VendeurCommandeController::class, 'confirmPayment']);
+                Route::get('/{id}/facture', [FactureController::class, 'vendeur'])->whereNumber('id');
+            });
 
-        // Statistiques du vendeur
-        Route::get('stats', [VendeurCommandeController::class, 'stats']);
+            // Alias historiques "livraisons" (compatibilité)
+            Route::get('livraisons', [VendeurCommandeController::class, 'index']);
+            Route::get('livraisons/en-cours', [VendeurCommandeController::class, 'enCours']);
+            Route::get('livraisons/{id}', [VendeurCommandeController::class, 'show']);
+            Route::patch('livraisons/{id}/status', [VendeurCommandeController::class, 'updateStatus']);
+            Route::post('livraisons/{id}/confirm-payment', [VendeurCommandeController::class, 'confirmPayment']);
 
-        // Ajouts catalogue autorisés pour le vendeur
-        Route::prefix('catalogue')->group(function () {
-            Route::get('categories', [AdminCategorieController::class, 'index']);
-            Route::get('categories/{id}', [AdminCategorieController::class, 'show']);
-            Route::post('categories', [AdminCategorieController::class, 'store']);
-            Route::put('categories/{id}', [AdminCategorieController::class, 'update']);
-            Route::delete('categories/{id}', [AdminCategorieController::class, 'destroy']);
+            // Statistiques du vendeur
+            Route::get('stats', [VendeurCommandeController::class, 'stats']);
 
-            Route::get('produits', [AdminProduitController::class, 'index']);
-            Route::get('produits/{id}', [AdminProduitController::class, 'show']);
-            Route::post('produits', [AdminProduitController::class, 'store']);
-            Route::put('produits/{id}', [AdminProduitController::class, 'update']);
-            Route::delete('produits/{id}', [AdminProduitController::class, 'destroy']);
+            // Ajouts catalogue autorisés pour le vendeur
+            Route::prefix('catalogue')->group(function () {
+                Route::get('categories', [AdminCategorieController::class, 'index']);
+                Route::get('categories/{id}', [AdminCategorieController::class, 'show']);
+                Route::post('categories', [AdminCategorieController::class, 'store']);
+                Route::put('categories/{id}', [AdminCategorieController::class, 'update']);
+                Route::delete('categories/{id}', [AdminCategorieController::class, 'destroy']);
 
-            Route::get('zones-livraison', [AdminZoneLivraisonController::class, 'index']);
-            Route::get('zones-livraison/{id}', [AdminZoneLivraisonController::class, 'show']);
-            Route::post('zones-livraison', [AdminZoneLivraisonController::class, 'store']);
-            Route::put('zones-livraison/{id}', [AdminZoneLivraisonController::class, 'update']);
-            Route::delete('zones-livraison/{id}', [AdminZoneLivraisonController::class, 'destroy']);
+                Route::get('produits', [AdminProduitController::class, 'index']);
+                Route::get('produits/{id}', [AdminProduitController::class, 'show']);
+                Route::post('produits', [AdminProduitController::class, 'store']);
+                Route::put('produits/{id}', [AdminProduitController::class, 'update']);
+                Route::delete('produits/{id}', [AdminProduitController::class, 'destroy']);
+
+                Route::get('zones-livraison', [AdminZoneLivraisonController::class, 'index']);
+                Route::get('zones-livraison/{id}', [AdminZoneLivraisonController::class, 'show']);
+                Route::post('zones-livraison', [AdminZoneLivraisonController::class, 'store']);
+                Route::put('zones-livraison/{id}', [AdminZoneLivraisonController::class, 'update']);
+                Route::delete('zones-livraison/{id}', [AdminZoneLivraisonController::class, 'destroy']);
+            });
         });
     });
 });

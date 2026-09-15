@@ -16,7 +16,8 @@ return [
 
     'allowed_headers' => ['*'],
 
-    'exposed_headers' => [],
+    // Nom des factures et rapports téléchargés (lu par le SPA sur une autre origine en dev)
+    'exposed_headers' => ['Content-Disposition'],
 
     'max_age' => 0,
 

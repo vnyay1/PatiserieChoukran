@@ -27,7 +27,13 @@ const AdminProduits = () => import('@/views/admin/AdminProduits.vue')
 const AdminUsers = () => import('@/views/admin/AdminUsers.vue')
 const AdminZones = () => import('@/views/admin/AdminZones.vue')
 const AdminTarifsLivraison = () => import('@/views/admin/AdminTarifsLivraison.vue')
+const AdminRapports = () => import('@/views/admin/AdminRapports.vue')
+const ProfilBoutique = () => import('@/views/vendeur/ProfilBoutique.vue')
+const VendeurProfil = () => import('@/views/VendeurProfil.vue')
 const NotFound = () => import('@/views/NotFound.vue')
+
+// Pages qu'un vendeur au profil boutique incomplet peut encore ouvrir
+const ROUTES_PROFIL_INCOMPLET = ['vendeur-profil-boutique', 'not-found']
 
 const routes = [
   {
@@ -53,6 +59,12 @@ const routes = [
     name: 'produit-detail',
     component: ProduitDetail,
     meta: { title: 'Détail Produit' }
+  },
+  {
+    path: '/vendeurs/:id',
+    name: 'vendeur-profil',
+    component: VendeurProfil,
+    meta: { title: 'Boutique' }
   },
   {
     path: '/panier',
@@ -153,7 +165,19 @@ const routes = [
     path: '/admin/tarifs-livraison',
     name: 'admin-tarifs',
     component: AdminTarifsLivraison,
-    meta: { title: 'Mes tarifs de livraison', requiresAuth: true, requiresVendeur: true }
+    meta: { title: 'Ma livraison', requiresAuth: true, requiresVendeur: true }
+  },
+  {
+    path: '/admin/rapports',
+    name: 'admin-rapports',
+    component: AdminRapports,
+    meta: { title: 'Rapports mensuels', requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/vendeur/profil-boutique',
+    name: 'vendeur-profil-boutique',
+    component: ProfilBoutique,
+    meta: { title: 'Ma boutique', requiresAuth: true, requiresVendeur: true }
   },
   {
     // Toute URL inconnue : page 404 plutôt qu'un écran vide
@@ -207,6 +231,12 @@ router.beforeEach(async (to, from, next) => {
   // Routes réservées aux vendeurs
   if (to.meta.requiresVendeur && !isVendeur) {
     next({ name: 'home' })
+    return
+  }
+
+  // Vendeur au profil boutique incomplet : il doit le compléter avant tout le reste
+  if (isVendeur && authStore.user?.profil_vendeur_complet === false && !ROUTES_PROFIL_INCOMPLET.includes(to.name)) {
+    next({ name: 'vendeur-profil-boutique' })
     return
   }
 

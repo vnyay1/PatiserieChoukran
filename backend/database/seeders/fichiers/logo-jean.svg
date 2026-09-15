@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
+  <rect width="240" height="240" rx="48" fill="#b7791f"/>
+  <circle cx="120" cy="104" r="58" fill="#fdf6e3"/>
+  <path d="M78 112c10-30 74-30 84 0v10H78z" fill="#7b341e"/>
+  <rect x="74" y="120" width="92" height="22" rx="6" fill="#f6ad55"/>
+  <text x="120" y="204" font-family="Georgia, serif" font-size="30" font-weight="bold" fill="#fdf6e3" text-anchor="middle">Chez Jean</text>
+</svg>

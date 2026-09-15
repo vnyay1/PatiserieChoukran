@@ -106,6 +106,7 @@ class CommandeController extends Controller
                 'ligneCommandes.produit',
                 'adresseLivraison.quartierLivraison',
                 'historiques.modifiePar:id,nom_complet,role',
+                'facture:id,commande_id,numero_facture,envoyee_le',
             ]);
 
         return response()->json([

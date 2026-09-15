@@ -18,14 +18,37 @@ trait CreeDonneesBoutique
 {
     private int $prochainTelephone = 690000100;
 
+    /**
+     * Un vendeur est créé avec un profil boutique complet : sans lui, ses produits
+     * seraient masqués et son espace bloqué (voir creerVendeurIncomplet()).
+     */
     protected function creerUtilisateur(string $role = 'client', array $attributs = []): User
     {
+        $telephone = $this->prochainTelephone++;
+        $profilBoutique = $role === 'vendeur' ? [
+            'email' => "vendeur{$telephone}@exemple.cm",
+            'logo_boutique' => 'boutiques/logo-test.png',
+            'description_boutique' => 'Pâtisserie artisanale de test, gâteaux et viennoiseries du jour.',
+            'conditions_acceptees_le' => now(),
+        ] : [];
+
         return User::create(array_merge([
             'nom_complet' => ucfirst($role).' '.Str::random(4),
-            'telephone' => '+237'.$this->prochainTelephone++,
+            'telephone' => '+237'.$telephone,
             'mot_de_passe' => 'password123',
             'role' => $role,
             'statut' => 'actif',
+        ], $profilBoutique, $attributs));
+    }
+
+    // Vendeur tout juste promu : ni e-mail, ni logo, ni description, ni conditions
+    protected function creerVendeurIncomplet(array $attributs = []): User
+    {
+        return $this->creerUtilisateur('vendeur', array_merge([
+            'email' => null,
+            'logo_boutique' => null,
+            'description_boutique' => null,
+            'conditions_acceptees_le' => null,
         ], $attributs));
     }
 
@@ -71,12 +94,12 @@ trait CreeDonneesBoutique
         ]);
     }
 
-    protected function creerTarif(User $vendeur, Quartier $quartier, float $tarif = 1000): VendeurTarifLivraison
+    // Le vendeur dessert ce quartier (les frais sont le tarif standard de la plateforme)
+    protected function creerTarif(User $vendeur, Quartier $quartier): VendeurTarifLivraison
     {
         return VendeurTarifLivraison::create([
             'vendeur_id' => $vendeur->id,
             'quartier_id' => $quartier->id,
-            'tarif' => $tarif,
             'delai_min' => 30,
             'delai_max' => 60,
             'actif' => true,

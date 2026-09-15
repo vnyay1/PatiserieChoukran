@@ -7,6 +7,7 @@ use App\Models\Commande;
 use App\Models\Produit;
 use App\Models\User;
 use App\Models\VendeurTarifLivraison;
+use App\Services\NotificationsCompte;
 use Illuminate\Http\Request;
 
 class UserController extends Controller
@@ -26,6 +27,11 @@ class UserController extends Controller
         // Filtre par statut
         if ($request->has('statut')) {
             $query->where('statut', $request->statut);
+        }
+
+        // Vendeurs mis en vedette
+        if ($request->boolean('vedette')) {
+            $query->vendeurs()->where('est_vendeur_vedette', true);
         }
 
         // Recherche
@@ -135,11 +141,51 @@ class UserController extends Controller
             ], 400);
         }
 
+        $ancienRole = $user->role;
         $user->update($validated);
+
+        // Nouveau vendeur : il doit compléter son profil boutique avant de vendre
+        if ($user->isVendeur() && $ancienRole !== 'vendeur') {
+            NotificationsCompte::devenuVendeur($user);
+        }
+
+        // Un vendeur rétrogradé perd sa mise en avant
+        if (! $user->isVendeur() && $user->est_vendeur_vedette) {
+            $user->update(['est_vendeur_vedette' => false]);
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Rôle mis à jour',
+            'data' => $user,
+        ]);
+    }
+
+    /**
+     * Mettre un vendeur en vedette (ses produits passent en tête du catalogue) ou l'en retirer
+     */
+    public function updateVedette(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'est_vendeur_vedette' => 'required|boolean',
+        ]);
+
+        $user = User::findOrFail($id);
+
+        if (! $user->isVendeur()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Seul un vendeur peut être mis en vedette.',
+            ], 422);
+        }
+
+        $user->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => $user->est_vendeur_vedette
+                ? "« {$user->nom_complet} » est maintenant en vedette"
+                : "« {$user->nom_complet} » n'est plus en vedette",
             'data' => $user,
         ]);
     }

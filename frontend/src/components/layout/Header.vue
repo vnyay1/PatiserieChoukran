@@ -262,6 +262,7 @@ const desktopNavItems = computed(() => {
     items.push({ name: 'admin-commandes', label: 'Commandes', to: '/admin/commandes' })
     items.push({ name: 'admin-parametres', label: 'Paramètres', to: '/admin/parametres' })
     items.push({ name: 'admin-users', label: 'Utilisateurs', to: '/admin/users' })
+    items.push({ name: 'admin-rapports', label: 'Rapports', to: '/admin/rapports' })
   }
 
   if (authStore.isVendeur) {
@@ -271,10 +272,14 @@ const desktopNavItems = computed(() => {
   if (authStore.canManageCatalogue) {
     items.push({ name: 'admin-categories', label: 'Catégories', to: '/admin/categories' })
     items.push({ name: 'admin-produits', label: 'Produits', to: '/admin/produits' })
-    // Vendeur : tarifs par quartier (utilisés au checkout) ; admin : zones (ancien système)
+    // Vendeur : quartiers desservis et minimum d'achat (utilisés au checkout) ; admin : zones (ancien système)
     items.push(authStore.isVendeur
-      ? { name: 'admin-tarifs', label: 'Tarifs livraison', to: '/admin/tarifs-livraison' }
+      ? { name: 'admin-tarifs', label: 'Livraison', to: '/admin/tarifs-livraison' }
       : { name: 'admin-zones', label: 'Zones', to: '/admin/zones-livraison' })
+  }
+
+  if (authStore.isVendeur) {
+    items.push({ name: 'vendeur-profil-boutique', label: 'Ma boutique', to: '/vendeur/profil-boutique' })
   }
 
   return items
@@ -294,6 +299,8 @@ const isActiveRoute = (name) => {
   if (name === 'admin-users') return route.name === 'admin-users'
   if (name === 'admin-zones') return route.name === 'admin-zones'
   if (name === 'admin-tarifs') return route.name === 'admin-tarifs'
+  if (name === 'admin-rapports') return route.name === 'admin-rapports'
+  if (name === 'vendeur-profil-boutique') return route.name === 'vendeur-profil-boutique'
   return false
 }
 

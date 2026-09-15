@@ -17,8 +17,13 @@ class User extends Authenticatable
         'mot_de_passe',
         'role',
         'photo_profil',
+        'logo_boutique',
+        'description_boutique',
+        'conditions_acceptees_le',
         'adresse_principale',
         'statut',
+        'montant_minimum_livraison',
+        'est_vendeur_vedette',
     ];
 
     protected $hidden = [
@@ -29,7 +34,13 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'mot_de_passe' => 'hashed',
+        'conditions_acceptees_le' => 'datetime',
+        'montant_minimum_livraison' => 'decimal:2',
+        'est_vendeur_vedette' => 'boolean',
     ];
+
+    // Le SPA en a besoin dès la connexion pour imposer le formulaire boutique
+    protected $appends = ['profil_vendeur_complet'];
 
     // Relations
     public function commandes()
@@ -40,6 +51,11 @@ class User extends Authenticatable
     public function commandesVendues()
     {
         return $this->hasMany(Commande::class, 'vendeur_id');
+    }
+
+    public function produits()
+    {
+        return $this->hasMany(Produit::class, 'created_by_user_id');
     }
 
     public function adresses()
@@ -83,10 +99,34 @@ class User extends Authenticatable
         return $query->where('statut', 'actif');
     }
 
+    /**
+     * Vendeurs dont le profil boutique est rempli : e-mail, logo, description
+     * et conditions acceptées (mêmes règles que estProfilVendeurComplet()).
+     */
+    public function scopeProfilVendeurComplet($query)
+    {
+        return $query->whereNotNull('email')->where('email', '!=', '')
+            ->whereNotNull('logo_boutique')->where('logo_boutique', '!=', '')
+            ->whereNotNull('description_boutique')->where('description_boutique', '!=', '')
+            ->whereNotNull('conditions_acceptees_le');
+    }
+
+    // Vendeurs dont les produits peuvent être vendus : actifs et profil complet
+    public function scopeVendeursEnActivite($query)
+    {
+        return $query->vendeurs()->actifs()->profilVendeurComplet();
+    }
+
     // Accessors & Mutators
     public function setMotDePasseAttribute($value)
     {
         $this->attributes['mot_de_passe'] = bcrypt($value);
+    }
+
+    // Toujours vrai pour un client ou un admin : seul un vendeur a un profil boutique à remplir
+    public function getProfilVendeurCompletAttribute(): bool
+    {
+        return ! $this->isVendeur() || $this->estProfilVendeurComplet();
     }
 
     // Méthodes utiles
@@ -108,5 +148,19 @@ class User extends Authenticatable
     public function isActif()
     {
         return $this->statut === 'actif';
+    }
+
+    public function estProfilVendeurComplet(): bool
+    {
+        return filled($this->email)
+            && filled($this->logo_boutique)
+            && filled($this->description_boutique)
+            && $this->conditions_acceptees_le !== null;
+    }
+
+    // Un vendeur peut recevoir des commandes : actif et profil boutique complet
+    public function estVendeurEnActivite(): bool
+    {
+        return $this->isVendeur() && $this->isActif() && $this->estProfilVendeurComplet();
     }
 }

@@ -158,7 +158,8 @@ class AuthController extends Controller
 
         $validated = $request->validate([
             'nom_complet' => 'sometimes|string|max:255',
-            'email' => 'sometimes|nullable|email|unique:users,email,'.$user->id,
+            // L'e-mail fait partie du profil boutique obligatoire d'un vendeur
+            'email' => ($user->isVendeur() ? 'sometimes|required' : 'sometimes|nullable').'|email|unique:users,email,'.$user->id,
             'telephone' => 'sometimes|string|unique:users,telephone,'.$user->id.'|regex:/^\+237[0-9]{9}$/',
             'adresse_principale' => 'nullable|string',
             'photo_profil' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',

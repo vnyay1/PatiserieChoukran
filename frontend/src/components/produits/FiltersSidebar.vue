@@ -101,7 +101,7 @@ File: src/components/produits/FiltersSidebar.vue
             class="w-4 h-4 text-gold-600 rounded focus:ring-gold-500"
             @change="$emit('update:showVedette', !showVedette)"
           />
-          <span class="text-gray-700">Produits vedettes</span>
+          <span class="text-gray-700">Vendeurs vedettes</span>
           <Star :size="16" class="text-gold-500 ml-auto" fill="currentColor" />
         </label>
       </div>

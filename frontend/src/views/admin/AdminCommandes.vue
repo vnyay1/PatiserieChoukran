@@ -312,6 +312,23 @@ File: src/views/admin/AdminCommandes.vue
               </div>
             </div>
 
+            <!-- Facture générée automatiquement à la confirmation -->
+            <div
+              v-if="selectedCommande.facture"
+              class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg border border-gold-200 bg-gold-50"
+            >
+              <div class="text-sm text-gray-700">
+                Facture <span class="font-semibold">{{ selectedCommande.facture.numero_facture }}</span>
+                <span v-if="selectedCommande.facture.envoyee_le" class="text-gray-500">
+                  · envoyée au client le {{ formatDateHeure(selectedCommande.facture.envoyee_le) }}
+                </span>
+                <span v-else class="text-gray-500">· non envoyée (client sans e-mail)</span>
+              </div>
+              <Button variant="outline" size="sm" :icon="FileDown" :icon-size="16" :loading="telechargementFacture" @click="telechargerFacture">
+                Télécharger
+              </Button>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <!-- Client & livraison -->
               <Card padding="md">
@@ -447,10 +464,12 @@ import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { formatVille } from '@/composables/useLivraisonVendeurs'
-import api, { messageErreur } from '@/services/api'
+import api, { messageErreur, lireErreurBlob } from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { resolveImageUrl, onImageError } from '@/utils/images'
+import { telechargerBlob } from '@/utils/telechargement'
+import { FileDown } from 'lucide-vue-next'
 import {
   STATUTS_COMMANDE,
   STATUTS_PAIEMENT,
@@ -482,6 +501,23 @@ const totalCommandes = ref(0)
 const updatingStatusId = ref(null)
 const confirmingPaymentId = ref(null)
 const isHistoriqueMode = ref(false)
+const telechargementFacture = ref(false)
+
+const telechargerFacture = async () => {
+  const commande = selectedCommande.value
+  if (!commande?.facture) return
+
+  telechargementFacture.value = true
+  try {
+    const response = await api.admin.commandes.facture(commande.id)
+    telechargerBlob(response, `${commande.facture.numero_facture}.pdf`)
+  } catch (err) {
+    await lireErreurBlob(err)
+    toastStore.erreur(messageErreur(err, 'Impossible de télécharger la facture.'))
+  } finally {
+    telechargementFacture.value = false
+  }
+}
 
 const filters = ref({
   search: '',

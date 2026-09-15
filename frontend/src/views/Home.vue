@@ -78,7 +78,7 @@ File: src/views/Home.vue
       <div class="container mx-auto">
         <div class="text-center mb-8">
           <h2 class="font-display text-3xl font-bold text-gold-600 mb-2">Nos Produits Vedettes</h2>
-          <p class="text-gray-600">Découvrez nos meilleures créations</p>
+          <p class="text-gray-600">Les créations de nos vendeurs à la une</p>
         </div>
 
         <div v-if="loadingProduits" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">

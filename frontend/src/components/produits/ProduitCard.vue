@@ -26,10 +26,11 @@ File: src/components/produits/ProduitCard.vue
         -{{ reductionPercent }}%
       </div>
 
-      <!-- Badge vedette -->
+      <!-- Badge vedette : vendeur mis en avant par l'admin -->
       <div
-        v-if="produit.est_vedette"
+        v-if="produit.createur?.est_vendeur_vedette"
         class="absolute top-2 left-2 bg-gold-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center"
+        title="Vendeur en vedette"
       >
         <Star :size="12" class="mr-1" fill="white" />
         Vedette
@@ -55,7 +56,14 @@ File: src/components/produits/ProduitCard.vue
 
       <!-- Vendeur : le panier crée une commande par vendeur -->
       <p v-if="produit.createur?.nom_complet" class="text-xs text-gray-500 mb-2 truncate">
-        Vendu par {{ produit.createur.nom_complet }}
+        Vendu par
+        <router-link
+          :to="{ name: 'vendeur-profil', params: { id: produit.createur.id } }"
+          class="text-gold-700 hover:text-gold-800 hover:underline"
+          @click.stop
+        >
+          {{ produit.createur.nom_complet }}
+        </router-link>
       </p>
 
       <!-- Prix -->

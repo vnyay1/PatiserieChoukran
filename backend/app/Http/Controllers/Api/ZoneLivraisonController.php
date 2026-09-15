@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Panier;
 use App\Models\Quartier;
+use App\Models\User;
 use App\Models\VendeurTarifLivraison;
 use App\Models\ZoneLivraison;
+use App\Services\LivraisonVendeur;
 use Illuminate\Http\Request;
 
 class ZoneLivraisonController extends Controller
@@ -33,28 +35,37 @@ class ZoneLivraisonController extends Controller
         ]);
     }
 
+    /**
+     * Livraison d'un vendeur, publique (aperçu du panier et du checkout) : frais standard,
+     * minimum d'achat et quartiers desservis. Le checkout recalcule tout côté serveur.
+     */
     public function quartiersByVendeur(Request $request, int $vendeurId)
     {
-        $tarifs = VendeurTarifLivraison::where('vendeur_id', $vendeurId)
+        $vendeur = User::vendeurs()->find($vendeurId);
+
+        $quartiers = VendeurTarifLivraison::where('vendeur_id', $vendeurId)
             ->where('actif', true)
             ->with(['quartier' => fn ($query) => $query->where('actif', true)])
             ->get()
-            ->filter(fn (VendeurTarifLivraison $tarif) => $tarif->quartier !== null)
-            ->map(function (VendeurTarifLivraison $tarif) {
+            ->filter(fn (VendeurTarifLivraison $desserte) => $desserte->quartier !== null)
+            ->map(function (VendeurTarifLivraison $desserte) {
                 return [
-                    'id' => $tarif->quartier->id,
-                    'nom' => $tarif->quartier->nom,
-                    'ville' => $tarif->quartier->ville,
-                    'tarif' => (float) $tarif->tarif,
-                    'delai_min' => $tarif->delai_min,
-                    'delai_max' => $tarif->delai_max,
+                    'id' => $desserte->quartier->id,
+                    'nom' => $desserte->quartier->nom,
+                    'ville' => $desserte->quartier->ville,
+                    'delai_min' => $desserte->delai_min,
+                    'delai_max' => $desserte->delai_max,
                 ];
             })
             ->values();
 
         return response()->json([
             'success' => true,
-            'data' => $tarifs,
+            'data' => [
+                'montant_minimum_livraison' => (float) ($vendeur?->montant_minimum_livraison ?? 0),
+                'frais_livraison' => LivraisonVendeur::fraisStandard(),
+                'quartiers' => $quartiers,
+            ],
         ]);
     }
 

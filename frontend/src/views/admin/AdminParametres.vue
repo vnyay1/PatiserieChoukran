@@ -89,14 +89,15 @@ File: src/views/admin/AdminParametres.vue
             </select>
           </div>
 
-          <div>
+          <div :class="form.type === 'string' ? 'md:col-span-2' : ''">
             <label class="block text-sm font-medium text-gray-700 mb-2">Valeur</label>
-            <input
+            <!-- Zone de texte : certains paramètres sont longs et sur plusieurs lignes (conditions_vendeur) -->
+            <textarea
               v-if="form.type === 'string'"
               v-model="form.valeur"
-              type="text"
-              class="input"
-            />
+              :rows="String(form.valeur || '').length > 120 || String(form.valeur || '').includes('\n') ? 10 : 2"
+              class="input resize-y"
+            ></textarea>
             <input
               v-else-if="form.type === 'integer'"
               v-model="form.valeur"
@@ -258,7 +259,8 @@ const form = ref({
 const formatValeur = (valeur, type) => {
   if (valeur === null || valeur === undefined || valeur === '') return '-'
   if (type === 'boolean') return valeur === '1' || valeur === true ? 'Oui' : 'Non'
-  if (type === 'json') return valeur.length > 60 ? `${valeur.slice(0, 60)}...` : valeur
+  // Textes longs (ex. conditions des vendeurs) : aperçu, la valeur complète est dans le formulaire
+  if (type === 'json' || type === 'string') return valeur.length > 60 ? `${valeur.slice(0, 60)}...` : valeur
   return valeur
 }
 

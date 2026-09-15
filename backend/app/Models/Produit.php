@@ -7,6 +7,9 @@ use Illuminate\Support\Str;
 
 class Produit extends Model
 {
+    // Colonnes du vendeur exposées avec un produit sur la boutique (ni téléphone ni e-mail)
+    public const VENDEUR_PUBLIC = 'createur:id,nom_complet,logo_boutique,est_vendeur_vedette';
+
     protected $fillable = [
         'categorie_id',
         'created_by_user_id',
@@ -19,7 +22,6 @@ class Produit extends Model
         'images_secondaires',
         'stock_disponible',
         'est_disponible',
-        'est_vedette',
         'nombre_vues',
         'nombre_commandes',
     ];
@@ -30,7 +32,6 @@ class Produit extends Model
         'images_secondaires' => 'array',
         'stock_disponible' => 'integer',
         'est_disponible' => 'boolean',
-        'est_vedette' => 'boolean',
         'nombre_vues' => 'integer',
         'nombre_commandes' => 'integer',
     ];
@@ -62,16 +63,35 @@ class Produit extends Model
         return $query->where('est_disponible', true);
     }
 
-    // Produits proposés sur la boutique : disponibles et dans une catégorie active
+    /**
+     * Produits proposés sur la boutique : disponibles, dans une catégorie active et,
+     * s'ils appartiennent à un vendeur, seulement si ce vendeur est actif et a
+     * complété son profil boutique.
+     */
     public function scopeVisible($query)
     {
         return $query->disponible()
-            ->whereHas('categorie', fn ($categorie) => $categorie->where('est_actif', true));
+            ->whereHas('categorie', fn ($categorie) => $categorie->where('est_actif', true))
+            ->where(function ($q) {
+                $q->whereDoesntHave('createur', fn ($createur) => $createur->vendeurs())
+                    ->orWhereHas('createur', fn ($createur) => $createur->vendeursEnActivite());
+            });
     }
 
+    // Produits des vendeurs mis en vedette par l'admin
     public function scopeVedette($query)
     {
-        return $query->where('est_vedette', true);
+        return $query->whereHas('createur', fn ($createur) => $createur->where('est_vendeur_vedette', true));
+    }
+
+    // Produits des vendeurs vedettes en premier (à appeler avant le tri choisi)
+    public function scopeVendeursVedettesEnTete($query)
+    {
+        return $query->orderByDesc(
+            User::select('est_vendeur_vedette')
+                ->whereColumn('users.id', 'produits.created_by_user_id')
+                ->limit(1)
+        );
     }
 
     public function scopeEnStock($query)

@@ -5,10 +5,15 @@ namespace App\Http\Controllers\Vendeur;
 use App\Http\Controllers\Controller;
 use App\Models\Quartier;
 use App\Models\VendeurTarifLivraison;
+use App\Services\LivraisonVendeur;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
+/**
+ * Livraison d'un vendeur : quartiers desservis (avec délais) et montant d'achat minimum.
+ * Les frais sont fixés par la plateforme (LivraisonVendeur::fraisStandard()).
+ */
 class TarifLivraisonController extends Controller
 {
     public function index(Request $request): JsonResponse
@@ -22,6 +27,31 @@ class TarifLivraisonController extends Controller
         return response()->json([
             'success' => true,
             'data' => $tarifs,
+            'meta' => [
+                'montant_minimum_livraison' => (float) $request->user()->montant_minimum_livraison,
+                'frais_livraison_standard' => LivraisonVendeur::fraisStandard(),
+            ],
+        ]);
+    }
+
+    /**
+     * Montant d'achat minimum (produits de ce vendeur) pour accepter une livraison.
+     * 0 = pas de minimum. Le retrait en boutique n'est pas concerné.
+     */
+    public function updateMinimum(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'montant_minimum_livraison' => 'required|numeric|min:0|max:1000000',
+        ]);
+
+        $request->user()->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Montant minimum de livraison enregistré',
+            'data' => [
+                'montant_minimum_livraison' => (float) $request->user()->montant_minimum_livraison,
+            ],
         ]);
     }
 
@@ -34,7 +64,6 @@ class TarifLivraisonController extends Controller
                 Rule::unique('vendeur_tarifs_livraison', 'quartier_id')
                     ->where('vendeur_id', $request->user()->id),
             ],
-            'tarif' => 'required|numeric|min:0',
             'delai_min' => 'required|integer|min:0',
             'delai_max' => 'required|integer|min:0|gte:delai_min',
             'actif' => 'boolean',
@@ -47,7 +76,7 @@ class TarifLivraisonController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Tarif de livraison créé',
+            'message' => 'Quartier desservi ajouté',
             'data' => $tarif,
         ], 201);
     }
@@ -74,7 +103,6 @@ class TarifLivraisonController extends Controller
                     ->where('vendeur_id', $request->user()->id)
                     ->ignore($tarif->id),
             ],
-            'tarif' => 'sometimes|numeric|min:0',
             'delai_min' => 'sometimes|integer|min:0',
             'delai_max' => 'sometimes|integer|min:0',
             'actif' => 'boolean',
@@ -94,7 +122,7 @@ class TarifLivraisonController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Tarif de livraison mis à jour',
+            'message' => 'Quartier desservi mis à jour',
             'data' => $tarif->load('quartier'),
         ]);
     }
@@ -106,7 +134,7 @@ class TarifLivraisonController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Tarif de livraison supprimé',
+            'message' => 'Quartier desservi retiré',
         ]);
     }
 

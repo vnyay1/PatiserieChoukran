@@ -32,7 +32,6 @@ class ProduitSeeder extends Seeder
                 'image_principale' => null, // pas d'image fournie : le frontend affiche le placeholder
                 'stock_disponible' => 10,
                 'est_disponible' => true,
-                'est_vedette' => true,
             ],
             [
                 'categorie_id' => $gateaux->id,
@@ -45,7 +44,6 @@ class ProduitSeeder extends Seeder
                 'image_principale' => null, // pas d'image fournie : le frontend affiche le placeholder
                 'stock_disponible' => 8,
                 'est_disponible' => true,
-                'est_vedette' => false,
             ],
             // Glaces
             [
@@ -58,7 +56,6 @@ class ProduitSeeder extends Seeder
                 'image_principale' => null, // pas d'image fournie : le frontend affiche le placeholder
                 'stock_disponible' => 50,
                 'est_disponible' => true,
-                'est_vedette' => true,
             ],
             [
                 'categorie_id' => $glaces->id,
@@ -70,7 +67,6 @@ class ProduitSeeder extends Seeder
                 'image_principale' => null, // pas d'image fournie : le frontend affiche le placeholder
                 'stock_disponible' => 100,
                 'est_disponible' => true,
-                'est_vedette' => false,
             ],
             // Viennoiseries
             [
@@ -83,7 +79,6 @@ class ProduitSeeder extends Seeder
                 'image_principale' => null, // pas d'image fournie : le frontend affiche le placeholder
                 'stock_disponible' => 30,
                 'est_disponible' => true,
-                'est_vedette' => false,
             ],
             [
                 'categorie_id' => $viennoiseries->id,
@@ -95,7 +90,6 @@ class ProduitSeeder extends Seeder
                 'image_principale' => null, // pas d'image fournie : le frontend affiche le placeholder
                 'stock_disponible' => 25,
                 'est_disponible' => true,
-                'est_vedette' => false,
             ],
         ];
 

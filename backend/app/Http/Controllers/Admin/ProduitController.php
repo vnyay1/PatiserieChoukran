@@ -65,7 +65,6 @@ class ProduitController extends Controller
             'images_secondaires.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'stock_disponible' => 'required|integer|min:0',
             'est_disponible' => 'boolean',
-            'est_vedette' => 'boolean',
         ]);
 
         if ($request->has('promo_active')) {
@@ -140,7 +139,6 @@ class ProduitController extends Controller
             'images_secondaires.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'stock_disponible' => 'sometimes|integer|min:0',
             'est_disponible' => 'boolean',
-            'est_vedette' => 'boolean',
         ]);
 
         if ($request->has('promo_active') && ! $request->boolean('promo_active')) {

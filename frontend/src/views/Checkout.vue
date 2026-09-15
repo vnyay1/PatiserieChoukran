@@ -336,13 +336,17 @@ File: src/views/Checkout.vue
             <div v-if="estLivraison && groupe.vendeurId" class="flex justify-between gap-3 text-sm">
               <span>Livraison</span>
               <span v-if="groupe.statut === 'ok'" class="text-right">
-                {{ groupe.frais > 0 ? formatPrice(groupe.frais) + ' FCFA' : 'Gratuit' }}
+                {{ formatPrice(groupe.frais) }} FCFA
                 <span v-if="formatDelai(groupe.tarif)" class="block text-xs text-gray-500">
                   Délai : {{ formatDelai(groupe.tarif) }}
                 </span>
               </span>
               <span v-else-if="groupe.statut === 'non_couvert'" class="text-right text-red-600">
                 Ce vendeur ne livre pas dans votre quartier
+              </span>
+              <span v-else-if="groupe.statut === 'minimum_non_atteint'" class="text-right text-red-600">
+                Dès {{ formatPrice(groupe.minimum) }} FCFA d'achat
+                <span class="block text-xs">Il manque {{ formatPrice(groupe.manque) }} FCFA</span>
               </span>
               <span v-else-if="groupe.statut === 'chargement'" class="text-gray-500">Calcul...</span>
               <span v-else class="text-gray-500">À calculer</span>
@@ -361,7 +365,7 @@ File: src/views/Checkout.vue
           <div v-if="estLivraison" class="flex justify-between text-sm">
             <span>Livraison</span>
             <span v-if="livraisonCalculee">
-              {{ fraisLivraison > 0 ? formatPrice(fraisLivraison) + ' FCFA' : 'Gratuit' }}
+              {{ formatPrice(fraisLivraison) }} FCFA
             </span>
             <span v-else class="text-gray-500">À calculer</span>
           </div>
@@ -523,6 +527,15 @@ const blocageEtape1 = computed(() => {
     return `${noms} : pas de livraison dans ce quartier. Choisissez une autre adresse ou le retrait en boutique.`
   }
 
+  // Minimum d'achat fixé par chaque vendeur pour accepter une livraison
+  const sousMinimum = livraisonParGroupe.value.filter((groupe) => groupe.statut === 'minimum_non_atteint')
+  if (sousMinimum.length > 0) {
+    const details = sousMinimum
+      .map((groupe) => `${groupe.vendeurNom} livre dès ${formatPrice(groupe.minimum)} FCFA d'achat (il manque ${formatPrice(groupe.manque)} FCFA)`)
+      .join(' ; ')
+    return `${details}. Complétez votre panier ou choisissez le retrait en boutique.`
+  }
+
   if (livraisonParGroupe.value.some((groupe) => groupe.statut === 'erreur')) {
     return erreurTarifs.value || 'Impossible de calculer les frais de livraison.'
   }
@@ -645,7 +658,7 @@ onMounted(async () => {
   fetchAdresses()
 })
 
-// Charge les quartiers couverts (et tarifs) des vendeurs présents dans le panier
+// Charge les conditions de livraison (quartiers, minimum) des vendeurs du panier
 watch(
   () => groupes.value.map((groupe) => groupe.vendeurId).filter(Boolean).join(','),
   () => chargerQuartiersVendeurs(groupes.value.map((groupe) => groupe.vendeurId)),

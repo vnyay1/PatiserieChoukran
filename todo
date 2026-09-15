@@ -1,22 +1,74 @@
-traiter "unread-count" qui tourne sans arret
+Tous les points de cette liste ont été traités (branche amelioration/audit-complet).
 
+[x] "unread-count" qui tourne sans arrêt
+    -> le sondage est suspendu quand l'onglet est caché et repris au retour
+       (stores/notifications.js) ; la cloche est aussi accessible sur mobile.
 
-Si aucun utilisateur est connecté et qu'il clique sur ajouter un produit au panier ça doit le rediriger vers la page de connection
+[x] Invité qui clique "ajouter au panier"
+    -> redirection vers /login avec ?redirect=, puis retour sur la page d'origine
+       (ProduitCard.vue, ProduitDetail.vue, utils/redirection.js).
 
+[x] Erreur SQL affichée quand l'adresse n'est pas prise en charge
+    -> bootstrap/app.php renvoie désormais {success,message} pour toute
+       exception ; les messages de validation sont traduits (lang/fr).
 
-Traiter L'erreur Sql qui s'affiche sur l'interface graphique quand un utilisateur ajoute une adresse qui n'est pas prise en charge 
+[x] Étiquette "payé" sur une commande annulée
+    -> masquée partout (CommandeCard, AdminCommandes, CommandeDetail).
 
+[x] Date souhaitée >= date système au checkout
+    -> contrôlée côté front et côté back, avec refus des créneaux déjà passés ;
+       le fuseau de l'application est Africa/Douala.
 
-Si une commande est annulé l'étiquette "a payé" doit être retiré
+[x] Upload de l'image de catégorie
+    -> limite portée à 5 Mo, aperçu dans le formulaire, contrôle du format,
+       images affichées côté client, dossier de destination créé.
 
+[x] Quartiers de Yaoundé et Douala dans les seeders
+    -> QuartierSeeder + VendeurTarifLivraisonSeeder.
 
-il faut modifier le checkout pour que la date_souhaité soit supérieur ou égal a la date système 
+[x] Panier limité à un seul vendeur
+    -> le panier accepte plusieurs vendeurs et le checkout crée une commande
+       par vendeur.
 
+[x] La connexion "tourne" sans fin et php artisan migrate échoue
+    -> cause : base MariaDB de XAMPP corrompue (plantage pendant une migration).
+       Dossier data remplacé par une copie saine (l'ancien est conservé dans
+       C:\xampp\mysql\data_corrompu_20260915), base recréée avec migrate --seed.
+       Une base figée renvoie maintenant une erreur claire (503) au lieu de
+       bloquer ; axios abandonne après 30 s.
 
-Traiter le problème image de la catégorie qui ne veux pas être uploader dans le backend
+[x] Conteneurs Docker : frontend + backend, base de données, phpMyAdmin
+    -> docker compose up -d --build : application sur http://localhost:8088
+       (8080 est pris par Oracle sur ce PC), phpMyAdmin sur http://localhost:8081.
 
+[x] Livraison à prix standard (1500 FCFA) et montant minimum par vendeur
+    -> paramètre frais_livraison_standard (modifiable dans Paramètres) ;
+       chaque vendeur fixe son minimum dans « Ma livraison » et garde le choix
+       de ses quartiers. Sous le minimum, seul le retrait en boutique est possible.
 
-@quartiersYaounde.txt  @quartiersDouala.txt sont des données des villes que j'ai récuperé je veux que tu me les intègre dans de champs 'nom_zone' du seeder @backend/database/seeders/ZoneLivraisonSeeder.php  avec pour ville respective "Yaoundé" pour le premier fichier et "Douala" le deuxieme fichier ; le champs est_actif est true , delai min et max sont a 0 et le tarif_livraison est 1000 par défaut pour tous les champs 
+[x] Profil boutique obligatoire quand un utilisateur devient vendeur
+    -> e-mail, logo, description et acceptation des conditions ; tant qu'il
+       manque, le vendeur est redirigé vers « Ma boutique » et ses produits
+       sont masqués. Page publique : /vendeurs/:id (lien « Vendu par … »).
 
+[x] Factures et rapports
+    -> facture PDF générée à la confirmation de la commande, envoyée au client
+       s'il a un e-mail, téléchargeable par le client, le vendeur et l'admin.
+       Rapports mensuels de tous les vendeurs (PDF et CSV) dans Admin > Rapports,
+       générés automatiquement le 1er de chaque mois.
 
-fixer le probleme du panier qui ne peut que contenir des produits d'un seul livreur
+[x] Vendeurs en vedette
+    -> l'admin coche l'étoile d'un vendeur dans Utilisateurs : ses produits
+       passent en tête du catalogue avec le badge « Vedette ».
+
+---
+
+À faire par toi, hors code :
+
+1. Changer les secrets présents dans l'historique git (.env.docker y a été
+   commité) : APP_KEY, mots de passe MySQL et identifiants SMTP.
+2. En local (XAMPP), passer MAIL_MAILER=log dans backend/.env si tu ne veux pas
+   que les tests de commandes envoient de vrais e-mails (factures, nouvelles
+   commandes) par Brevo.
+3. Relire le texte des conditions des vendeurs (Admin > Paramètres,
+   clé conditions_vendeur) et l'adapter à ton activité.

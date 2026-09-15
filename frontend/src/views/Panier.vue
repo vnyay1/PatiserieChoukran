@@ -56,7 +56,14 @@ File: src/views/Panier.vue
             <div class="flex flex-wrap items-end justify-between gap-2">
               <div>
                 <h2 class="font-display text-lg font-bold text-gray-800">
-                  {{ groupe.vendeurNom }}
+                  <router-link
+                    v-if="groupe.vendeurId"
+                    :to="{ name: 'vendeur-profil', params: { id: groupe.vendeurId } }"
+                    class="hover:text-gold-600"
+                  >
+                    {{ groupe.vendeurNom }}
+                  </router-link>
+                  <template v-else>{{ groupe.vendeurNom }}</template>
                 </h2>
                 <p class="text-xs" :class="classeMessageLivraison(groupe)">
                   {{ messageLivraison(groupe) }}
@@ -100,7 +107,7 @@ File: src/views/Panier.vue
                 <div class="flex items-center justify-between text-gray-700">
                   <span>Livraison{{ livraisonEstimee ? ' estimée' : '' }}</span>
                   <span v-if="livraisonEstimee" class="font-semibold">
-                    {{ fraisEstimes > 0 ? `${formatPrice(fraisEstimes)} FCFA` : 'Gratuite' }}
+                    {{ formatPrice(fraisEstimes) }} FCFA
                   </span>
                   <span v-else class="text-sm text-gray-500">À calculer</span>
                 </div>
@@ -236,24 +243,30 @@ const messageLivraison = (groupe) => {
 
   switch (groupe.statut) {
     case 'ok': {
-      const frais = groupe.frais > 0 ? `${formatPrice(groupe.frais)} FCFA` : 'gratuite'
       const delai = formatDelai(groupe.tarif)
-      return `Livraison estimée vers ${quartier} : ${frais}${delai ? ` (${delai})` : ''}`
+      return `Livraison estimée vers ${quartier} : ${formatPrice(groupe.frais)} FCFA${delai ? ` (${delai})` : ''}`
     }
     case 'non_couvert':
       return `Ce vendeur ne livre pas à ${quartier} (retrait en boutique possible)`
+    case 'minimum_non_atteint':
+      return messageMinimum(groupe)
     case 'chargement':
       return 'Calcul des frais de livraison...'
     case 'sans_vendeur':
       return 'Produits rattachés à aucun vendeur : ils ne peuvent pas être commandés.'
     default:
-      return 'Frais de livraison calculés à l\'étape suivante'
+      // Sans adresse, le minimum du vendeur reste utile à connaître
+      return groupe.manque > 0 ? messageMinimum(groupe) : 'Frais de livraison calculés à l\'étape suivante'
   }
+}
+
+const messageMinimum = (groupe) => {
+  return `Livraison dès ${formatPrice(groupe.minimum)} FCFA d'achat chez ce vendeur : ajoutez ${formatPrice(groupe.manque)} FCFA ou choisissez le retrait en boutique.`
 }
 
 const classeMessageLivraison = (groupe) => {
   if (groupe.statut === 'sans_vendeur') return 'text-red-600'
-  if (groupe.statut === 'non_couvert') return 'text-orange-600'
+  if (groupe.statut === 'non_couvert' || groupe.manque > 0) return 'text-orange-600'
   if (groupe.statut === 'ok') return 'text-gray-600'
   return 'text-gray-500'
 }
@@ -270,7 +283,7 @@ const fetchAdressePrincipale = async () => {
 
 onMounted(fetchAdressePrincipale)
 
-// Charge les tarifs des vendeurs présents dans le panier
+// Charge les conditions de livraison (quartiers, minimum) des vendeurs du panier
 watch(
   () => groupes.value.map((groupe) => groupe.vendeurId).filter(Boolean).join(','),
   () => chargerQuartiersVendeurs(groupes.value.map((groupe) => groupe.vendeurId)),

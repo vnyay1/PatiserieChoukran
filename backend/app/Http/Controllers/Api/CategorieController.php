@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Categorie;
+use App\Models\Produit;
 
 class CategorieController extends Controller
 {
@@ -14,7 +15,8 @@ class CategorieController extends Controller
     {
         $categories = Categorie::actif()
             ->ordreDaffichage()
-            ->withCount('produitsDisponibles')
+            // Même périmètre que la boutique (vendeurs actifs au profil complet)
+            ->withCount(['produitsDisponibles' => fn ($query) => $query->visible()])
             ->get();
 
         return response()->json([
@@ -31,7 +33,9 @@ class CategorieController extends Controller
         $categorie = Categorie::where('slug', $slug)
             ->actif()
             ->with(['produitsDisponibles' => function ($query) {
-                $query->orderBy('est_vedette', 'desc')
+                $query->visible()
+                    ->with(Produit::VENDEUR_PUBLIC)
+                    ->vendeursVedettesEnTete()
                     ->orderBy('created_at', 'desc');
             }])
             ->firstOrFail();

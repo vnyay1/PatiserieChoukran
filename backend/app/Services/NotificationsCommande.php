@@ -42,21 +42,12 @@ class NotificationsCommande
             return;
         }
 
-        try {
-            Mail::raw(
-                "{$message}\n\nRendez-vous dans votre espace vendeur pour la confirmer.",
-                function ($mail) use ($vendeur, $commande) {
-                    $mail->to($vendeur->email, $vendeur->nom_complet)
-                        ->subject("Nouvelle commande {$commande->numero_commande}");
-                }
-            );
-        } catch (\Throwable $e) {
-            Log::warning('Échec de l\'e-mail de nouvelle commande', [
-                'commande_id' => $commande->id,
-                'vendeur_id' => $vendeur->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        self::envoyerEmail(
+            $vendeur->email,
+            $vendeur->nom_complet,
+            "Nouvelle commande {$commande->numero_commande}",
+            "{$message}\n\nRendez-vous dans votre espace vendeur pour la confirmer."
+        );
     }
 
     /**
@@ -114,7 +105,28 @@ class NotificationsCommande
         );
     }
 
-    private static function creer(?User $destinataire, string $titre, string $message, string $url): void
+    /**
+     * L'e-mail part par la file d'attente : un SMTP lent ou injoignable ne doit
+     * jamais retarder la réponse du checkout. En test (queue « sync ») l'envoi
+     * reste immédiat.
+     */
+    public static function envoyerEmail(string $email, string $nom, string $sujet, string $corps): void
+    {
+        try {
+            dispatch(function () use ($email, $nom, $sujet, $corps) {
+                Mail::raw($corps, function ($mail) use ($email, $nom, $sujet) {
+                    $mail->to($email, $nom)->subject($sujet);
+                });
+            });
+        } catch (\Throwable $e) {
+            Log::warning('Échec de mise en file de l\'e-mail', [
+                'sujet' => $sujet,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    public static function creer(?User $destinataire, string $titre, string $message, string $url, string $type = 'commande'): void
     {
         if (! $destinataire) {
             return;
@@ -125,7 +137,7 @@ class NotificationsCommande
                 'user_id' => $destinataire->id,
                 'titre' => $titre,
                 'message' => $message,
-                'type' => 'commande',
+                'type' => $type,
                 'canal' => 'app',
                 'est_lu' => false,
                 'url_action' => $url,

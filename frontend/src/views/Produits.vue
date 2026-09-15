@@ -112,7 +112,7 @@ File: src/views/Produits.vue
               class="badge badge-success flex items-center gap-2"
               @click="showVedette = false"
             >
-              Produits vedettes
+              Vendeurs vedettes
               <X :size="14" />
             </button>
           </div>

@@ -10,9 +10,9 @@ use Illuminate\Support\Facades\DB;
 class VendeurTarifLivraisonSeeder extends Seeder
 {
     /**
-     * Tarif par défaut (1000 FCFA, 30-60 min) pour chaque vendeur sur chaque quartier actif.
+     * Chaque vendeur dessert chaque quartier actif (délai 30-60 min, frais standard de la plateforme).
      * insertOrIgnore s'appuie sur l'index unique (vendeur_id, quartier_id) :
-     * un tarif déjà défini par un vendeur n'est jamais écrasé.
+     * un quartier déjà configuré par un vendeur n'est jamais écrasé.
      */
     public function run(): void
     {
@@ -25,7 +25,6 @@ class VendeurTarifLivraisonSeeder extends Seeder
                     $chunk->map(fn (int $quartierId) => [
                         'vendeur_id' => $vendeurId,
                         'quartier_id' => $quartierId,
-                        'tarif' => 1000,
                         'delai_min' => 30,
                         'delai_max' => 60,
                         'actif' => true,

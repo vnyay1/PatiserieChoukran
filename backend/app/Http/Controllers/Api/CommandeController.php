@@ -9,7 +9,8 @@ use App\Models\LigneCommande;
 use App\Models\Panier;
 use App\Models\Produit;
 use App\Models\User;
-use App\Models\VendeurTarifLivraison;
+use App\Models\ZoneLivraison;
+use App\Services\LivraisonVendeur;
 use App\Services\NotificationsCommande;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -19,8 +20,6 @@ use Illuminate\Support\Facades\Log;
 
 class CommandeController extends Controller
 {
-    private const TARIF_MIN = 1000;
-
     /**
      * Liste des commandes de l'utilisateur
      */
@@ -67,6 +66,7 @@ class CommandeController extends Controller
                 'adresseLivraison',
                 'vendeur:id,nom_complet,telephone',
                 'historiques.modifiePar:id,nom_complet,role',
+                'facture:id,commande_id,numero_facture,envoyee_le',
             ])
             ->firstOrFail();
 
@@ -172,7 +172,7 @@ class CommandeController extends Controller
                         throw new \InvalidArgumentException('Certains produits du panier ne sont associés à aucun vendeur.');
                     }
 
-                    if (! $vendeur || ! $vendeur->isVendeur() || ! $vendeur->isActif()) {
+                    if (! $vendeur || ! $vendeur->estVendeurEnActivite()) {
                         $nomVendeur = $vendeur?->nom_complet ?? "Vendeur #{$vendeurId}";
                         throw new \InvalidArgumentException(
                             "Le vendeur « {$nomVendeur} » n'accepte plus de commandes pour le moment : retirez ses produits du panier."
@@ -205,20 +205,9 @@ class CommandeController extends Controller
                     $montantProduits = collect($lignes)->sum(fn ($ligne) => $ligne['prix_unitaire'] * $ligne['quantite']);
                     $montantLivraison = 0;
 
+                    // Frais standard, quartier desservi et minimum d'achat du vendeur
                     if ($validated['type_livraison'] === 'livraison') {
-                        $tarif = VendeurTarifLivraison::where('vendeur_id', $vendeurId)
-                            ->where('quartier_id', $adresse->quartier_id)
-                            ->where('actif', true)
-                            ->first();
-
-                        if (! $tarif) {
-                            $nomVendeur = $vendeur?->nom_complet ?? "Vendeur #{$vendeurId}";
-                            throw new \InvalidArgumentException(
-                                "Le vendeur « {$nomVendeur} » ne livre pas dans votre quartier."
-                            );
-                        }
-
-                        $montantLivraison = (float) $tarif->tarif;
+                        $montantLivraison = LivraisonVendeur::verifier($vendeur, (int) $adresse->quartier_id, $montantProduits)['frais'];
                     }
 
                     $commande = Commande::create([
@@ -406,7 +395,8 @@ class CommandeController extends Controller
             $adresse = $request->user()->adresses()->with('quartierLivraison')->findOrFail($adresseLivraisonId);
             $shipping = $this->calculateShippingForAdresse(
                 $adresse,
-                (int) ($commande->vendeur_id ?? $commande->livreur_id)
+                (int) ($commande->vendeur_id ?? $commande->livreur_id),
+                (float) $commande->montant_produits
             );
 
             if (! empty($shipping['error'])) {
@@ -416,7 +406,7 @@ class CommandeController extends Controller
                 ], 422);
             }
 
-            $montantLivraison = $shipping['frais_livraison'] ?? self::TARIF_MIN;
+            $montantLivraison = $shipping['frais_livraison'];
         }
 
         $moyenPaiement = $validated['moyen_paiement'] ?? $commande->moyen_paiement;
@@ -599,7 +589,7 @@ class CommandeController extends Controller
                 ];
             }
 
-            $shipping = $this->calculateShippingForAdresse($adresse, $vendeurId);
+            $shipping = $this->calculateShippingForAdresse($adresse, $vendeurId, (float) $items->sum('sous_total'));
 
             if (! empty($shipping['error'])) {
                 return [
@@ -609,7 +599,7 @@ class CommandeController extends Controller
                 ];
             }
 
-            $frais = (float) ($shipping['frais_livraison'] ?? self::TARIF_MIN);
+            $frais = (float) $shipping['frais_livraison'];
             $total += $frais;
 
             $details[] = [
@@ -629,96 +619,68 @@ class CommandeController extends Controller
         ];
     }
 
-    private function calculateShippingForAdresse($adresse, ?int $livreurId = null): array
+    /**
+     * Frais de livraison d'une commande vendeur vers une adresse (règles de LivraisonVendeur).
+     * Renvoie une clé « error » plutôt qu'une exception, pour update() et calculate-shipping.
+     */
+    private function calculateShippingForAdresse($adresse, ?int $vendeurId, float $montantProduits): array
     {
-        if ($adresse?->quartier_id) {
-            if (! $livreurId) {
-                return [
-                    'frais_livraison' => null,
-                    'quartier' => null,
-                    'zone' => null,
-                    'error' => 'Impossible de calculer la livraison sans vendeur associé.',
-                ];
-            }
-
-            $tarif = VendeurTarifLivraison::where('vendeur_id', $livreurId)
-                ->where('quartier_id', $adresse->quartier_id)
-                ->where('actif', true)
-                ->with('quartier')
-                ->first();
-
-            if (! $tarif) {
-                $nomVendeur = User::find($livreurId)?->nom_complet ?? "Vendeur #{$livreurId}";
-
-                return [
-                    'frais_livraison' => null,
-                    'quartier' => null,
-                    'zone' => null,
-                    'error' => "Le vendeur « {$nomVendeur} » ne livre pas dans votre quartier.",
-                ];
-            }
-
-            return [
-                'frais_livraison' => (float) $tarif->tarif,
-                'quartier' => [
-                    'id' => $tarif->quartier?->id,
-                    'nom' => $tarif->quartier?->nom,
-                    'ville' => $tarif->quartier?->ville,
-                    'delai_min' => $tarif->delai_min,
-                    'delai_max' => $tarif->delai_max,
-                ],
-                'zone' => null,
-            ];
-        }
-
-        if (! $adresse || ! $adresse->zone_livraison_id) {
-            return [
-                'frais_livraison' => null,
-                'quartier' => null,
-                'zone' => null,
-                'error' => 'Veuillez sélectionner un quartier pour cette adresse.',
-            ];
-        }
-
-        $zone = \App\Models\ZoneLivraison::find($adresse->zone_livraison_id);
-
-        if (! $zone) {
-            return [
-                'frais_livraison' => null,
-                'quartier' => null,
-                'zone' => null,
-                'error' => 'Zone de livraison invalide. Merci de sélectionner une zone valide.',
-            ];
-        }
-
-        if (! $zone->est_active) {
-            return [
-                'frais_livraison' => null,
-                'quartier' => null,
-                'zone' => null,
-                'error' => 'Cette zone de livraison est actuellement inactive.',
-            ];
-        }
-
-        if ($livreurId !== null && (int) $zone->created_by_user_id !== (int) $livreurId) {
-            return [
-                'frais_livraison' => null,
-                'quartier' => null,
-                'zone' => null,
-                'error' => 'Cette zone de livraison n\'est pas disponible pour les produits de votre panier.',
-            ];
-        }
-
-        return [
-            'frais_livraison' => (float) $zone->tarif_livraison,
+        $erreur = fn (string $message) => [
+            'frais_livraison' => null,
             'quartier' => null,
-            'zone' => [
-                'id' => $zone->id,
-                'nom_zone' => $zone->nom_zone,
-                'ville' => $zone->ville,
-                'tarif_livraison' => (float) $zone->tarif_livraison,
-            ],
+            'zone' => null,
+            'error' => $message,
         ];
+
+        $vendeur = $vendeurId ? User::find($vendeurId) : null;
+        if (! $vendeur) {
+            return $erreur('Impossible de calculer la livraison sans vendeur associé.');
+        }
+
+        try {
+            if ($adresse?->quartier_id) {
+                $livraison = LivraisonVendeur::verifier($vendeur, (int) $adresse->quartier_id, $montantProduits);
+
+                return [
+                    'frais_livraison' => $livraison['frais'],
+                    'quartier' => $livraison['quartier'],
+                    'zone' => null,
+                ];
+            }
+
+            // Anciennes adresses rattachées à une zone (période de transition)
+            if (! $adresse || ! $adresse->zone_livraison_id) {
+                return $erreur('Veuillez sélectionner un quartier pour cette adresse.');
+            }
+
+            $zone = ZoneLivraison::find($adresse->zone_livraison_id);
+
+            if (! $zone) {
+                return $erreur('Zone de livraison invalide. Merci de sélectionner une zone valide.');
+            }
+
+            if (! $zone->est_active) {
+                return $erreur('Cette zone de livraison est actuellement inactive.');
+            }
+
+            if ((int) $zone->created_by_user_id !== (int) $vendeur->id) {
+                return $erreur('Cette zone de livraison n\'est pas disponible pour les produits de votre panier.');
+            }
+
+            LivraisonVendeur::verifierMinimum($vendeur, $montantProduits);
+
+            return [
+                'frais_livraison' => LivraisonVendeur::fraisStandard(),
+                'quartier' => null,
+                'zone' => [
+                    'id' => $zone->id,
+                    'nom_zone' => $zone->nom_zone,
+                    'ville' => $zone->ville,
+                ],
+            ];
+        } catch (\InvalidArgumentException $e) {
+            return $erreur($e->getMessage());
+        }
     }
 
     private function rejectAdmin(Request $request)

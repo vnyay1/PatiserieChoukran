@@ -1,5 +1,5 @@
 <!-- ===================================
-VENDEUR - TARIFS DE LIVRAISON PAR QUARTIER
+VENDEUR - MA LIVRAISON (minimum d'achat et quartiers desservis)
 File: src/views/admin/AdminTarifsLivraison.vue
 =================================== -->
 
@@ -9,11 +9,11 @@ File: src/views/admin/AdminTarifsLivraison.vue
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
           <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
-            Mes tarifs de livraison
+            Ma livraison
           </h1>
           <p class="text-gray-600 text-sm">
             Les clients ne peuvent se faire livrer vos produits que dans les quartiers ci-dessous,
-            au tarif et dans le délai que vous fixez.
+            dans le délai que vous fixez, et à partir de votre montant minimum d'achat.
           </p>
         </div>
         <Button
@@ -23,16 +23,53 @@ File: src/views/admin/AdminTarifsLivraison.vue
           :disabled="quartiersDisponibles.length === 0"
           @click="openCreate"
         >
-          Nouveau tarif
+          Ajouter un quartier
         </Button>
       </div>
 
       <p v-if="pageError" class="text-sm text-red-600 mb-4">{{ pageError }}</p>
 
+      <!-- Conditions : frais fixés par la plateforme, minimum fixé par le vendeur -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <Card padding="lg">
+          <h2 class="font-display text-lg font-bold text-gray-800 mb-1">Montant minimum de commande</h2>
+          <p class="text-sm text-gray-600 mb-4">
+            En dessous de ce montant de produits, vos clients ne peuvent choisir que le retrait en boutique.
+            Laissez 0 pour livrer toutes les commandes.
+          </p>
+          <form class="flex flex-col sm:flex-row gap-3" @submit.prevent="enregistrerMinimum">
+            <div class="relative flex-1">
+              <input
+                v-model.number="minimum"
+                type="number"
+                min="0"
+                step="500"
+                class="input pr-16"
+                :disabled="loading"
+                required
+              />
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">FCFA</span>
+            </div>
+            <Button type="submit" variant="primary" :loading="savingMinimum" :disabled="loading">
+              Enregistrer
+            </Button>
+          </form>
+          <p v-if="minimumError" class="text-sm text-red-600 mt-2">{{ minimumError }}</p>
+        </Card>
+
+        <Card padding="lg">
+          <h2 class="font-display text-lg font-bold text-gray-800 mb-1">Frais de livraison</h2>
+          <p class="price text-2xl my-2">{{ formatPrice(fraisStandard) }} FCFA</p>
+          <p class="text-sm text-gray-600">
+            Tarif unique fixé par la plateforme, payé par le client pour chaque commande livrée.
+          </p>
+        </Card>
+      </div>
+
       <Card v-if="showForm" padding="lg" class="mb-6">
         <div class="flex items-center justify-between mb-4">
           <h2 class="font-display text-xl font-bold text-gray-800">
-            {{ isEditing ? `Modifier le tarif — ${quartierEnEdition?.nom || ''}` : 'Ajouter un quartier desservi' }}
+            {{ isEditing ? `Modifier — ${quartierEnEdition?.nom || ''}` : 'Ajouter un quartier desservi' }}
           </h2>
           <button class="text-sm text-gray-500 hover:text-gray-700" @click="closeForm">
             Fermer
@@ -56,12 +93,7 @@ File: src/views/admin/AdminTarifsLivraison.vue
             </select>
           </div>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Tarif (FCFA) *</label>
-            <input v-model.number="form.tarif" type="number" min="0" step="50" class="input" required />
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-2 gap-3 md:col-span-2 md:max-w-md">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2">Délai min (min) *</label>
               <input v-model.number="form.delai_min" type="number" min="0" class="input" required />
@@ -89,7 +121,7 @@ File: src/views/admin/AdminTarifsLivraison.vue
 
           <div class="md:col-span-2 flex gap-3">
             <Button type="submit" variant="primary" :loading="saving">
-              {{ isEditing ? 'Enregistrer' : 'Ajouter le tarif' }}
+              {{ isEditing ? 'Enregistrer' : 'Ajouter le quartier' }}
             </Button>
             <Button type="button" variant="outline" @click="closeForm">
               Annuler
@@ -125,7 +157,6 @@ File: src/views/admin/AdminTarifsLivraison.vue
             <thead class="bg-gray-50 text-gray-600">
               <tr>
                 <th class="text-left font-semibold px-4 py-3">Quartier</th>
-                <th class="text-left font-semibold px-4 py-3">Tarif</th>
                 <th class="text-left font-semibold px-4 py-3">Délai</th>
                 <th class="text-left font-semibold px-4 py-3">Statut</th>
                 <th class="text-right font-semibold px-4 py-3">Actions</th>
@@ -133,15 +164,15 @@ File: src/views/admin/AdminTarifsLivraison.vue
             </thead>
             <tbody v-if="loading">
               <tr>
-                <td colspan="5" class="p-6 text-center text-gray-500">Chargement...</td>
+                <td colspan="4" class="p-6 text-center text-gray-500">Chargement...</td>
               </tr>
             </tbody>
             <tbody v-else-if="tarifsFiltres.length === 0">
               <tr>
-                <td colspan="5" class="p-6 text-center text-gray-500">
+                <td colspan="4" class="p-6 text-center text-gray-500">
                   {{ tarifs.length === 0
-                    ? 'Aucun quartier desservi pour l\'instant : ajoutez un tarif pour recevoir des commandes en livraison.'
-                    : 'Aucun tarif ne correspond à la recherche.' }}
+                    ? 'Aucun quartier desservi pour l\'instant : ajoutez-en un pour recevoir des commandes en livraison.'
+                    : 'Aucun quartier ne correspond à la recherche.' }}
                 </td>
               </tr>
             </tbody>
@@ -150,9 +181,6 @@ File: src/views/admin/AdminTarifsLivraison.vue
                 <td class="px-4 py-3">
                   <div class="font-semibold text-gray-800">{{ tarif.quartier?.nom }}</div>
                   <div class="text-xs text-gray-500">{{ formatVille(tarif.quartier?.ville) }}</div>
-                </td>
-                <td class="px-4 py-3">
-                  {{ Number(tarif.tarif) > 0 ? `${formatPrice(tarif.tarif)} FCFA` : 'Gratuit' }}
                 </td>
                 <td class="px-4 py-3">{{ formatDelai(tarif) }}</td>
                 <td class="px-4 py-3">
@@ -172,7 +200,7 @@ File: src/views/admin/AdminTarifsLivraison.vue
                       Modifier
                     </Button>
                     <Button variant="danger" size="sm" :icon="Trash2" :icon-size="16" @click="deleteTarif(tarif)">
-                      Supprimer
+                      Retirer
                     </Button>
                   </div>
                 </td>
@@ -193,19 +221,26 @@ import { useConfirm } from '@/composables/useConfirm'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { formatVille, formatDelai, normaliserTexte } from '@/composables/useLivraisonVendeurs'
+import { formatPrice } from '@/utils/format'
 import { Plus, Search, Pencil, Trash2 } from 'lucide-vue-next'
 
 const toastStore = useToastStore()
 const { confirmer } = useConfirm()
 
+// Quartiers desservis par le vendeur (table vendeur_tarifs_livraison : quartier + délais)
 const tarifs = ref([])
-// Tous les quartiers actifs, avec `couvert` = le vendeur a déjà un tarif pour ce quartier
+// Tous les quartiers actifs, avec `couvert` = le vendeur dessert déjà ce quartier
 const quartiers = ref([])
 const loading = ref(false)
 const saving = ref(false)
 const showForm = ref(false)
 const formError = ref('')
 const pageError = ref('')
+
+const minimum = ref(0)
+const fraisStandard = ref(0)
+const savingMinimum = ref(false)
+const minimumError = ref('')
 
 const filters = ref({
   search: '',
@@ -215,7 +250,6 @@ const filters = ref({
 const formVide = () => ({
   id: null,
   quartier_id: '',
-  tarif: 1000,
   delai_min: 30,
   delai_max: 60,
   actif: true,
@@ -257,10 +291,6 @@ const quartiersDisponibles = computed(() => {
   }))
 })
 
-const formatPrice = (value) => {
-  return new Intl.NumberFormat('fr-FR').format(value || 0)
-}
-
 const fetchTarifs = async () => {
   loading.value = true
   pageError.value = ''
@@ -271,11 +301,30 @@ const fetchTarifs = async () => {
       api.vendeur.tarifs.quartiers(),
     ])
     tarifs.value = reponseTarifs.data.data || []
+    minimum.value = Number(reponseTarifs.data.meta?.montant_minimum_livraison) || 0
+    fraisStandard.value = Number(reponseTarifs.data.meta?.frais_livraison_standard) || 0
     quartiers.value = reponseQuartiers.data.data || []
   } catch (error) {
-    pageError.value = messageErreur(error, 'Impossible de charger vos tarifs de livraison.')
+    pageError.value = messageErreur(error, 'Impossible de charger vos réglages de livraison.')
   } finally {
     loading.value = false
+  }
+}
+
+const enregistrerMinimum = async () => {
+  savingMinimum.value = true
+  minimumError.value = ''
+
+  try {
+    const response = await api.vendeur.livraison.updateMinimum({ montant_minimum_livraison: minimum.value || 0 })
+    minimum.value = Number(response.data.data?.montant_minimum_livraison) || 0
+    toastStore.succes(minimum.value > 0
+      ? `Livraison à partir de ${formatPrice(minimum.value)} FCFA d'achat.`
+      : 'Toutes vos commandes peuvent être livrées.')
+  } catch (error) {
+    minimumError.value = messageErreur(error, 'Impossible d\'enregistrer le montant minimum.')
+  } finally {
+    savingMinimum.value = false
   }
 }
 
@@ -289,7 +338,6 @@ const openEdit = (tarif) => {
   form.value = {
     id: tarif.id,
     quartier_id: tarif.quartier_id,
-    tarif: Number(tarif.tarif),
     delai_min: tarif.delai_min,
     delai_max: tarif.delai_max,
     actif: Boolean(tarif.actif),
@@ -313,7 +361,6 @@ const submitForm = async () => {
   formError.value = ''
 
   const payload = {
-    tarif: form.value.tarif,
     delai_min: form.value.delai_min,
     delai_max: form.value.delai_max,
     actif: form.value.actif,
@@ -325,11 +372,11 @@ const submitForm = async () => {
     } else {
       await api.vendeur.tarifs.create({ ...payload, quartier_id: form.value.quartier_id })
     }
-    toastStore.succes(isEditing.value ? 'Tarif mis à jour.' : 'Quartier ajouté à votre zone de livraison.')
+    toastStore.succes(isEditing.value ? 'Quartier mis à jour.' : 'Quartier ajouté à votre zone de livraison.')
     showForm.value = false
     await fetchTarifs()
   } catch (error) {
-    formError.value = messageErreur(error, 'Erreur lors de l\'enregistrement du tarif.')
+    formError.value = messageErreur(error, 'Erreur lors de l\'enregistrement du quartier.')
   } finally {
     saving.value = false
   }
@@ -343,25 +390,25 @@ const toggleActif = async (tarif) => {
       ? `Livraison réactivée à ${tarif.quartier?.nom}.`
       : `Livraison suspendue à ${tarif.quartier?.nom}.`)
   } catch (error) {
-    toastStore.erreur(messageErreur(error, 'Erreur lors de la mise à jour du tarif.'))
+    toastStore.erreur(messageErreur(error, 'Erreur lors de la mise à jour du quartier.'))
   }
 }
 
 const deleteTarif = async (tarif) => {
   const confirmed = await confirmer({
-    titre: 'Supprimer le tarif',
+    titre: 'Retirer le quartier',
     message: `Vous ne livrerez plus le quartier « ${tarif.quartier?.nom} ».`,
-    libelleConfirmer: 'Supprimer',
+    libelleConfirmer: 'Retirer',
     danger: true,
   })
   if (!confirmed) return
 
   try {
     await api.vendeur.tarifs.remove(tarif.id)
-    toastStore.succes('Tarif supprimé.')
+    toastStore.succes('Quartier retiré de votre zone de livraison.')
     await fetchTarifs()
   } catch (error) {
-    toastStore.erreur(messageErreur(error, 'Erreur lors de la suppression du tarif.'))
+    toastStore.erreur(messageErreur(error, 'Erreur lors du retrait du quartier.'))
   }
 }
 

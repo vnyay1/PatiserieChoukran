@@ -71,7 +71,6 @@ class CheckoutMultiVendeurTest extends TestCase
         $this->tarifA = VendeurTarifLivraison::create([
             'vendeur_id' => $this->vendeurA->id,
             'quartier_id' => $this->bastos->id,
-            'tarif' => 1000,
             'delai_min' => 30,
             'delai_max' => 60,
             'actif' => true,
@@ -80,7 +79,6 @@ class CheckoutMultiVendeurTest extends TestCase
         $this->tarifB = VendeurTarifLivraison::create([
             'vendeur_id' => $this->vendeurB->id,
             'quartier_id' => $this->bastos->id,
-            'tarif' => 1500,
             'delai_min' => 45,
             'delai_max' => 90,
             'actif' => true,
@@ -97,7 +95,7 @@ class CheckoutMultiVendeurTest extends TestCase
         ]);
     }
 
-    public function test_le_checkout_cree_une_commande_par_vendeur_avec_ses_frais(): void
+    public function test_le_checkout_cree_une_commande_par_vendeur_avec_les_frais_standard(): void
     {
         $this->remplirPanier();
 
@@ -112,8 +110,8 @@ class CheckoutMultiVendeurTest extends TestCase
 
         $commandeA = Commande::where('vendeur_id', $this->vendeurA->id)->firstOrFail();
         $this->assertEquals(10000, (float) $commandeA->montant_produits);
-        $this->assertEquals(1000, (float) $commandeA->montant_livraison);
-        $this->assertEquals(11000, (float) $commandeA->montant_total);
+        $this->assertEquals(1500, (float) $commandeA->montant_livraison);
+        $this->assertEquals(11500, (float) $commandeA->montant_total);
         $this->assertSame($this->vendeurA->id, (int) $commandeA->livreur_id);
 
         $commandeB = Commande::where('vendeur_id', $this->vendeurB->id)->firstOrFail();
@@ -159,12 +157,11 @@ class CheckoutMultiVendeurTest extends TestCase
         $this->assertSame(0, Commande::whereNotNull('adresse_livraison_id')->count());
     }
 
-    public function test_la_modification_d_une_commande_recalcule_les_frais_du_vendeur(): void
+    public function test_la_modification_d_une_commande_verifie_la_desserte_du_nouveau_quartier(): void
     {
         VendeurTarifLivraison::create([
             'vendeur_id' => $this->vendeurA->id,
             'quartier_id' => $this->essos->id,
-            'tarif' => 2000,
             'delai_min' => 30,
             'delai_max' => 60,
             'actif' => true,
@@ -175,6 +172,15 @@ class CheckoutMultiVendeurTest extends TestCase
             'quartier' => 'Essos',
             'ville' => 'yaoundé',
             'quartier_id' => $this->essos->id,
+            'telephone_contact' => '+237690000003',
+        ]);
+
+        $mvogMbi = Quartier::create(['nom' => 'Mvog-Mbi', 'ville' => 'yaoundé', 'actif' => true]);
+        $adresseNonDesservie = Adresse::create([
+            'user_id' => $this->client->id,
+            'quartier' => 'Mvog-Mbi',
+            'ville' => 'yaoundé',
+            'quartier_id' => $mvogMbi->id,
             'telephone_contact' => '+237690000003',
         ]);
 
@@ -189,8 +195,15 @@ class CheckoutMultiVendeurTest extends TestCase
         ])->assertOk()->assertJsonPath('success', true);
 
         $commande->refresh();
-        $this->assertEquals(2000, (float) $commande->montant_livraison);
-        $this->assertEquals(7000, (float) $commande->montant_total);
+        $this->assertSame($adresseEssos->id, (int) $commande->adresse_livraison_id);
+        $this->assertEquals(1500, (float) $commande->montant_livraison);
+        $this->assertEquals(6500, (float) $commande->montant_total);
+
+        // Quartier que le vendeur ne dessert pas : refus, la commande ne change pas
+        $this->putJson("/api/v1/commandes/{$commande->id}", [
+            'adresse_livraison_id' => $adresseNonDesservie->id,
+        ])->assertStatus(422)->assertJsonPath('success', false);
+        $this->assertSame($adresseEssos->id, (int) $commande->fresh()->adresse_livraison_id);
     }
 
     public function test_le_json_d_adresse_garde_le_nom_du_quartier(): void
@@ -225,45 +238,57 @@ class CheckoutMultiVendeurTest extends TestCase
             ->assertJsonPath('data.libelle', null);
     }
 
-    public function test_les_quartiers_d_un_vendeur_sont_publics_et_exposent_le_tarif(): void
+    public function test_la_livraison_d_un_vendeur_est_publique(): void
     {
         $this->tarifB->update(['actif' => false]);
+        $this->vendeurA->update(['montant_minimum_livraison' => 8000]);
 
         $this->getJson("/api/v1/livraison/quartiers/vendeur/{$this->vendeurA->id}")
             ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.nom', 'Bastos')
-            ->assertJsonPath('data.0.tarif', 1000);
+            ->assertJsonPath('data.frais_livraison', 1500)
+            ->assertJsonPath('data.montant_minimum_livraison', 8000)
+            ->assertJsonCount(1, 'data.quartiers')
+            ->assertJsonPath('data.quartiers.0.nom', 'Bastos')
+            ->assertJsonPath('data.quartiers.0.delai_max', 60);
 
         $this->getJson("/api/v1/livraison/quartiers/vendeur/{$this->vendeurB->id}")
             ->assertOk()
-            ->assertJsonCount(0, 'data');
+            ->assertJsonCount(0, 'data.quartiers');
     }
 
-    public function test_un_vendeur_ne_peut_pas_modifier_le_tarif_d_un_autre_vendeur(): void
+    public function test_un_vendeur_ne_peut_pas_modifier_la_desserte_d_un_autre_vendeur(): void
     {
         Sanctum::actingAs($this->vendeurB);
 
-        $this->putJson("/api/v1/vendeur/tarifs-livraison/{$this->tarifA->id}", ['tarif' => 1])->assertNotFound();
+        $this->putJson("/api/v1/vendeur/tarifs-livraison/{$this->tarifA->id}", ['delai_max' => 120])->assertNotFound();
         $this->deleteJson("/api/v1/vendeur/tarifs-livraison/{$this->tarifA->id}")->assertNotFound();
-        $this->assertEquals(1000, (float) $this->tarifA->fresh()->tarif);
+        $this->assertSame(60, $this->tarifA->fresh()->delai_max);
 
         Sanctum::actingAs($this->vendeurA);
 
-        $this->putJson("/api/v1/vendeur/tarifs-livraison/{$this->tarifA->id}", ['tarif' => 1200])
+        $this->putJson("/api/v1/vendeur/tarifs-livraison/{$this->tarifA->id}", ['delai_max' => 120])
             ->assertOk()
             ->assertJsonPath('success', true);
-        $this->assertEquals(1200, (float) $this->tarifA->fresh()->tarif);
+        $this->assertSame(120, $this->tarifA->fresh()->delai_max);
     }
 
+    // Les vendeurs ont un profil boutique complet, sans quoi leurs produits seraient masqués
     private function creerUtilisateur(string $nom, string $telephone, string $role): User
     {
+        $profilBoutique = $role === 'vendeur' ? [
+            'email' => 'vendeur'.substr($telephone, -3).'@exemple.cm',
+            'logo_boutique' => 'boutiques/logo.png',
+            'description_boutique' => 'Pâtisserie artisanale de test, gâteaux et viennoiseries.',
+            'conditions_acceptees_le' => now(),
+        ] : [];
+
         return User::create([
             'nom_complet' => $nom,
             'telephone' => $telephone,
             'mot_de_passe' => 'password123',
             'role' => $role,
             'statut' => 'actif',
+            ...$profilBoutique,
         ]);
     }
 
