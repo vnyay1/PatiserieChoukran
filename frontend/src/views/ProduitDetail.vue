@@ -75,7 +75,7 @@ File: src/views/ProduitDetail.vue
               :class="currentImage === image ? 'border-gold-500' : 'border-transparent'"
               @click="currentImage = image"
             >
-              <img :src="image" :alt="`${produit.nom} - ${index + 1}`" class="w-full h-full object-cover" @error="onImageError" />
+              <img loading="lazy" :src="image" :alt="`${produit.nom} - ${index + 1}`" class="w-full h-full object-cover" @error="onImageError" />
             </button>
           </div>
           <div v-if="allImages.length > 1" class="sm:hidden flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
@@ -86,7 +86,7 @@ File: src/views/ProduitDetail.vue
               :class="currentImage === image ? 'border-gold-500' : 'border-transparent'"
               @click="currentImage = image"
             >
-              <img :src="image" :alt="`${produit.nom} - ${index + 1}`" class="w-full h-full object-cover" @error="onImageError" />
+              <img loading="lazy" :src="image" :alt="`${produit.nom} - ${index + 1}`" class="w-full h-full object-cover" @error="onImageError" />
             </button>
           </div>
         </div>
@@ -114,6 +114,7 @@ File: src/views/ProduitDetail.vue
           >
             <img
               v-if="produit.createur.logo_boutique"
+              loading="lazy"
               :src="resolveImageUrl(produit.createur.logo_boutique, { placeholder: false })"
               :alt="produit.createur.nom_complet"
               class="h-8 w-8 rounded-full object-cover border bg-white"

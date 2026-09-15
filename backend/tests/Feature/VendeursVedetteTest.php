@@ -62,10 +62,11 @@ class VendeursVedetteTest extends TestCase
         $reponse->assertJsonPath('data.data.0.createur.est_vendeur_vedette', true)
             ->assertJsonMissingPath('data.data.0.createur.telephone');
 
-        $this->getJson('/api/v1/produits/featured')
+        $this->getJson('/api/v1/accueil')
             ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.nom', 'Fraisier');
+            ->assertJsonCount(1, 'data.vedettes')
+            ->assertJsonPath('data.vedettes.0.nom', 'Fraisier')
+            ->assertJsonCount(3, 'data.nouveautes');
 
         $this->getJson('/api/v1/produits?vedette=1')->assertJsonPath('data.total', 1);
 

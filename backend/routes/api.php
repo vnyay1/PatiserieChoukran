@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\QuartierController as AdminQuartierController;
 use App\Http\Controllers\Admin\RapportController as AdminRapportController;
 use App\Http\Controllers\Admin\ReglagesController as AdminReglagesController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Api\AccueilController;
 use App\Http\Controllers\Api\AdresseController;
 // Admin Controllers
 use App\Http\Controllers\Api\AuthController;
@@ -51,14 +52,13 @@ Route::prefix('v1')->group(function () {
     });
 
     // Catégories
+    Route::get('accueil', AccueilController::class);
     Route::get('categories', [CategorieController::class, 'index']);
     Route::get('categories/{slug}', [CategorieController::class, 'show']);
 
     // Produits
     Route::prefix('produits')->group(function () {
         Route::get('/', [ProduitController::class, 'index']);
-        Route::get('/featured', [ProduitController::class, 'featured']);
-        Route::get('/nouveautes', [ProduitController::class, 'nouveautes']);
         Route::get('/promotions', [ProduitController::class, 'promotions']);
         Route::get('/{slug}', [ProduitController::class, 'show']);
         Route::get('/{slug}/similar', [ProduitController::class, 'similar']);

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Produit;
+use App\Services\Images;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -81,15 +82,14 @@ class ProduitController extends Controller
 
         // Upload image principale
         if ($request->hasFile('image_principale')) {
-            $validated['image_principale'] = $request->file('image_principale')
-                ->store('produits', 'public');
+            $validated['image_principale'] = Images::enregistrer($request->file('image_principale'), 'produits');
         }
 
         // Upload images secondaires
         if ($request->hasFile('images_secondaires')) {
             $imagesSecondaires = [];
             foreach ($request->file('images_secondaires') as $image) {
-                $imagesSecondaires[] = $image->store('produits', 'public');
+                $imagesSecondaires[] = Images::enregistrer($image, 'produits');
             }
             $validated['images_secondaires'] = $imagesSecondaires;
         }
@@ -161,8 +161,7 @@ class ProduitController extends Controller
             if ($produit->image_principale) {
                 \Storage::disk('public')->delete($produit->image_principale);
             }
-            $validated['image_principale'] = $request->file('image_principale')
-                ->store('produits', 'public');
+            $validated['image_principale'] = Images::enregistrer($request->file('image_principale'), 'produits');
         }
 
         // Upload nouvelles images secondaires si fournies
@@ -175,7 +174,7 @@ class ProduitController extends Controller
 
             $imagesSecondaires = [];
             foreach ($request->file('images_secondaires') as $image) {
-                $imagesSecondaires[] = $image->store('produits', 'public');
+                $imagesSecondaires[] = Images::enregistrer($image, 'produits');
             }
             $validated['images_secondaires'] = $imagesSecondaires;
         }

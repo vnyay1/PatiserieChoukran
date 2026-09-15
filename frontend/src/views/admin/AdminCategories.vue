@@ -87,6 +87,7 @@ File: src/views/admin/AdminCategories.vue
             <div class="flex items-center gap-4">
               <img
                 v-if="apercuImage"
+                loading="lazy"
                 :src="apercuImage"
                 alt="Aperçu de l'image de la catégorie"
                 class="h-20 w-20 flex-shrink-0 rounded-lg object-cover border"
@@ -166,6 +167,7 @@ File: src/views/admin/AdminCategories.vue
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-3">
                     <img
+                      loading="lazy"
                       :src="resolveImageUrl(categorie.image)" :alt="categorie.nom"
                       class="h-12 w-12 rounded-lg object-cover border"
                       @error="onImageError"

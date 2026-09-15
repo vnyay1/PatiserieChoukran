@@ -90,6 +90,7 @@ File: src/views/CommandeDetail.vue
             >
               <div class="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                 <img
+                  loading="lazy"
                   :src="resolveImageUrl(ligne.produit?.image_principale)" :alt="ligne.nom_produit"
                   class="w-full h-full object-cover"
                   @error="onImageError"

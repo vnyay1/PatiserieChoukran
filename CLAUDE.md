@@ -33,6 +33,7 @@ composer test                       # config:clear + PHPUnit on in-memory SQLite
 php artisan test --filter=CheckoutMultiVendeurTest
 php vendor/bin/pint                 # formatter; CI runs `pint --test`
 ```
+XAMPP's `php.ini` has OPcache enabled (`opcache.enable_cli=1`, `revalidate_freq=0`; the original is `C:\xampp\php\php.ini.avant-opcache`). Without it every `artisan serve` request recompiles the framework: about 450 ms instead of 25 ms for `/up`.
 
 Seeded accounts (`UserSeeder`, password `password123`): admin `+237699000001`, vendeurs `+237699000002` (Jean) and `+237699000004` (Awa), client `+237699000003`. Seeded products are split between the two vendors.
 
@@ -44,7 +45,7 @@ The seeded vendors:
 
 `VendeurVilleSeeder` fills the cities each vendor delivers to: Jean delivers Yaoundé only and Awa Douala only, so the catalogue visibly changes with the chosen city. Every other vendor delivers both cities. It uses `insertOrIgnore` and can be rerun alone with `--class`.
 
-With `QUEUE_CONNECTION=sync` (the XAMPP default), invoice emails go out during the vendor's "confirmer" request. Set `MAIL_MAILER=log` locally to avoid sending real mail.
+With `QUEUE_CONNECTION=sync` (the XAMPP default), emails and invoices are sent by the same PHP process right after the response (`SupportDiffere`). Set `MAIL_MAILER=log` locally to avoid sending real mail.
 
 Prefer `composer test`: it clears the config cache first. With a cached config, tests would use the MySQL connection from `.env` instead of in-memory SQLite, and `RefreshDatabase` would wipe the dev database.
 
@@ -56,7 +57,7 @@ npm run build
 npm run lint      # ESLint 10, flat config in eslint.config.js; CI runs this
 npm run lint:fix
 ```
-`frontend/.env` sets `VITE_API_URL=http://localhost:8000/api/v1`, so dev calls the API directly. In the Docker image `VITE_API_URL=/api/v1`, because the SPA and the API are served from the same origin.
+`frontend/.env` (see `frontend/.env.example`) sets `VITE_API_URL=/api/v1`. In dev, the Vite proxy forwards `/api` and `/storage` to `http://127.0.0.1:8000`, so calls are same-origin: no CORS preflight, and no ~200 ms IPv6 attempt per connection that `localhost` costs on Windows (`php artisan serve` closes every connection). The Docker image uses the same value, because nginx serves the SPA and the API from one origin.
 
 Docker (from repo root) — one image holds nginx, php-fpm, the queue worker, the scheduler and the built SPA:
 ```bash
@@ -64,7 +65,7 @@ cp .env.docker.example .env.docker      # then fill in the passwords and APP_KEY
 docker compose up -d --build            # app on :8088, phpMyAdmin on :8081
 RUN_SEEDERS=true docker compose up -d   # first run only: demo data
 ```
-`docker/entrypoint.sh` waits for MySQL, runs `migrate --force`, then rebuilds `config:cache`, `route:cache` and `view:cache` from the environment. With no `APP_KEY` it generates one into the `app_storage` volume and warns. MySQL's port is deliberately not published, so it never clashes with XAMPP.
+`docker/entrypoint.sh` waits for MySQL, runs `migrate --force`, then rebuilds `config:cache`, `route:cache`, `view:cache` and `event:cache` from the environment. With no `APP_KEY` it generates one into the `app_storage` volume and warns. MySQL's port is deliberately not published, so it never clashes with XAMPP.
 
 The app port defaults to 8088 because an Oracle listener holds 8080 on the dev machine. Override it with `APP_PORT` in the shell or in a root `.env`: `env_file: .env.docker` does not feed compose's `${…}` interpolation. Invoices and reports are stored on the `local` disk, `storage/app/private`, which lives in the `app_storage` volume.
 
@@ -133,7 +134,7 @@ Use `vendeur` in new code.
 - The frontend previews all of this through the public `GET /livraison/vendeur/{id}`, which returns `{ frais_livraison, montant_minimum_livraison, villes }`. The backend re-checks it authoritatively in `store()` and `update()`.
 - Catalogue filtered by city:
   - the client picks a city (`stores/ville.js`, kept in `localStorage`, header selector and first-visit prompt);
-  - `api.js` adds `?ville=` to the catalogue calls (products, featured, new, promotions, similar, categories);
+  - `api.js` adds `?ville=` to the catalogue calls (home page, products, promotions, similar, categories);
   - the backend applies `Produit::scopeLivrableDans($ville)`, which keeps only products whose vendor delivers that city;
   - a vendor's public page ignores the city and shows the cities they deliver.
 - The former zone system (`zone_livraisons`, `livreur_zone_livraisons`, `adresses.zone_livraison_id`, `calculate-shipping`) and the per-quartier coverage (`vendeur_tarifs_livraison`) were removed in `2026_09_15_000005_livraison_par_ville`.
@@ -162,14 +163,21 @@ Use `vendeur` in new code.
 ### Other backend conventions
 - The password column is `mot_de_passe`, hashed by a mutator on `User`. Login is by `telephone`, which `AuthController` normalizes to `+237XXXXXXXXX`. Logging in revokes all previous tokens.
 - JSON responses use `{ success, message?, data }`.
-- Runtime settings are stored in `parametre_sites` and read and written with `ParametreSite::get()` / `set()`. Values are typed: string, integer, boolean or json.
+- Runtime settings are stored in `parametre_sites` and read and written with `ParametreSite::get()` / `set()`. Values are typed: string, integer, boolean or json. `get()` reads every setting from one cached array (10 minutes), which model `saved` / `deleted` events clear; raw `DB::table('parametre_sites')` writes in migrations are only picked up when the cache expires.
 - Cities are the lowercase values `yaoundé` / `douala`:
   - backend: `Quartier::VILLES`, `Quartier::regleVille()` for validation, `Quartier::libelleVille()` for display;
   - frontend: `utils/villes.js`;
   - admins manage quartiers at `/admin/quartiers`.
 - `adresses` has a text column `quartier` (the name) and a `quartier_id` FK. The relation is deliberately named `Adresse::quartierLivraison()` (JSON key `quartier_livraison`). A relation named `quartier()` would replace the text column in the JSON whenever it is eager-loaded. An address is created with `ville` and `quartier_id` (both required, and the quartier must belong to that city), plus a free, optional `zone` (sector, crossroads…). `AdresseController` copies the quartier name and city into the `quartier` / `ville` columns.
-- Uploads go to the `public` disk under `produits/`, `categories/`, `profils/` and `boutiques/`.
-- In-app and email notifications go through `NotificationsCommande::creer()` / `envoyerEmail()` (queued). `NotificationsCompte` reuses them for account events.
+- Uploads go to the `public` disk under `produits/`, `categories/`, `profils/` and `boutiques/`. `Services\Images::enregistrer($fichier, $dossier, $largeurMax)` resizes images (1200 px for products, 800 for categories, 400 for logos), applies EXIF orientation and saves them as WebP. It keeps the original file when GD cannot read it.
+- Slow work (invoice PDF, SMTP) goes through `Support\Differe::executer($job)`. With a worker it is queued. With `QUEUE_CONNECTION=sync` (local dev) it runs after the HTTP response through Laravel's `defer()`. Never use `dispatch()->afterResponse()`: its terminating callbacks run again on every request of a test.
+- Performance defaults:
+  - `CACHE_STORE=file` and `SESSION_DRIVER=array` (the API is stateless);
+  - `App\Models\PersonalAccessToken` writes Sanctum's `last_used_at` at most every 5 minutes;
+  - the home page loads in one call, `GET /accueil?ville=`, which returns `{ categories, vedettes, nouveautes }`;
+  - Vite puts vue, vue-router, pinia and axios in a separate `vendor` chunk;
+  - off-screen `<img>` tags use `loading="lazy"`.
+- In-app and email notifications go through `NotificationsCommande::creer()` / `envoyerEmail()` (queued, or deferred when the queue is sync). `NotificationsCompte` reuses them for account events.
 - Emails:
   - every message handed to the mail transport is logged with its Message-ID in `storage/logs/mail.log` (`MessageSent` listener in `AppServiceProvider`). Use it to match counts with Brevo's logs;
   - queued email closures never rethrow, so a worker retry cannot duplicate a mail;

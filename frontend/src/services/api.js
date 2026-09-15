@@ -10,7 +10,7 @@ import { useToastStore } from '@/stores/toast'
 import router from '@/router'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1',
+  baseURL: import.meta.env.VITE_API_URL || '/api/v1',
   // Sans délai, un serveur figé laissait les boutons tourner indéfiniment
   timeout: 30000,
   headers: {
@@ -152,6 +152,9 @@ export default {
   },
 
   // Catégories
+  // Page d'accueil : catégories, vendeurs vedettes et nouveautés en un appel
+  accueil: () => api.get('/accueil', { params: avecVille() }),
+
   categories: {
     getAll: () => api.get('/categories', { params: avecVille() }),
     getOne: (slug) => api.get(`/categories/${slug}`, { params: avecVille() }),
@@ -161,8 +164,6 @@ export default {
   produits: {
     getAll: (params) => api.get('/produits', { params: avecVille(params) }),
     getOne: (slug) => api.get(`/produits/${slug}`),
-    getFeatured: () => api.get('/produits/featured', { params: avecVille() }),
-    getNouveautes: () => api.get('/produits/nouveautes', { params: avecVille() }),
     getPromotions: () => api.get('/produits/promotions', { params: avecVille() }),
     getSimilar: (slug) => api.get(`/produits/${slug}/similar`, { params: avecVille() }),
   },

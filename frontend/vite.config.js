@@ -15,9 +15,15 @@ export default defineConfig({
     watch: {
       usePolling: true,
     },
+    // L'API passe par le serveur Vite : même origine (pas de requête CORS préalable)
+    // et 127.0.0.1 plutôt que localhost, que Windows tente d'abord en IPv6 (~200 ms par connexion)
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
+      '/storage': {
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },
@@ -28,5 +34,15 @@ export default defineConfig({
   },
   css: {
     postcss: './postcss.config.js',
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Bibliothèques dans un fichier à part : il reste en cache d'un déploiement à l'autre
+        manualChunks: {
+          vendor: ['vue', 'vue-router', 'pinia', 'axios'],
+        },
+      },
+    },
   },
 })

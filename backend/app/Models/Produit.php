@@ -135,11 +135,6 @@ class Produit extends Model
     }
 
     // Méthodes utiles
-    public function incrementerVues()
-    {
-        $this->increment('nombre_vues');
-    }
-
     public function incrementerCommandes()
     {
         $this->increment('nombre_commandes');

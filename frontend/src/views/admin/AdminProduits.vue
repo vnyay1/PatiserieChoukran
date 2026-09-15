@@ -137,6 +137,7 @@ File: src/views/admin/AdminProduits.vue
             <div class="flex items-center gap-3">
               <img
                 v-if="apercuPrincipale"
+                loading="lazy"
                 :src="apercuPrincipale"
                 alt="Aperçu de l'image principale"
                 class="h-16 w-16 flex-shrink-0 rounded-lg object-cover border"
@@ -236,6 +237,7 @@ File: src/views/admin/AdminProduits.vue
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-3">
                     <img
+                      loading="lazy"
                       :src="resolveImageUrl(produit.image_principale)" :alt="produit.nom"
                       class="h-12 w-12 rounded-lg object-cover border"
                       @error="onImageError"

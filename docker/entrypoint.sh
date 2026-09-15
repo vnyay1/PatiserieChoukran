@@ -95,7 +95,9 @@ php artisan optimize:clear >/dev/null 2>&1 || true
 php artisan config:cache --no-interaction
 php artisan route:cache --no-interaction
 php artisan view:cache --no-interaction
-chown -R www-data:www-data bootstrap/cache
+php artisan event:cache --no-interaction
+# Cache applicatif en fichiers : rien ne doit rester à root après les commandes ci-dessus
+chown -R www-data:www-data bootstrap/cache storage/framework/cache
 
 log "Démarrage des services."
 exec "$@"

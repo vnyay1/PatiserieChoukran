@@ -160,6 +160,7 @@ File: src/views/admin/AdminDashboard.vue
             <div v-else class="space-y-3">
               <div v-for="produit in topProduits" :key="produit.id" class="flex items-center gap-3">
                 <img
+                  loading="lazy"
                   :src="resolveImageUrl(produit.image_principale)" :alt="produit.nom"
                   class="h-12 w-12 rounded-lg object-cover border"
                   @error="onImageError"

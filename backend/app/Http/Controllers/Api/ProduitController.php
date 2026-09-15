@@ -102,9 +102,6 @@ class ProduitController extends Controller
             ->visible()
             ->firstOrFail();
 
-        // Incrémenter le nombre de vues
-        $produit->incrementerVues();
-
         return response()->json([
             'success' => true,
             'data' => $produit,
@@ -130,44 +127,6 @@ class ProduitController extends Controller
         return response()->json([
             'success' => true,
             'data' => $similaires,
-        ]);
-    }
-
-    /**
-     * Produits vedettes pour la page d'accueil : ceux des vendeurs mis en avant
-     */
-    public function featured(Request $request)
-    {
-        $produits = Produit::vedette()
-            ->visible()
-            ->livrableDans($this->ville($request))
-            ->with(['categorie', Produit::VENDEUR_PUBLIC])
-            ->orderBy('nombre_commandes', 'desc')
-            ->orderBy('id', 'desc')
-            ->limit(8)
-            ->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $produits,
-        ]);
-    }
-
-    /**
-     * Nouveautés
-     */
-    public function nouveautes(Request $request)
-    {
-        $produits = Produit::visible()
-            ->livrableDans($this->ville($request))
-            ->with(['categorie', Produit::VENDEUR_PUBLIC])
-            ->orderBy('created_at', 'desc')
-            ->limit(8)
-            ->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $produits,
         ]);
     }
 

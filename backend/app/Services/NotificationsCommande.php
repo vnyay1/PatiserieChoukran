@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Commande;
 use App\Models\Notification;
 use App\Models\User;
+use App\Support\Differe;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -106,14 +107,13 @@ class NotificationsCommande
     }
 
     /**
-     * L'e-mail part par la file d'attente : un SMTP lent ou injoignable ne doit
-     * jamais retarder la réponse du checkout. En test (queue « sync ») l'envoi
-     * reste immédiat.
+     * L'e-mail part par la file d'attente (ou juste après la réponse en queue « sync ») :
+     * un SMTP lent ou injoignable ne retarde jamais la réponse du checkout.
      */
     public static function envoyerEmail(string $email, string $nom, string $sujet, string $corps): void
     {
         try {
-            dispatch(function () use ($email, $nom, $sujet, $corps) {
+            Differe::executer(function () use ($email, $nom, $sujet, $corps) {
                 // Jamais d'exception vers le worker : un échec après remise au SMTP
                 // entraînerait un nouvel essai, donc un doublon chez le destinataire
                 try {

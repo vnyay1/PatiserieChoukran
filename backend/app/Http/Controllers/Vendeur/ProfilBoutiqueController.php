@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Vendeur;
 
 use App\Http\Controllers\Controller;
 use App\Models\ParametreSite;
+use App\Services\Images;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -59,7 +60,7 @@ class ProfilBoutiqueController extends Controller
 
         if ($request->hasFile('logo_boutique')) {
             $ancienLogo = $vendeur->logo_boutique;
-            $donnees['logo_boutique'] = $request->file('logo_boutique')->store('boutiques', 'public');
+            $donnees['logo_boutique'] = Images::enregistrer($request->file('logo_boutique'), 'boutiques', 400);
 
             if ($ancienLogo) {
                 Storage::disk('public')->delete($ancienLogo);

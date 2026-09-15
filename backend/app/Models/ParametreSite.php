@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 
 class ParametreSite extends Model
 {
@@ -14,16 +15,28 @@ class ParametreSite extends Model
         'groupe',
     ];
 
-    // Méthode statique pour récupérer une valeur
+    private const CLE_CACHE = 'parametres_site';
+
+    // Toute modification par le modèle vide le cache ; une écriture SQL directe (migration) est prise en compte sous 10 minutes
+    protected static function booted(): void
+    {
+        static::saved(fn () => Cache::forget(self::CLE_CACHE));
+        static::deleted(fn () => Cache::forget(self::CLE_CACHE));
+    }
+
+    // Méthode statique pour récupérer une valeur (tous les paramètres en une requête, mis en cache)
     public static function get($cle, $default = null)
     {
-        $parametre = static::where('cle', $cle)->first();
+        $parametres = Cache::remember(self::CLE_CACHE, now()->addMinutes(10), fn () => static::query()
+            ->get(['cle', 'valeur', 'type'])
+            ->mapWithKeys(fn (self $parametre) => [$parametre->cle => [$parametre->valeur, $parametre->type]])
+            ->all());
 
-        if (! $parametre) {
+        if (! array_key_exists($cle, $parametres)) {
             return $default;
         }
 
-        return static::castValue($parametre->valeur, $parametre->type);
+        return static::castValue(...$parametres[$cle]);
     }
 
     // Méthode statique pour définir une valeur

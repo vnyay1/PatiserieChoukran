@@ -19,7 +19,8 @@ return [
     // Nom des factures et rapports téléchargés (lu par le SPA sur une autre origine en dev)
     'exposed_headers' => ['Content-Disposition'],
 
-    'max_age' => 0,
+    // Requête préalable (OPTIONS) mise en cache par le navigateur, plafonnée à 2 h par Chrome
+    'max_age' => 7200,
 
     // Authentification par token Bearer (en-tête), pas par cookie
     'supports_credentials' => false,

@@ -40,7 +40,7 @@ File: src/views/Home.vue
           <p class="text-gray-600">Des créations pour tous les goûts</p>
         </div>
 
-        <div v-if="loadingCategories" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div v-if="chargement" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div v-for="n in 4" :key="n" class="skeleton h-32 rounded-elegant"></div>
         </div>
 
@@ -81,7 +81,7 @@ File: src/views/Home.vue
           <p class="text-gray-600">Les créations de nos vendeurs à la une</p>
         </div>
 
-        <div v-if="loadingProduits" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div v-if="chargement" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div v-for="n in 4" :key="n" class="skeleton h-64 rounded-elegant"></div>
         </div>
 
@@ -102,14 +102,14 @@ File: src/views/Home.vue
     </section>
 
     <!-- Nouveautés -->
-    <section v-if="loadingNouveautes || produitsNouveautes.length > 0" class="py-12 px-4">
+    <section v-if="chargement || produitsNouveautes.length > 0" class="py-12 px-4">
       <div class="container mx-auto">
         <div class="text-center mb-8">
           <h2 class="font-display text-3xl font-bold text-gold-600 mb-2">Nouveautés</h2>
           <p class="text-gray-600">Les dernières créations de nos vendeurs</p>
         </div>
 
-        <div v-if="loadingNouveautes" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div v-if="chargement" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div v-for="n in 4" :key="n" class="skeleton h-64 rounded-elegant"></div>
         </div>
 
@@ -169,9 +169,7 @@ const villeStore = useVilleStore()
 const categories = ref([])
 const produitsFeatured = ref([])
 const produitsNouveautes = ref([])
-const loadingCategories = ref(true)
-const loadingProduits = ref(true)
-const loadingNouveautes = ref(true)
+const chargement = ref(true)
 
 const getCategorieEmoji = (nom) => {
   const emojis = {
@@ -184,24 +182,20 @@ const getCategorieEmoji = (nom) => {
   return emojis[nom] || '🍰'
 }
 
-const charger = async (requete, cible, chargement) => {
+// Une seule requête pour toute la page (catégories, vedettes, nouveautés)
+const chargerAccueil = async () => {
   try {
-    const response = await requete
+    const response = await api.accueil()
     if (response.data.success) {
-      cible.value = response.data.data
+      categories.value = response.data.data.categories
+      produitsFeatured.value = response.data.data.vedettes
+      produitsNouveautes.value = response.data.data.nouveautes
     }
   } catch (error) {
     console.error('Erreur chargement page d\'accueil:', error)
   } finally {
     chargement.value = false
   }
-}
-
-const chargerAccueil = () => {
-  // Les trois requêtes partent en même temps : la page s'affiche plus vite
-  charger(api.categories.getAll(), categories, loadingCategories)
-  charger(api.produits.getFeatured(), produitsFeatured, loadingProduits)
-  charger(api.produits.getNouveautes(), produitsNouveautes, loadingNouveautes)
 }
 
 onMounted(chargerAccueil)

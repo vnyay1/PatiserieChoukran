@@ -5,12 +5,12 @@
 
 export const PLACEHOLDER_PRODUIT = '/placeholder-product.svg'
 
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+const apiBase = import.meta.env.VITE_API_URL || '/api/v1'
 const apiOrigin = (() => {
   try {
     return new URL(apiBase).origin
   } catch {
-    // URL relative (ex. "/api/v1" en Docker) : fichiers servis par la même origine
+    // URL relative ("/api/v1" en Docker et derrière le proxy Vite) : fichiers servis par la même origine
     return ''
   }
 })()

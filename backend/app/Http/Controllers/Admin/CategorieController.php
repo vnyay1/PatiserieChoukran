@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Categorie;
+use App\Services\Images;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -49,7 +50,7 @@ class CategorieController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('categories', 'public');
+            $validated['image'] = Images::enregistrer($request->file('image'), 'categories', 800);
         }
 
         $validated['slug'] = $this->generateUniqueSlug($validated['nom']);
@@ -98,7 +99,7 @@ class CategorieController extends Controller
             if ($categorie->image) {
                 \Storage::disk('public')->delete($categorie->image);
             }
-            $validated['image'] = $request->file('image')->store('categories', 'public');
+            $validated['image'] = Images::enregistrer($request->file('image'), 'categories', 800);
         }
 
         if (isset($validated['nom']) && $validated['nom'] !== $categorie->nom) {

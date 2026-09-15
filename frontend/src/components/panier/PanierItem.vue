@@ -12,6 +12,7 @@ File: src/components/panier/PanierItem.vue
         class="flex-shrink-0 w-24 h-24 md:w-32 md:h-32 rounded-lg overflow-hidden bg-gray-100"
       >
         <img
+          loading="lazy"
           :src="resolveImageUrl(item.produit.image_principale)" :alt="item.produit.nom"
           class="w-full h-full object-cover hover:scale-110 transition-transform"
           @error="onImageError"

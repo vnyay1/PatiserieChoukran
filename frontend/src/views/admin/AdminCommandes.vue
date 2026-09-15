@@ -421,6 +421,7 @@ File: src/views/admin/AdminCommandes.vue
                 >
                   <div class="flex items-center gap-3">
                     <img
+                      loading="lazy"
                       :src="resolveImageUrl(ligne.produit?.image_principale)"
                       :alt="ligne.nom_produit"
                       class="h-12 w-12 rounded-lg object-cover border"

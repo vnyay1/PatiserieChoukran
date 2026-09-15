@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\PersonalAccessToken;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Events\MessageSent;
@@ -9,6 +10,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -33,6 +35,9 @@ class AppServiceProvider extends ServiceProvider
         if ($delai > 0 && ! $this->app->runningInConsole()) {
             ini_set('mysqlnd.net_read_timeout', (string) $delai);
         }
+
+        // last_used_at écrit au plus une fois toutes les 5 minutes par jeton
+        Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
 
         $this->definirLimiteurs();
         $this->journaliserEmails();

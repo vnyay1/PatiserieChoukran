@@ -129,7 +129,9 @@ class CheckoutMultiVendeurTest extends TestCase
         $this->assertSame(['Fraisier'], collect($this->getJson('/api/v1/produits?ville=douala')->json('data.data'))->pluck('nom')->all());
 
         $this->getJson('/api/v1/produits?ville=bafoussam')->assertStatus(422)->assertJsonValidationErrors('ville');
-        $this->getJson('/api/v1/produits/nouveautes?ville=douala')->assertJsonCount(1, 'data');
+        $this->getJson('/api/v1/accueil?ville=douala')
+            ->assertJsonCount(1, 'data.nouveautes')
+            ->assertJsonPath('data.categories.0.produits_disponibles_count', 1);
         $this->getJson('/api/v1/categories?ville=douala')->assertJsonPath('data.0.produits_disponibles_count', 1);
     }
 

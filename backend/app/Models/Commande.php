@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Exceptions\RegleMetierException;
 use App\Jobs\GenererEtEnvoyerFacture;
 use App\Services\NotificationsCommande;
+use App\Support\Differe;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -283,7 +284,7 @@ class Commande extends Model
         // Par la file d'attente en production ; une erreur ne remet jamais en cause le statut.
         if ($nouveauStatut === 'confirmee') {
             try {
-                GenererEtEnvoyerFacture::dispatch($this->id);
+                Differe::executer(new GenererEtEnvoyerFacture($this->id));
             } catch (\Throwable $e) {
                 Log::error('Échec de la facturation de la commande', [
                     'commande_id' => $this->id,
