@@ -158,7 +158,7 @@ jobs:
         run: npm run build
 
   docker:
-    name: Image Docker — build & scan
+    name: Image Docker — build, scan & smoke test
     runs-on: ubuntu-latest
     needs: [backend, frontend]
 
@@ -171,21 +171,86 @@ jobs:
       - name: Construire l'image
         uses: docker/build-push-action@v6
         with:
-          context: backend
-          file: backend/Dockerfile
+          context: .
+          file: Dockerfile
           push: false
           load: true
-          tags: patiserie-backend:ci
+          tags: patiserie-choukran:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Scan de vulnérabilités (Trivy)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: patiserie-backend:ci
+          image-ref: patiserie-choukran:latest
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
           exit-code: '1'
+
+      - name: Préparer l'environnement de test
+        run: |
+          cp .env.docker.example .env.docker
+          {
+            echo "MYSQL_PASSWORD=ci_password"
+            echo "MYSQL_ROOT_PASSWORD=ci_root_password"
+            echo "DB_PASSWORD=ci_password"
+            echo "APP_KEY=base64:$(openssl rand -base64 32)"
+          } >> .env.docker
+
+      - name: Démarrer la pile
         env:
-          TRIVY_SKIP_DB_UPDATE: false
+          RUN_SEEDERS: 'true'
+        run: docker compose up -d --no-build
+
+      - name: Attendre que l'application soit saine
+        run: |
+          for i in $(seq 1 60); do
+            statut=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q app)" 2>/dev/null || echo starting)
+            [ "$statut" = "healthy" ] && exit 0
+            [ "$statut" = "unhealthy" ] && break
+            sleep 5
+          done
+          echo "::error::L'application n'est jamais devenue saine."
+          docker compose logs --no-color app
+          exit 1
+
+      # Prouve la correction G5 : sans le middleware « stateful » de Sanctum,
+      # un POST portant un en-tête Origin n'est plus rejeté en 419.
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          base=http://localhost:8088
+
+          echo "→ SPA"
+          curl -fsS "$base/" | grep -q '<div id="app"'
+
+          echo "→ /up"
+          curl -fsS "$base/up" > /dev/null
+
+          echo "→ catalogue public"
+          curl -fsS "$base/api/v1/produits" | grep -q '"success":true'
+
+          echo "→ connexion (avec en-tête Origin)"
+          jeton=$(curl -fsS -X POST "$base/api/v1/auth/login" \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json' \
+            -H "Origin: $base" \
+            -d '{"telephone":"+237699000003","mot_de_passe":"password123"}' \
+            | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+          test -n "$jeton"
+
+          echo "→ route authentifiée"
+          curl -fsS "$base/api/v1/panier" -H "Authorization: Bearer $jeton" \
+            -H 'Accept: application/json' | grep -q '"success":true'
+
+          echo "→ worker et planificateur en cours d'exécution"
+          docker compose exec -T app sh -c 'pgrep -f "queue:work" >/dev/null && pgrep -f "schedule:work" >/dev/null'
+
+      - name: Journaux en cas d'échec
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Arrêter la pile
+        if: always()
+        run: docker compose down -v

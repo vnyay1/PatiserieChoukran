@@ -1,0 +1,49 @@
+# Le contexte de build est la racine du dépôt : on n'y envoie que le
+# nécessaire, sinon le build recopie node_modules et vendor à chaque fois.
+
+.git
+.gitignore
+.github
+.claude
+*.md
+!backend/README.md
+
+# Secrets : ils arrivent par variables d'environnement, jamais dans l'image.
+.env
+.env.*
+!.env.docker.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+
+# Dépendances et artefacts reconstruits par les étapes de build
+**/node_modules
+backend/vendor
+frontend/dist
+frontend/.vite
+
+# Caches locaux : packages.php liste les paquets de dev, absents de l'image
+# construite avec --no-dev. Ils sont régénérés pendant le build.
+backend/bootstrap/cache/*.php
+
+# Données locales
+backend/database/*.sqlite
+backend/storage/logs/*
+backend/storage/framework/cache/data/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/storage/app/public/*
+!**/.gitignore
+
+# Outillage inutile en production
+backend/tests
+backend/phpunit.xml
+backend/pint.json
+frontend/eslint.config.js
+
+# Divers
+**/.DS_Store
+**/Thumbs.db
+docker-compose*.yml
