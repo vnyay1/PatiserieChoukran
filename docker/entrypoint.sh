@@ -96,8 +96,10 @@ php artisan config:cache --no-interaction
 php artisan route:cache --no-interaction
 php artisan view:cache --no-interaction
 php artisan event:cache --no-interaction
-# Cache applicatif en fichiers : rien ne doit rester à root après les commandes ci-dessus
-chown -R www-data:www-data bootstrap/cache storage/framework/cache
+# Les commandes ci-dessus tournent en root : seeders (logos copiés dans storage/app/public),
+# cache en fichiers, journaux. Sans ce chown, php-fpm (www-data) ne pourrait plus y écrire
+# et les téléversements échoueraient.
+chown -R www-data:www-data bootstrap/cache storage
 
 log "Démarrage des services."
 exec "$@"

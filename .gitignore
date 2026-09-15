@@ -1,2 +1,5 @@
 # Secrets locaux : jamais dans git (voir .env.docker.example)
 .env.docker
+
+# Sauvegardes SQL locales (données réelles)
+backups/

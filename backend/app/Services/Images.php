@@ -21,7 +21,7 @@ class Images
         $image = self::charger($fichier);
 
         if (! $image) {
-            return $fichier->store($dossier, 'public');
+            return self::conserverOriginal($fichier, $dossier);
         }
 
         $image = self::redimensionner($image, $largeurMax);
@@ -32,13 +32,27 @@ class Images
         imagedestroy($image);
 
         if (! $ok || $contenu === '' || $contenu === false) {
-            return $fichier->store($dossier, 'public');
+            return self::conserverOriginal($fichier, $dossier);
         }
 
         $chemin = $dossier.'/'.Str::random(40).'.webp';
-        Storage::disk('public')->put($chemin, $contenu);
+        if (! Storage::disk('public')->put($chemin, $contenu)) {
+            throw self::echecEcriture($dossier);
+        }
 
         return $chemin;
+    }
+
+    private static function conserverOriginal(UploadedFile $fichier, string $dossier): string
+    {
+        return $fichier->store($dossier, 'public') ?: throw self::echecEcriture($dossier);
+    }
+
+    // Le disque ne lève pas d'exception (throw => false) : sans ce contrôle, la base
+    // enregistrerait le chemin d'un fichier qui n'existe pas
+    private static function echecEcriture(string $dossier): \RuntimeException
+    {
+        return new \RuntimeException("Impossible d'enregistrer l'image dans storage/app/public/{$dossier} (droits d'écriture ?).");
     }
 
     private static function charger(UploadedFile $fichier): ?\GdImage
