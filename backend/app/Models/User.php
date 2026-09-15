@@ -16,11 +16,9 @@ class User extends Authenticatable
         'telephone',
         'mot_de_passe',
         'role',
-        'photo_profil',
         'logo_boutique',
         'description_boutique',
         'conditions_acceptees_le',
-        'adresse_principale',
         'statut',
         'montant_minimum_livraison',
         'est_vendeur_vedette',
@@ -28,11 +26,9 @@ class User extends Authenticatable
 
     protected $hidden = [
         'mot_de_passe',
-        'remember_token',
     ];
 
     protected $casts = [
-        'email_verified_at' => 'datetime',
         'mot_de_passe' => 'hashed',
         'conditions_acceptees_le' => 'datetime',
         'montant_minimum_livraison' => 'decimal:2',

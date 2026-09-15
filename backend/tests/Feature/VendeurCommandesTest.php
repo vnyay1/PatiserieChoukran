@@ -39,16 +39,4 @@ class VendeurCommandesTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.user.telephone', $client->telephone);
     }
-
-    public function test_les_anciennes_commandes_sont_rattachees_au_vendeur_par_migration(): void
-    {
-        $client = $this->creerUtilisateur('client');
-        $vendeur = $this->creerUtilisateur('vendeur');
-        $ancienne = $this->creerCommande($client, $vendeur, ['vendeur_id' => null, 'livreur_id' => $vendeur->id]);
-
-        $migration = require database_path('migrations/2026_09_11_000001_backfill_vendeur_id_on_commandes.php');
-        $migration->up();
-
-        $this->assertSame($vendeur->id, (int) $ancienne->fresh()->vendeur_id);
-    }
 }

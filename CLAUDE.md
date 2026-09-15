@@ -11,7 +11,7 @@ Choukrane Pâtisserie is a multi-vendor pastry marketplace for Cameroon: Yaound�
 
 Domain vocabulary, DB columns, routes and user-facing messages are in French (`commande`, `panier`, `vendeur`, `quartier`, `statut`…). Keep new code consistent with that.
 
-`backend/package.json`, `backend/vite.config.js`, `backend/resources/css|js` and `welcome.blade.php` are the unused Laravel skeleton. The real UI is in `frontend/`. The only Blade views in use are `resources/views/pdf/*` (dompdf invoices and reports) and `resources/views/emails/*`.
+The backend has no web UI: the real UI is in `frontend/`. The only Blade views are `resources/views/pdf/*` (dompdf invoices and reports) and `resources/views/emails/*`. `routes/web.php` only holds the NotchPay callback redirect.
 
 ## Commands
 
@@ -88,10 +88,12 @@ All migrations must run on SQLite as well as MySQL:
 ## Architecture
 
 ### Roles and routing
-`users.role` is `client | admin | vendeur`. The `vendeur` role replaced the old `livreur` (delivery person) role; vendors now sell and deliver their own products. Some legacy names remain:
-- `commandes.livreur_id` is still written and mirrors `vendeur_id`.
-- `Admin\CommandeController::assignLivreur` handles both the `assign-livreur` and `assign-vendeur` routes.
-- The `vendeur/livraisons/*` routes are aliases of `vendeur/commandes/*`.
+`users.role` is `client | admin | vendeur`. The `vendeur` role replaced the old `livreur` (delivery person) role; vendors sell and deliver their own products. An order's vendor is set at checkout (`commandes.vendeur_id`) and never reassigned.
+
+`2026_09_15_000009_nettoyage_colonnes_et_tables_inutilisees` removed what was left unused:
+- columns `commandes.livreur_id`, `devise` and `operateur_mobile`, `notifications.canal`, `produits.nombre_vues`, and `users.photo_profil`, `adresse_principale`, `email_verified_at` and `remember_token`;
+- the `assign-livreur` / `assign-vendeur` routes and the `vendeur/livraisons/*` aliases;
+- the `sessions`, `cache`, `cache_locks` and `job_batches` tables. `jobs` and `failed_jobs` remain for the Docker worker.
 
 Use `vendeur` in new code.
 
@@ -169,7 +171,7 @@ Use `vendeur` in new code.
   - frontend: `utils/villes.js`;
   - admins manage quartiers at `/admin/quartiers`.
 - `adresses` has a text column `quartier` (the name) and a `quartier_id` FK. The relation is deliberately named `Adresse::quartierLivraison()` (JSON key `quartier_livraison`). A relation named `quartier()` would replace the text column in the JSON whenever it is eager-loaded. An address is created with `ville` and `quartier_id` (both required, and the quartier must belong to that city), plus a free, optional `zone` (sector, crossroads…). `AdresseController` copies the quartier name and city into the `quartier` / `ville` columns.
-- Uploads go to the `public` disk under `produits/`, `categories/`, `profils/` and `boutiques/`. `Services\Images::enregistrer($fichier, $dossier, $largeurMax)` resizes images (1200 px for products, 800 for categories, 400 for logos), applies EXIF orientation and saves them as WebP. It keeps the original file when GD cannot read it.
+- Uploads go to the `public` disk under `produits/`, `categories/` and `boutiques/`. `Services\Images::enregistrer($fichier, $dossier, $largeurMax)` resizes images (1200 px for products, 800 for categories, 400 for logos), applies EXIF orientation and saves them as WebP. It keeps the original file when GD cannot read it.
 - Slow work (invoice PDF, SMTP) goes through `Support\Differe::executer($job)`. With a worker it is queued. With `QUEUE_CONNECTION=sync` (local dev) it runs after the HTTP response through Laravel's `defer()`. Never use `dispatch()->afterResponse()`: its terminating callbacks run again on every request of a test.
 - Performance defaults:
   - `CACHE_STORE=file` and `SESSION_DRIVER=array` (the API is stateless);

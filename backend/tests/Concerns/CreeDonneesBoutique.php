@@ -105,7 +105,6 @@ trait CreeDonneesBoutique
         return Commande::create(array_merge([
             'user_id' => $client->id,
             'vendeur_id' => $vendeur->id,
-            'livreur_id' => $vendeur->id,
             'montant_produits' => 2000,
             'montant_livraison' => 0,
             'montant_total' => 2000,

@@ -254,7 +254,6 @@ export default {
       getOne: (id) => api.get(`${getCommandesPrefix()}/${id}`),
       updateStatus: (id, data) => api.patch(`${getCommandesPrefix()}/${id}/status`, data),
       confirmPayment: (id, data) => api.post(`${getCommandesPrefix()}/${id}/confirm-payment`, data),
-      assignVendeur: (id, data) => api.post(`/admin/commandes/${id}/assign-vendeur`, data),
       facture: (id) => api.get(`${getCommandesPrefix()}/${id}/facture`, fichierPdf),
     },
     rapports: {

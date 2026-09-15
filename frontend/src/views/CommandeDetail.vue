@@ -425,8 +425,7 @@ const telechargerFacture = async () => {
   }
 }
 
-// Commandes antérieures au sprint : le vendeur n'était enregistré que dans livreur_id
-const vendeurCommandeId = computed(() => commande.value?.vendeur_id ?? commande.value?.livreur_id ?? null)
+const vendeurCommandeId = computed(() => commande.value?.vendeur_id ?? null)
 
 const form = ref({
   type_livraison: 'livraison',

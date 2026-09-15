@@ -50,7 +50,6 @@ class Commande extends Model
         'montant_produits',
         'montant_livraison',
         'montant_total',
-        'devise',
         'statut',
         'statut_paiement',
         'type_livraison',
@@ -60,12 +59,10 @@ class Commande extends Model
         'heure_livraison_souhaitee',
         'instructions_speciales',
         'moyen_paiement',
-        'operateur_mobile',
         'telephone_paiement',
         'reference_paiement',
         'date_paiement',
         'paiement_id',
-        'livreur_id',
     ];
 
     protected $casts = [
@@ -81,11 +78,6 @@ class Commande extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function livreur()
-    {
-        return $this->belongsTo(User::class, 'livreur_id');
     }
 
     public function vendeur()
@@ -167,7 +159,7 @@ class Commande extends Model
     }
 
     /**
-     * Commandes visibles dans les listes opérationnelles (admin/livreur).
+     * Commandes visibles dans les listes opérationnelles (admin/vendeur).
      */
     public function scopeVisibleDansListes($query)
     {

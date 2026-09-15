@@ -184,8 +184,6 @@ Route::prefix('v1')->group(function () {
             Route::get('/', [AdminCommandeController::class, 'index']);
             Route::get('/{id}', [AdminCommandeController::class, 'show']);
             Route::patch('/{id}/status', [AdminCommandeController::class, 'updateStatus']);
-            Route::post('/{id}/assign-livreur', [AdminCommandeController::class, 'assignLivreur']);
-            Route::post('/{id}/assign-vendeur', [AdminCommandeController::class, 'assignLivreur']);
             Route::post('/{id}/confirm-payment', [AdminCommandeController::class, 'confirmPayment']);
             Route::get('/{id}/facture', [FactureController::class, 'admin'])->whereNumber('id');
         });
@@ -233,13 +231,6 @@ Route::prefix('v1')->group(function () {
                 Route::get('/{id}/facture', [FactureController::class, 'vendeur'])->whereNumber('id');
             });
 
-            // Alias historiques "livraisons" (compatibilité)
-            Route::get('livraisons', [VendeurCommandeController::class, 'index']);
-            Route::get('livraisons/en-cours', [VendeurCommandeController::class, 'enCours']);
-            Route::get('livraisons/{id}', [VendeurCommandeController::class, 'show']);
-            Route::patch('livraisons/{id}/status', [VendeurCommandeController::class, 'updateStatus']);
-            Route::post('livraisons/{id}/confirm-payment', [VendeurCommandeController::class, 'confirmPayment']);
-
             // Statistiques du vendeur
             Route::get('stats', [VendeurCommandeController::class, 'stats']);
 
@@ -259,17 +250,4 @@ Route::prefix('v1')->group(function () {
             });
         });
     });
-});
-
-// ===================================
-// ROUTE DE TEST (À SUPPRIMER EN PRODUCTION)
-// ===================================
-
-Route::get('test', function () {
-    return response()->json([
-        'success' => true,
-        'message' => 'API Pâtisserie-Glacier fonctionne !',
-        'version' => '1.0',
-        'timestamp' => now()->toDateTimeString(),
-    ]);
 });

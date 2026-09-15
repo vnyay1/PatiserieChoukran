@@ -146,18 +146,11 @@ class CommandeController extends Controller
             }
         }
 
-        $operateurMobile = null;
-        if ($validated['moyen_paiement'] === 'orange_money') {
-            $operateurMobile = 'orange';
-        } elseif ($validated['moyen_paiement'] === 'mtn_momo') {
-            $operateurMobile = 'mtn';
-        }
-
         $commandes = [];
         $vendeursANotifier = [];
 
         try {
-            DB::transaction(function () use ($panierItems, $validated, $adresse, $operateurMobile, $request, &$commandes, &$vendeursANotifier) {
+            DB::transaction(function () use ($panierItems, $validated, $adresse, $request, &$commandes, &$vendeursANotifier) {
                 // Verrou sur les produits : deux clients ne peuvent pas acheter la dernière unité
                 // en même temps (le stock est relu et vérifié à l'intérieur de la transaction).
                 $produits = Produit::whereIn('id', $panierItems->pluck('produit_id'))
@@ -216,7 +209,6 @@ class CommandeController extends Controller
                     $commande = Commande::create([
                         'user_id' => $request->user()->id,
                         'vendeur_id' => $vendeurId,
-                        'livreur_id' => $vendeurId,
                         'montant_produits' => $montantProduits,
                         'montant_livraison' => $montantLivraison,
                         'montant_total' => $montantProduits + $montantLivraison,
@@ -231,7 +223,6 @@ class CommandeController extends Controller
                         'heure_livraison_souhaitee' => $validated['heure_livraison_souhaitee'] ?? null,
                         'instructions_speciales' => $validated['instructions_speciales'] ?? null,
                         'moyen_paiement' => $validated['moyen_paiement'],
-                        'operateur_mobile' => $operateurMobile,
                         'telephone_paiement' => $validated['telephone_paiement'] ?? null,
                         'statut' => 'en_attente',
                         'statut_paiement' => 'en_attente',
@@ -448,13 +439,6 @@ class CommandeController extends Controller
             ], 422);
         }
 
-        $operateurMobile = null;
-        if ($moyenPaiement === 'orange_money') {
-            $operateurMobile = 'orange';
-        } elseif ($moyenPaiement === 'mtn_momo') {
-            $operateurMobile = 'mtn';
-        }
-
         if ($moyenPaiement === 'especes') {
             $telephonePaiement = null;
         }
@@ -467,7 +451,6 @@ class CommandeController extends Controller
             'heure_livraison_souhaitee' => $validated['heure_livraison_souhaitee'] ?? $commande->heure_livraison_souhaitee,
             'instructions_speciales' => $validated['instructions_speciales'] ?? $commande->instructions_speciales,
             'moyen_paiement' => $moyenPaiement,
-            'operateur_mobile' => $operateurMobile,
             'telephone_paiement' => $telephonePaiement,
             'montant_livraison' => $montantLivraison,
             'montant_total' => $commande->montant_produits + $montantLivraison,

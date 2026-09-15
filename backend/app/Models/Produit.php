@@ -22,7 +22,6 @@ class Produit extends Model
         'images_secondaires',
         'stock_disponible',
         'est_disponible',
-        'nombre_vues',
         'nombre_commandes',
     ];
 
@@ -32,7 +31,6 @@ class Produit extends Model
         'images_secondaires' => 'array',
         'stock_disponible' => 'integer',
         'est_disponible' => 'boolean',
-        'nombre_vues' => 'integer',
         'nombre_commandes' => 'integer',
     ];
 

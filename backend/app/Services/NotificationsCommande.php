@@ -144,7 +144,6 @@ class NotificationsCommande
                 'titre' => $titre,
                 'message' => $message,
                 'type' => $type,
-                'canal' => 'app',
                 'est_lu' => false,
                 'url_action' => $url,
                 'date_envoi' => now(),

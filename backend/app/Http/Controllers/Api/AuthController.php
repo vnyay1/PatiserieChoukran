@@ -24,7 +24,6 @@ class AuthController extends Controller
             'telephone' => 'required|string|unique:users,telephone|regex:/^\+237[0-9]{9}$/',
             'email' => 'nullable|email|unique:users,email',
             'mot_de_passe' => 'required|string|min:6|confirmed',
-            'adresse_principale' => 'nullable|string',
         ]);
 
         $user = User::create([
@@ -32,7 +31,6 @@ class AuthController extends Controller
             'telephone' => $validated['telephone'],
             'email' => $validated['email'] ?? null,
             'mot_de_passe' => $validated['mot_de_passe'],
-            'adresse_principale' => $validated['adresse_principale'] ?? null,
             'role' => 'client',
             'statut' => 'actif',
         ]);
@@ -161,15 +159,7 @@ class AuthController extends Controller
             // L'e-mail fait partie du profil boutique obligatoire d'un vendeur
             'email' => ($user->isVendeur() ? 'sometimes|required' : 'sometimes|nullable').'|email|unique:users,email,'.$user->id,
             'telephone' => 'sometimes|string|unique:users,telephone,'.$user->id.'|regex:/^\+237[0-9]{9}$/',
-            'adresse_principale' => 'nullable|string',
-            'photo_profil' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
-
-        // Upload de la photo de profil
-        if ($request->hasFile('photo_profil')) {
-            $path = $request->file('photo_profil')->store('profils', 'public');
-            $validated['photo_profil'] = $path;
-        }
 
         $user->update($validated);
 

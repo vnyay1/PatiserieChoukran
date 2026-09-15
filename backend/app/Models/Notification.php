@@ -11,7 +11,6 @@ class Notification extends Model
         'titre',
         'message',
         'type',
-        'canal',
         'est_lu',
         'url_action',
         'date_envoi',

@@ -18,7 +18,6 @@ class UserSeeder extends Seeder
             'mot_de_passe' => 'password123',
             'role' => 'admin',
             'statut' => 'actif',
-            'email_verified_at' => now(),
         ]);
 
         // Vendeurs test (deux vendeurs pour tester le panier multi-vendeur), avec un

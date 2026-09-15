@@ -22,7 +22,6 @@ class ComptesEtNotificationsTest extends TestCase
                 'titre' => 'Info',
                 'message' => 'Message',
                 'type' => 'commande',
-                'canal' => 'app',
                 'est_lu' => $lue,
             ]);
         }

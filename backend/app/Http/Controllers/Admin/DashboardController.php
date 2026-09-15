@@ -21,13 +21,6 @@ class DashboardController extends Controller
     {
         $validated = $request->validate([
             'periode' => 'nullable|in:aujourd_hui,semaine,mois,annee',
-            'livreur_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('users', 'id')->where(function ($query) {
-                    $query->where('role', 'vendeur');
-                }),
-            ],
             'vendeur_id' => [
                 'nullable',
                 'integer',
@@ -39,9 +32,7 @@ class DashboardController extends Controller
 
         // Période (par défaut: ce mois)
         $periode = $validated['periode'] ?? 'mois';
-        $vendeurId = isset($validated['vendeur_id'])
-            ? (int) $validated['vendeur_id']
-            : (isset($validated['livreur_id']) ? (int) $validated['livreur_id'] : null);
+        $vendeurId = isset($validated['vendeur_id']) ? (int) $validated['vendeur_id'] : null;
 
         $dateDebut = match ($periode) {
             'aujourd_hui' => Carbon::today(),
@@ -126,9 +117,7 @@ class DashboardController extends Controller
                 'top_produits' => $topProduits,
                 'dernieres_commandes' => $dernieresCommandes,
                 'vendeurs' => $vendeurs,
-                'livreurs' => $vendeurs,
                 'selected_vendeur_id' => $vendeurId,
-                'selected_livreur_id' => $vendeurId,
             ],
         ]);
     }

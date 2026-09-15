@@ -118,52 +118,6 @@ class CommandeController extends Controller
     }
 
     /**
-     * Assigner un vendeur.
-     */
-    public function assignLivreur(Request $request, $id)
-    {
-        $validated = $request->validate([
-            'livreur_id' => 'required|exists:users,id',
-        ]);
-
-        $commande = Commande::findOrFail($id);
-
-        // Vérifier que c'est bien un vendeur.
-        $livreur = \App\Models\User::find($validated['livreur_id']);
-        if ($livreur->role !== 'vendeur') {
-            return response()->json([
-                'success' => false,
-                'message' => 'L\'utilisateur n\'est pas un vendeur',
-            ], 400);
-        }
-
-        $hasForeignProducts = $commande->ligneCommandes()
-            ->whereHas('produit', function ($query) use ($livreur) {
-                $query->whereNull('created_by_user_id')
-                    ->orWhere('created_by_user_id', '!=', $livreur->id);
-            })
-            ->exists();
-
-        if ($hasForeignProducts) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Ce vendeur ne peut pas être assigné: la commande contient des produits ajoutés par un autre utilisateur.',
-            ], 422);
-        }
-
-        $commande->update([
-            'livreur_id' => $validated['livreur_id'],
-            'vendeur_id' => $validated['livreur_id'],
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Vendeur assigné',
-            'data' => $commande->load('vendeur:id,nom_complet,telephone'),
-        ]);
-    }
-
-    /**
      * Confirmer le paiement
      */
     public function confirmPayment(Request $request, $id)
