@@ -1,111 +1,61 @@
 import { onBeforeUnmount, onMounted, readonly, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
+import { creerSondagePartage } from '@/utils/sondagePartage'
+
+// Badge « commandes à traiter » du vendeur : même sondage partagé que les notifications
+// (un appel toutes les 2 minutes au plus pour tous les onglets, rien en arrière-plan).
+// Utilisé par le Header et la BottomNav : un seul sondage pour les deux.
+const INTERVALLE_SONDAGE_MS = 2 * 60 * 1000
 
 const vendeurCommandesCount = ref(0)
-let vendeurBadgeInterval = null
-let badgeConsumers = 0
-let badgeFetchPromise = null
-let badgeListenerRegistered = false
-
-const canTrackVendeurCommandes = (authStore) => {
-  return authStore.isAuthenticated && authStore.isVendeur
-}
+let consommateurs = 0
+let sondage = null
+let sondageUserId = null
 
 const formatBadgeCount = (count) => {
   return count > 99 ? '99+' : count
 }
 
-const clearVendeurBadgeInterval = () => {
-  if (vendeurBadgeInterval) {
-    clearInterval(vendeurBadgeInterval)
-    vendeurBadgeInterval = null
-  }
+const arreterSondage = () => {
+  sondage?.arreter({ oublier: true })
+  sondage = null
+  sondageUserId = null
+  vendeurCommandesCount.value = 0
 }
 
-const fetchVendeurCommandesCount = async (authStore) => {
-  if (!canTrackVendeurCommandes(authStore)) {
-    vendeurCommandesCount.value = 0
+const synchroniser = (authStore) => {
+  const userId = authStore.isAuthenticated && authStore.isVendeur ? authStore.user?.id : null
+
+  if (!userId) {
+    arreterSondage()
     return
   }
+  if (sondage && sondageUserId === userId) return
 
-  if (badgeFetchPromise) {
-    await badgeFetchPromise
-    return
-  }
-
-  badgeFetchPromise = (async () => {
-    try {
+  arreterSondage()
+  sondageUserId = userId
+  sondage = creerSondagePartage({
+    cle: `choukrane:commandes-a-traiter:${userId}`,
+    intervalleMs: INTERVALLE_SONDAGE_MS,
+    charger: async () => {
       const response = await api.admin.commandes.getAll({ per_page: 1, badge_only: 1 })
-      if (response.data?.success) {
-        vendeurCommandesCount.value = Number(response.data?.data?.total || 0)
-      }
-    } catch (error) {
-      console.error('Erreur chargement compteur commandes vendeur:', error)
-    }
-  })()
-
-  try {
-    await badgeFetchPromise
-  } finally {
-    badgeFetchPromise = null
-  }
+      if (!response.data?.success) throw new Error('Compteur indisponible')
+      return Number(response.data?.data?.total || 0)
+    },
+    appliquer: (total) => {
+      vendeurCommandesCount.value = total
+    },
+  })
+  sondage.demarrer()
 }
 
-const syncVendeurBadgePolling = async (authStore) => {
-  clearVendeurBadgeInterval()
-
-  if (!canTrackVendeurCommandes(authStore)) {
-    vendeurCommandesCount.value = 0
-    return
-  }
-
-  await fetchVendeurCommandesCount(authStore)
-  // Pas de requête quand l'onglet est en arrière-plan ; rafraîchi au retour (voir onVisibilityChange)
-  vendeurBadgeInterval = setInterval(() => {
-    if (document.visibilityState === 'visible') {
-      fetchVendeurCommandesCount(authStore)
-    }
-  }, 60000)
-}
-
-const onVisibilityChange = () => {
-  const authStore = useAuthStore()
-  if (document.visibilityState === 'visible' && authStore.isVendeur) {
-    fetchVendeurCommandesCount(authStore)
-  }
-}
-
-const onVendeurCommandesUpdated = () => {
-  const authStore = useAuthStore()
-  if (authStore.isVendeur) {
-    fetchVendeurCommandesCount(authStore)
-  }
-}
-
-const registerBadgeListener = () => {
-  if (badgeListenerRegistered) {
-    return
-  }
-
-  window.addEventListener('vendeur-commandes-updated', onVendeurCommandesUpdated)
-  document.addEventListener('visibilitychange', onVisibilityChange)
-  badgeListenerRegistered = true
-}
-
-const unregisterBadgeListener = () => {
-  if (!badgeListenerRegistered) {
-    return
-  }
-
-  window.removeEventListener('vendeur-commandes-updated', onVendeurCommandesUpdated)
-  document.removeEventListener('visibilitychange', onVisibilityChange)
-  badgeListenerRegistered = false
+// Une action du vendeur sur ses commandes (AdminCommandes) : le badge est rafraîchi tout de suite
+const surCommandesModifiees = () => {
+  sondage?.rafraichir({ force: true })
 }
 
 export const useVendeurCommandesBadge = () => {
-  const route = useRoute()
   const authStore = useAuthStore()
 
   const showVendeurCommandesBadge = (itemName) => {
@@ -113,35 +63,23 @@ export const useVendeurCommandesBadge = () => {
   }
 
   onMounted(() => {
-    badgeConsumers += 1
-    registerBadgeListener()
-    syncVendeurBadgePolling(authStore)
+    consommateurs += 1
+    if (consommateurs === 1) {
+      window.addEventListener('vendeur-commandes-updated', surCommandesModifiees)
+    }
+    synchroniser(authStore)
   })
 
   watch(
-    () => [authStore.isAuthenticated, authStore.user?.role],
-    () => {
-      syncVendeurBadgePolling(authStore)
-    }
-  )
-
-  watch(
-    () => route.fullPath,
-    () => {
-      if (authStore.isVendeur) {
-        fetchVendeurCommandesCount(authStore)
-      }
-    }
+    () => [authStore.isAuthenticated, authStore.user?.id, authStore.user?.role],
+    () => synchroniser(authStore)
   )
 
   onBeforeUnmount(() => {
-    badgeConsumers = Math.max(0, badgeConsumers - 1)
-
-    if (badgeConsumers === 0) {
-      clearVendeurBadgeInterval()
-      unregisterBadgeListener()
-      badgeFetchPromise = null
-      vendeurCommandesCount.value = 0
+    consommateurs = Math.max(0, consommateurs - 1)
+    if (consommateurs === 0) {
+      window.removeEventListener('vendeur-commandes-updated', surCommandesModifiees)
+      arreterSondage()
     }
   })
 

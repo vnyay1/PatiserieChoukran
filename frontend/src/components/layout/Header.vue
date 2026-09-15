@@ -229,7 +229,7 @@ File: src/components/layout/Header.vue
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
@@ -308,19 +308,21 @@ const formatNotificationBadgeCount = (count) => {
   return count > 99 ? '99+' : count
 }
 
-const syncNotificationsState = async () => {
-  if (!authStore.isAuthenticated) {
-    notificationsStore.stopPolling()
+// Le compteur de notifications suit l'utilisateur connecté (et non la simple présence
+// d'un token : l'utilisateur est chargé après le premier rendu)
+watch(
+  () => authStore.user?.id,
+  (userId) => {
+    if (userId) {
+      notificationsStore.startPolling()
+      return
+    }
+
+    notificationsStore.stopPolling({ oublier: true })
     notificationsStore.reset()
-    return
-  }
-
-  await notificationsStore.startPolling()
-}
-
-onMounted(() => {
-  syncNotificationsState()
-})
+  },
+  { immediate: true }
+)
 
 watch(
   () => mobileOpen.value,
@@ -329,27 +331,11 @@ watch(
   }
 )
 
+// Changer de page ne déclenche aucun appel réseau (le sondage partagé s'en charge)
 watch(
   () => route.fullPath,
   () => {
     mobileOpen.value = false
-    // Rafraîchissement opportuniste du badge (limité par le store)
-    if (authStore.isAuthenticated) {
-      notificationsStore.fetchUnreadCount()
-    }
-  }
-)
-
-watch(
-  () => authStore.isAuthenticated,
-  (isAuthenticated) => {
-    if (isAuthenticated) {
-      syncNotificationsState()
-      return
-    }
-
-    notificationsStore.stopPolling()
-    notificationsStore.reset()
   }
 )
 

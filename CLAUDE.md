@@ -178,7 +178,12 @@ Use `vendeur` in new code.
   - `livraisonDesGroupes(groupes, quartierId)`, which returns a status for each group (`ok | non_couvert | minimum_non_atteint | sans_quartier | sans_vendeur | chargement | erreur`), plus `frais`, `minimum` and `manque`.
 - `components/adresse/AdresseFormModal.vue` is the single address form, used by Checkout and Profil. It sends `quartier_id` only.
 - `api.js` also exports `messageErreur(error, fallback)`, which returns the first validation error or else the backend message. The client times out after 30 s, and on a 403 `profil_vendeur_incomplet` it reloads the user and opens the shop-profile form.
-- Pinia stores: `auth` (token in `localStorage`, role getters), `panier`, `notifications` (polls the unread count, suspended while the tab is hidden) and `toast`. `composables/useVendeurCommandesBadge.js` polls the vendor's order count every 30 s.
+- Pinia stores: `auth` (token in `localStorage`, role getters), `panier`, `notifications` and `toast`.
+- Polling goes through `utils/sondagePartage.js`:
+  - at most one request per interval (2 min) across all open tabs;
+  - the value and the next due time are shared in `localStorage`, keyed per user;
+  - no request while the tab is hidden, and the delay doubles on errors (up to 15 min).
+- The unread notification count (Header) and the vendor's pending-orders badge (`composables/useVendeurCommandesBadge.js`) use it. Navigating never triggers a request. Pass `{ force: true }` only when fresh data is needed: the Notifications page, or after a vendor acts on an order.
 - Shared helpers, used instead of per-component copies: `utils/images.js` (`resolveImageUrl`, `onImageError`, `verifierImage`), `utils/format.js` (prices, dates, status labels and classes) and `utils/redirection.js`.
 - No `alert`/`confirm`/`prompt`: use the `toast` store and `useConfirm()` (`components/common/ConfirmDialog.vue`).
 - `@` is an alias for `frontend/src`.

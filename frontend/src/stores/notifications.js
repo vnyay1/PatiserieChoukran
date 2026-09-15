@@ -1,19 +1,35 @@
 import { defineStore } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
+import { creerSondagePartage } from '@/utils/sondagePartage'
 
-// Compteur de notifications non lues : rafraîchi toutes les minutes quand l'onglet est
-// visible, au retour sur l'onglet et à la navigation (au plus une fois toutes les 15 s).
-const POLLING_INTERVAL_MS = 60000
-const DELAI_MIN_ENTRE_REQUETES_MS = 15000
+// Compteur de notifications non lues : un appel toutes les 2 minutes au plus pour tous
+// les onglets ouverts, seulement quand un onglet est visible, avec attente croissante
+// si le serveur ne répond pas. La navigation ne déclenche plus d'appel.
+const INTERVALLE_SONDAGE_MS = 2 * 60 * 1000
 
-let pollingHandle = null
-let dernierRafraichissement = 0
+let sondage = null
+let sondageUserId = null
 
-const surChangementVisibilite = () => {
-  if (document.visibilityState === 'visible') {
-    useNotificationsStore().fetchUnreadCount({ force: true })
-  }
+// Un sondage par utilisateur : la valeur partagée ne doit pas passer d'un compte à l'autre
+const sondagePour = (store, userId) => {
+  if (sondage && sondageUserId === userId) return sondage
+
+  sondage?.arreter()
+  sondageUserId = userId
+  sondage = creerSondagePartage({
+    cle: `choukrane:notifications-non-lues:${userId}`,
+    intervalleMs: INTERVALLE_SONDAGE_MS,
+    charger: async () => {
+      const response = await api.notifications.unreadCount()
+      if (!response.data?.success) throw new Error('Compteur indisponible')
+      return Number(response.data?.data?.count || 0)
+    },
+    appliquer: (count) => {
+      store.unreadCount = count
+    },
+  })
+  return sondage
 }
 
 const getDefaultPagination = () => ({
@@ -93,24 +109,9 @@ export const useNotificationsStore = defineStore('notifications', {
         return { success: false, count: 0 }
       }
 
-      // Évite les rafales (navigation rapide entre pages)
-      const maintenant = Date.now()
-      if (!force && maintenant - dernierRafraichissement < DELAI_MIN_ENTRE_REQUETES_MS) {
-        return { success: true, count: this.unreadCount }
-      }
-      dernierRafraichissement = maintenant
-
-      try {
-        const response = await api.notifications.unreadCount()
-        if (response.data?.success) {
-          this.unreadCount = Number(response.data?.data?.count || 0)
-          return { success: true, count: this.unreadCount }
-        }
-
-        return { success: false, count: this.unreadCount }
-      } catch (error) {
-        return { success: false, count: this.unreadCount, message: error.response?.data?.message }
-      }
+      // force : page Notifications ouverte, la valeur doit être à jour tout de suite
+      await sondagePour(this, authStore.user?.id ?? 'session').rafraichir({ force })
+      return { success: true, count: this.unreadCount }
     },
 
     async markAsRead(id) {
@@ -263,29 +264,16 @@ export const useNotificationsStore = defineStore('notifications', {
         return
       }
 
-      await this.fetchUnreadCount({ force: true })
-
-      if (pollingHandle) {
-        return
-      }
-
-      // Onglet en arrière-plan : aucune requête (rafraîchi au retour sur l'onglet)
-      pollingHandle = setInterval(() => {
-        if (document.visibilityState === 'visible') {
-          this.fetchUnreadCount({ force: true })
-        }
-      }, POLLING_INTERVAL_MS)
-      document.addEventListener('visibilitychange', surChangementVisibilite)
+      await sondagePour(this, authStore.user?.id ?? 'session').demarrer()
     },
 
-    stopPolling() {
-      if (!pollingHandle) {
-        return
+    // Déconnexion : on oublie aussi la valeur partagée entre onglets
+    stopPolling({ oublier = false } = {}) {
+      sondage?.arreter({ oublier })
+      if (oublier) {
+        sondage = null
+        sondageUserId = null
       }
-
-      clearInterval(pollingHandle)
-      pollingHandle = null
-      document.removeEventListener('visibilitychange', surChangementVisibilite)
     },
   }
 })
