@@ -6,12 +6,12 @@
 // ===================================
 
 use Illuminate\Auth\AuthenticationException;
-use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\LostConnectionDetector;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
@@ -21,25 +21,8 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
-        then: function () {
-            // Définir le rate limiter 'api'
-            RateLimiter::for('api', function (Request $request) {
-                return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
-            });
-
-            // Connexion / inscription : protection contre la force brute
-            RateLimiter::for('auth', function (Request $request) {
-                $trop = fn () => response()->json([
-                    'success' => false,
-                    'message' => 'Trop de tentatives. Veuillez patienter une minute avant de réessayer.',
-                ], 429);
-
-                return [
-                    Limit::perMinute(10)->by($request->ip().'|'.$request->input('telephone'))->response($trop),
-                    Limit::perMinute(30)->by($request->ip())->response($trop),
-                ];
-            });
-        }
+        // Limiteurs « api » et « auth » : définis dans AppServiceProvider. Un callback
+        // « then » ici n'est pas exécuté quand les routes sont en cache (image Docker).
     )
     ->withMiddleware(function (Middleware $middleware) {
         // Pas de EnsureFrontendRequestsAreStateful : le SPA s'authentifie uniquement par
@@ -52,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'client' => \App\Http\Middleware\IsClient::class,
             'vendeur' => \App\Http\Middleware\VendeurMiddleware::class,
             'actif' => \App\Http\Middleware\EnsureUserIsActive::class,
+            'profil.vendeur' => \App\Http\Middleware\EnsureProfilVendeurComplet::class,
         ]);
 
         // Throttle API (utilise le rate limiter 'api' défini ci-dessus)
@@ -101,6 +85,21 @@ return Application::configure(basePath: dirname(__DIR__))
                 'success' => false,
                 'message' => $messages[$status] ?? ($status >= 500 ? 'Erreur du serveur.' : ($e->getMessage() ?: 'Requête invalide.')),
             ], $status, $e->getHeaders());
+        });
+
+        // Base de données arrêtée, figée ou injoignable : message clair, même en debug
+        $exceptions->render(function (QueryException|PDOException $e, Request $request) use ($surApi) {
+            $injoignable = (new LostConnectionDetector)->causedByLostConnection($e)
+                || preg_match('/\[(2002|2003|2006|2013)\]/', $e->getMessage());
+
+            if (! $surApi($request) || ! $injoignable) {
+                return null;
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Le service est momentanément indisponible (base de données injoignable). Réessayez dans quelques instants.',
+            ], 503);
         });
 
         // Erreur inattendue : détail uniquement en mode debug (développement)
