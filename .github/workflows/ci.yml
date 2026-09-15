@@ -205,7 +205,7 @@ jobs:
 
       - name: Attendre que l'application soit saine
         run: |
-          for i in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             statut=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q app)" 2>/dev/null || echo starting)
             [ "$statut" = "healthy" ] && exit 0
             [ "$statut" = "unhealthy" ] && break

@@ -75,6 +75,14 @@ CI (`.github/workflows/ci.yml`), four jobs:
 - **frontend**: `npm run lint` (no `--fix`) then `npm run build`.
 - **docker**: build, Trivy scan blocking on CRITICAL/HIGH, then a Compose smoke test (SPA, `/up`, catalogue, login with an `Origin` header, an authenticated route, and the presence of both background workers).
 
+CD (`.github/workflows/cd.yml`) runs after a successful CI on a push to `master`, or by hand (`workflow_dispatch`):
+- **image**: builds the CI-validated commit and pushes `ghcr.io/<owner>/<repo>` with the tags `sha-<commit>` and `latest`.
+- **deploy** (environment `production`): skipped with a notice until the secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` and `DEPLOY_KNOWN_HOSTS` exist. The optional variables are `DEPLOY_PORT`, `DEPLOY_PATH` (default `~/patiserie-choukran`) and `DEPLOY_URL`. The job:
+  - streams `docker-compose.prod.yml` to the server;
+  - logs in to GHCR with the job token, passed over stdin and never on the remote command line;
+  - pulls `APP_IMAGE`, runs `up -d`, waits for the container healthcheck, then checks `DEPLOY_URL/up`.
+- The server keeps its own `.env.docker`. `docker-compose.prod.yml` never builds. Its phpMyAdmin runs only under the `admin` profile and listens on `127.0.0.1` only. Validate workflow changes with `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint`.
+
 Tests live in `backend/tests/Feature/`, with shared factories in `tests/Concerns/CreeDonneesBoutique.php`:
 - `creerUtilisateur('vendeur')` creates a vendor with a complete shop profile;
 - `creerVendeurIncomplet()` creates one without it;
