@@ -3,3 +3,8 @@
 
 # Sauvegardes SQL locales (données réelles)
 backups/
+
+CLAUDE.md
+
+.claude/
+.vscode/
