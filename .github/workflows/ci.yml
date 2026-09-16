@@ -179,8 +179,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Bloque sur toute faille HIGH/CRITICAL déjà corrigée en amont : un échec sans
+      # changement de code signifie qu'une nouvelle faille a été publiée (mettre à jour
+      # les paquets Composer concernés ; l'image fait déjà apk upgrade).
       - name: Scan de vulnérabilités (Trivy)
         uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          # Miroirs de la base de vulnérabilités : ghcr.io seul limite souvent les téléchargements
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
         with:
           image-ref: patiserie-choukran:latest
           vuln-type: 'os,library'

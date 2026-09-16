@@ -51,7 +51,10 @@ ENV APP_ROOT=/var/www/html \
 
 WORKDIR ${APP_ROOT}
 
+# apk upgrade : l'image de base peut embarquer des paquets (openssl…) déjà corrigés
+# dans Alpine ; sans cela le scan Trivy de la CI bloque sur des failles corrigeables.
 RUN set -eux; \
+    apk upgrade --no-cache; \
     apk add --no-cache \
         bash \
         nginx \

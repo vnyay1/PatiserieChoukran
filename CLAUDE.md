@@ -62,9 +62,10 @@ npm run lint:fix
 Docker (from repo root) — one image holds nginx, php-fpm, the queue worker, the scheduler and the built SPA:
 ```bash
 cp .env.docker.example .env.docker      # then fill in the passwords and APP_KEY
-docker compose up -d --build            # app on :8088, phpMyAdmin on :8081
-RUN_SEEDERS=true docker compose up -d   # first run only: demo data
+docker compose up -d --build --remove-orphans   # app on :8088, phpMyAdmin on :8081
+RUN_SEEDERS=true docker compose up -d   # first run only: demo data, then `docker compose up -d` again without it
 ```
+There are only three services: `app`, `db` and `phpmyadmin`. There is no separate `frontend` container, because the SPA is served by nginx inside `app`. Containers left over from the old architecture (`frontend`, `backend-web`, `queue-worker`) still carry the `patiseriechoukran` project label. Docker Desktop then starts them with the stack and they crash (`host not found in upstream "backend-web"`). `--remove-orphans` removes them. Seeders are not idempotent: a container created with `RUN_SEEDERS=true` would crash on every restart.
 `docker/entrypoint.sh` waits for MySQL, runs `migrate --force`, then rebuilds `config:cache`, `route:cache`, `view:cache` and `event:cache` from the environment. With no `APP_KEY` it generates one into the `app_storage` volume and warns. MySQL's port is deliberately not published, so it never clashes with XAMPP.
 
 The app port defaults to 8088 because an Oracle listener holds 8080 on the dev machine. Override it with `APP_PORT` in the shell or in a root `.env`: `env_file: .env.docker` does not feed compose's `${…}` interpolation. Invoices and reports are stored on the `local` disk, `storage/app/private`, which lives in the `app_storage` volume.
@@ -74,6 +75,8 @@ CI (`.github/workflows/ci.yml`), four jobs:
 - **migrations-mysql**: `migrate --seed` against a real MySQL 8 service, then `migrate:reset` + `migrate` so every `down()` stays usable.
 - **frontend**: `npm run lint` (no `--fix`) then `npm run build`.
 - **docker**: build, Trivy scan blocking on CRITICAL/HIGH, then a Compose smoke test (SPA, `/up`, catalogue, login with an `Origin` header, an authenticated route, and the presence of both background workers).
+  - The scan can fail without any code change, as soon as a fixed vulnerability is published. The final image already runs `apk upgrade`, so the fix is usually `composer update <package> --with-dependencies`.
+  - Reproduce it locally with `docker run --rm -v //var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 patiserie-choukran:latest`.
 
 CD (`.github/workflows/cd.yml`) runs after a successful CI on a push to `master`, or by hand (`workflow_dispatch`):
 - **image**: builds the CI-validated commit and pushes `ghcr.io/<owner>/<repo>` with the tags `sha-<commit>` and `latest`.
