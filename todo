@@ -96,7 +96,19 @@ Tous les points de cette liste ont été traités (branche amelioration/audit-co
 
 [x] Conteneurs Docker créés et testés
     -> ancienne base sauvegardée dans backups/, pile recréée avec les données
-       de démonstration.
+       de démonstration. Trois conteneurs seulement : app (nginx + PHP + SPA),
+       db et phpmyadmin. Le conteneur « frontend » qui ne démarrait pas venait
+       de l'ancienne architecture : supprimé (docker compose up --remove-orphans).
+
+[x] Paiement NotchPay testé pour de vrai (sandbox)
+    -> la clé fonctionne. Un défaut a été corrigé : NotchPay ne retrouve un
+       paiement que par sa propre référence (trx.…), pas par la nôtre ; le statut
+       n'était donc jamais synchronisé et une commande payée restait « à payer ».
+
+[x] CI : job « Image Docker » réparé
+    -> le scan Trivy bloquait sur 17 failles corrigées en amont (openssl Alpine
+       et paquets Composer). apk upgrade dans l'image et paquets mis à jour
+       (Laravel 12.69, Guzzle 7.15.5, Symfony 7.4.19…).
 
 ---
 
@@ -109,12 +121,12 @@ Tous les points de cette liste ont été traités (branche amelioration/audit-co
    commandes) par Brevo.
 3. Relire le texte des conditions des vendeurs (Admin > Paramètres,
    clé conditions_vendeur) et l'adapter à ton activité.
-4. NotchPay : la clé publique de backend/.env est refusée par NotchPay
-   (« Invalid API credentials ») ; la recopier depuis business.notchpay.co,
-   renseigner NOTCHPAY_WEBHOOK_HASH et déclarer le webhook
-   https://<domaine>/api/v1/webhooks/notchpay. Mêmes clés dans .env.docker.
+4. NotchPay : les clés de backend/.env fonctionnent (compte sandbox). Pour la
+   production, recopier les clés « live » depuis business.notchpay.co, les mettre
+   aussi dans .env.docker (aujourd'hui vide, donc pas de paiement en ligne en
+   Docker) et déclarer le webhook https://<domaine>/api/v1/webhooks/notchpay.
 5. CD : créer les secrets DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY,
    DEPLOY_KNOWN_HOSTS (et la variable DEPLOY_URL) ; déposer .env.docker dans
    le dossier de déploiement du serveur.
 6. Redémarrer php artisan serve et npm run dev pour profiter d'OPcache et du
-   proxy Vite.
+   proxy Vite (MySQL de XAMPP doit tourner).
