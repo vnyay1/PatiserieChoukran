@@ -17,7 +17,7 @@ return new class extends Migration
             $table->decimal('sous_total', 10, 2);
             $table->timestamp('date_expiration'); // 24h après création
             $table->timestamps();
-            
+
             $table->index(['user_id', 'date_expiration']);
         });
     }

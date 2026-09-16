@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Produit;
+use App\Services\Images;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -20,10 +21,13 @@ class ProduitController extends Controller
             $query->where('created_by_user_id', $request->user()->id);
         }
 
-        // Recherche
-        if ($request->has('search')) {
+        // Recherche (nom ou description, comme l'annonce le champ de recherche)
+        if ($request->filled('search')) {
             $search = $request->search;
-            $query->where('nom', 'like', "%{$search}%");
+            $query->where(function ($q) use ($search) {
+                $q->where('nom', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
         }
 
         // Filtre par catégorie
@@ -57,18 +61,18 @@ class ProduitController extends Controller
             'prix_unitaire' => 'required|numeric|min:0',
             'prix_promo' => 'nullable|numeric|min:0|lt:prix_unitaire',
             'promo_active' => 'sometimes|boolean',
-            'image_principale' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
-            'images_secondaires.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'image_principale' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'images_secondaires' => 'nullable|array|max:4',
+            'images_secondaires.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'stock_disponible' => 'required|integer|min:0',
             'est_disponible' => 'boolean',
-            'est_vedette' => 'boolean',
         ]);
 
         if ($request->has('promo_active')) {
             $promoActive = $request->boolean('promo_active');
-            if (!$promoActive) {
+            if (! $promoActive) {
                 $validated['prix_promo'] = null;
-            } elseif (!array_key_exists('prix_promo', $validated) || is_null($validated['prix_promo'])) {
+            } elseif (! array_key_exists('prix_promo', $validated) || is_null($validated['prix_promo'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Veuillez renseigner un prix promo pour activer la promotion.',
@@ -78,15 +82,14 @@ class ProduitController extends Controller
 
         // Upload image principale
         if ($request->hasFile('image_principale')) {
-            $validated['image_principale'] = $request->file('image_principale')
-                ->store('produits', 'public');
+            $validated['image_principale'] = Images::enregistrer($request->file('image_principale'), 'produits');
         }
 
         // Upload images secondaires
         if ($request->hasFile('images_secondaires')) {
             $imagesSecondaires = [];
             foreach ($request->file('images_secondaires') as $image) {
-                $imagesSecondaires[] = $image->store('produits', 'public');
+                $imagesSecondaires[] = Images::enregistrer($image, 'produits');
             }
             $validated['images_secondaires'] = $imagesSecondaires;
         }
@@ -131,20 +134,20 @@ class ProduitController extends Controller
             'prix_unitaire' => 'sometimes|numeric|min:0',
             'prix_promo' => 'nullable|numeric|min:0',
             'promo_active' => 'sometimes|boolean',
-            'image_principale' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
-            'images_secondaires.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'image_principale' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'images_secondaires' => 'nullable|array|max:4',
+            'images_secondaires.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'stock_disponible' => 'sometimes|integer|min:0',
             'est_disponible' => 'boolean',
-            'est_vedette' => 'boolean',
         ]);
 
-        if ($request->has('promo_active') && !$request->boolean('promo_active')) {
+        if ($request->has('promo_active') && ! $request->boolean('promo_active')) {
             $validated['prix_promo'] = null;
         }
 
         if (array_key_exists('prix_promo', $validated)) {
             $prixBase = $validated['prix_unitaire'] ?? $produit->prix_unitaire;
-            if (!is_null($validated['prix_promo']) && $validated['prix_promo'] >= $prixBase) {
+            if (! is_null($validated['prix_promo']) && $validated['prix_promo'] >= $prixBase) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Le prix promo doit être inférieur au prix unitaire',
@@ -158,8 +161,7 @@ class ProduitController extends Controller
             if ($produit->image_principale) {
                 \Storage::disk('public')->delete($produit->image_principale);
             }
-            $validated['image_principale'] = $request->file('image_principale')
-                ->store('produits', 'public');
+            $validated['image_principale'] = Images::enregistrer($request->file('image_principale'), 'produits');
         }
 
         // Upload nouvelles images secondaires si fournies
@@ -172,7 +174,7 @@ class ProduitController extends Controller
 
             $imagesSecondaires = [];
             foreach ($request->file('images_secondaires') as $image) {
-                $imagesSecondaires[] = $image->store('produits', 'public');
+                $imagesSecondaires[] = Images::enregistrer($image, 'produits');
             }
             $validated['images_secondaires'] = $imagesSecondaires;
         }
@@ -198,6 +200,16 @@ class ProduitController extends Controller
     {
         $produit = $this->findProduitForManagement($request, $id);
 
+        // La clé étrangère ligne_commandes.produit_id est en cascade : supprimer un produit
+        // déjà commandé effacerait les lignes des commandes passées.
+        if ($produit->ligneCommandes()->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => "« {$produit->nom} » figure dans des commandes passées : le supprimer effacerait leur historique.",
+                'peut_desactiver' => true,
+            ], 422);
+        }
+
         // Supprimer les images
         if ($produit->image_principale) {
             \Storage::disk('public')->delete($produit->image_principale);
@@ -213,25 +225,6 @@ class ProduitController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Produit supprimé',
-        ]);
-    }
-
-    /**
-     * Mettre à jour le stock
-     */
-    public function updateStock(Request $request, $id)
-    {
-        $validated = $request->validate([
-            'stock_disponible' => 'required|integer|min:0',
-        ]);
-
-        $produit = Produit::findOrFail($id);
-        $produit->update($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Stock mis à jour',
-            'data' => $produit,
         ]);
     }
 

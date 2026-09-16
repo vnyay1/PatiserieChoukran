@@ -2,10 +2,20 @@
 // 5. STORE PANIER
 // File: src/stores/panier.js
 // ===================================
+// Chaque action renvoie le panier complet : un seul appel réseau par action. Le panier
+// est vidé par le serveur après une durée d'inactivité réglée par l'admin ; le store se
+// recharge à cette échéance pour que le badge et la page reflètent le panier vidé.
 
 import { defineStore } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
-import api from '@/services/api'
+import api, { messageErreur } from '@/services/api'
+
+let minuterieExpiration = null
+
+const annulerMinuterie = () => {
+  clearTimeout(minuterieExpiration)
+  minuterieExpiration = null
+}
 
 export const usePanierStore = defineStore('panier', {
   state: () => ({
@@ -13,6 +23,9 @@ export const usePanierStore = defineStore('panier', {
     loading: false,
     error: null,
     ownerUserId: null,
+    // Date ISO à laquelle le panier sera vidé sans nouvelle modification (null : panier vide)
+    expireLe: null,
+    dureeMinutes: null,
   }),
 
   getters: {
@@ -25,21 +38,41 @@ export const usePanierStore = defineStore('panier', {
   actions: {
     // Réinitialiser l'état local du panier (sans appel API)
     reset() {
+      annulerMinuterie()
       this.items = []
       this.loading = false
       this.error = null
       this.ownerUserId = null
+      this.expireLe = null
+      this.dureeMinutes = null
+    },
+
+    // Réponse du backend (GET /panier et toutes les actions) : { items, expire_le, duree_minutes }
+    appliquer(data) {
+      const authStore = useAuthStore()
+      this.items = data?.items || []
+      this.expireLe = data?.expire_le || null
+      this.dureeMinutes = data?.duree_minutes ?? null
+      this.ownerUserId = authStore.user?.id || null
+      this.programmerExpiration()
+    },
+
+    programmerExpiration() {
+      annulerMinuterie()
+      if (!this.expireLe) return
+
+      // setTimeout est plafonné à ~24,8 jours : au-delà, la page sera rechargée entre-temps
+      const delai = Math.min(new Date(this.expireLe).getTime() - Date.now() + 1000, 2 ** 31 - 1)
+      minuterieExpiration = setTimeout(() => this.fetch(), Math.max(delai, 0))
     },
 
     // Charger le panier
     async fetch() {
       this.loading = true
-      const authStore = useAuthStore()
       try {
         const response = await api.panier.get()
         if (response.data.success) {
-          this.items = response.data.data.items
-          this.ownerUserId = authStore.user?.id || null
+          this.appliquer(response.data.data)
         }
       } catch (error) {
         this.error = 'Erreur lors du chargement du panier'
@@ -49,63 +82,37 @@ export const usePanierStore = defineStore('panier', {
       }
     },
 
-    // Ajouter au panier
-    async addItem(produitId, quantite = 1) {
+    async executer(requete, messageSucces, messageEchec) {
       try {
-        const response = await api.panier.add({ produit_id: produitId, quantite })
+        const response = await requete()
         if (response.data.success) {
-          await this.fetch() // Recharger le panier
-          return { success: true, message: 'Produit ajouté au panier' }
+          this.appliquer(response.data.data)
+          return { success: true, message: messageSucces }
         }
-        return {
-          success: false,
-          message: response.data?.message || 'Erreur lors de l\'ajout au panier'
-        }
+        return { success: false, message: response.data?.message || messageEchec }
       } catch (error) {
-        return { 
-          success: false, 
-          message: error.response?.data?.message || 'Erreur lors de l\'ajout au panier' 
-        }
+        return { success: false, message: messageErreur(error, messageEchec) }
       }
     },
 
-    // Mettre à jour la quantité
-    async updateQuantity(itemId, quantite) {
-      try {
-        const response = await api.panier.update(itemId, { quantite })
-        if (response.data.success) {
-          await this.fetch()
-          return { success: true }
-        }
-      } catch (error) {
-        return { success: false, message: 'Erreur lors de la mise à jour' }
-      }
+    addItem(produitId, quantite = 1) {
+      return this.executer(
+        () => api.panier.add({ produit_id: produitId, quantite }),
+        'Produit ajouté au panier',
+        'Erreur lors de l\'ajout au panier'
+      )
     },
 
-    // Retirer un article
-    async removeItem(itemId) {
-      try {
-        const response = await api.panier.remove(itemId)
-        if (response.data.success) {
-          await this.fetch()
-          return { success: true, message: 'Article retiré du panier' }
-        }
-      } catch (error) {
-        return { success: false, message: 'Erreur lors de la suppression' }
-      }
+    updateQuantity(itemId, quantite) {
+      return this.executer(() => api.panier.update(itemId, { quantite }), null, 'Erreur lors de la mise à jour')
     },
 
-    // Vider le panier
-    async clear() {
-      try {
-        const response = await api.panier.clear()
-        if (response.data.success) {
-          this.items = []
-          return { success: true, message: 'Panier vidé' }
-        }
-      } catch (error) {
-        return { success: false, message: 'Erreur' }
-      }
-    }
+    removeItem(itemId) {
+      return this.executer(() => api.panier.remove(itemId), 'Article retiré du panier', 'Erreur lors de la suppression')
+    },
+
+    clear() {
+      return this.executer(() => api.panier.clear(), 'Panier vidé', 'Impossible de vider le panier')
+    },
   }
 })

@@ -1,8 +1,36 @@
 import { defineStore } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
+import { creerSondagePartage } from '@/utils/sondagePartage'
 
-const POLLING_INTERVAL_MS = 30000
+// Compteur de notifications non lues : un appel toutes les 2 minutes au plus pour tous
+// les onglets ouverts, seulement quand un onglet est visible, avec attente croissante
+// si le serveur ne répond pas. La navigation ne déclenche plus d'appel.
+const INTERVALLE_SONDAGE_MS = 2 * 60 * 1000
+
+let sondage = null
+let sondageUserId = null
+
+// Un sondage par utilisateur : la valeur partagée ne doit pas passer d'un compte à l'autre
+const sondagePour = (store, userId) => {
+  if (sondage && sondageUserId === userId) return sondage
+
+  sondage?.arreter()
+  sondageUserId = userId
+  sondage = creerSondagePartage({
+    cle: `choukrane:notifications-non-lues:${userId}`,
+    intervalleMs: INTERVALLE_SONDAGE_MS,
+    charger: async () => {
+      const response = await api.notifications.unreadCount()
+      if (!response.data?.success) throw new Error('Compteur indisponible')
+      return Number(response.data?.data?.count || 0)
+    },
+    appliquer: (count) => {
+      store.unreadCount = count
+    },
+  })
+  return sondage
+}
 
 const getDefaultPagination = () => ({
   current_page: 1,
@@ -20,7 +48,6 @@ export const useNotificationsStore = defineStore('notifications', {
     loading: false,
     error: null,
     unreadCount: 0,
-    pollingHandle: null,
   }),
 
   getters: {
@@ -75,24 +102,16 @@ export const useNotificationsStore = defineStore('notifications', {
       }
     },
 
-    async fetchUnreadCount() {
+    async fetchUnreadCount({ force = false } = {}) {
       const authStore = useAuthStore()
       if (!authStore.isAuthenticated) {
         this.unreadCount = 0
         return { success: false, count: 0 }
       }
 
-      try {
-        const response = await api.notifications.unreadCount()
-        if (response.data?.success) {
-          this.unreadCount = Number(response.data?.data?.count || 0)
-          return { success: true, count: this.unreadCount }
-        }
-
-        return { success: false, count: this.unreadCount }
-      } catch (error) {
-        return { success: false, count: this.unreadCount, message: error.response?.data?.message }
-      }
+      // force : page Notifications ouverte, la valeur doit être à jour tout de suite
+      await sondagePour(this, authStore.user?.id ?? 'session').rafraichir({ force })
+      return { success: true, count: this.unreadCount }
     },
 
     async markAsRead(id) {
@@ -245,24 +264,16 @@ export const useNotificationsStore = defineStore('notifications', {
         return
       }
 
-      await this.fetchUnreadCount()
-
-      if (this.pollingHandle) {
-        return
-      }
-
-      this.pollingHandle = setInterval(() => {
-        this.fetchUnreadCount()
-      }, POLLING_INTERVAL_MS)
+      await sondagePour(this, authStore.user?.id ?? 'session').demarrer()
     },
 
-    stopPolling() {
-      if (!this.pollingHandle) {
-        return
+    // Déconnexion : on oublie aussi la valeur partagée entre onglets
+    stopPolling({ oublier = false } = {}) {
+      sondage?.arreter({ oublier })
+      if (oublier) {
+        sondage = null
+        sondageUserId = null
       }
-
-      clearInterval(this.pollingHandle)
-      this.pollingHandle = null
     },
   }
 })

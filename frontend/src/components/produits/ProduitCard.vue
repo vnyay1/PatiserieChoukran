@@ -13,9 +13,10 @@ File: src/components/produits/ProduitCard.vue
     <!-- Image -->
     <div class="relative aspect-square overflow-hidden">
       <img
-        :src="resolveImageUrl(produit.image_principale)"
-        :alt="produit.nom"
+        loading="lazy"
+        :src="resolveImageUrl(produit.image_principale)" :alt="produit.nom"
         class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+        @error="onImageError"
       />
 
       <!-- Badge promo -->
@@ -26,10 +27,11 @@ File: src/components/produits/ProduitCard.vue
         -{{ reductionPercent }}%
       </div>
 
-      <!-- Badge vedette -->
+      <!-- Badge vedette : vendeur mis en avant par l'admin -->
       <div
-        v-if="produit.est_vedette"
+        v-if="produit.createur?.est_vendeur_vedette"
         class="absolute top-2 left-2 bg-gold-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center"
+        title="Vendeur en vedette"
       >
         <Star :size="12" class="mr-1" fill="white" />
         Vedette
@@ -49,9 +51,21 @@ File: src/components/produits/ProduitCard.vue
     <!-- Contenu -->
     <div class="p-4">
       <!-- Nom -->
-      <h3 class="font-display font-semibold text-lg text-gray-800 mb-2 line-clamp-2">
+      <h3 class="font-display font-semibold text-lg text-gray-800 mb-1 line-clamp-2">
         {{ produit.nom }}
       </h3>
+
+      <!-- Vendeur : le panier crée une commande par vendeur -->
+      <p v-if="produit.createur?.nom_complet" class="text-xs text-gray-500 mb-2 truncate">
+        Vendu par
+        <router-link
+          :to="{ name: 'vendeur-profil', params: { id: produit.createur.id } }"
+          class="text-gold-700 hover:text-gold-800 hover:underline"
+          @click.stop
+        >
+          {{ produit.createur.nom_complet }}
+        </router-link>
+      </p>
 
       <!-- Prix -->
       <div class="flex items-baseline space-x-2 mb-3">
@@ -84,9 +98,11 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
+import { useToastStore } from '@/stores/toast'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { ShoppingCart, Star } from 'lucide-vue-next'
+import { resolveImageUrl, onImageError } from '@/utils/images'
 
 const props = defineProps({
   produit: {
@@ -98,29 +114,15 @@ const props = defineProps({
 const router = useRouter()
 const authStore = useAuthStore()
 const panierStore = usePanierStore()
+const toastStore = useToastStore()
 const addingToCart = ref(false)
-const isRestrictedRole = computed(() => authStore.isAdmin || authStore.isLivreur)
+const isRestrictedRole = computed(() => authStore.isAdmin || authStore.isVendeur)
 
 const reductionPercent = computed(() => {
   if (!props.produit.prix_promo) return 0
   const reduction = ((props.produit.prix_unitaire - props.produit.prix_promo) / props.produit.prix_unitaire) * 100
   return Math.round(reduction)
 })
-
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
-const apiOrigin = (() => {
-  try {
-    return new URL(apiBase).origin
-  } catch {
-    return ''
-  }
-})()
-
-const resolveImageUrl = (path) => {
-  if (!path) return '/placeholder-product.jpg'
-  if (path.startsWith('http') || path.startsWith('/')) return path
-  return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
-}
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR').format(price)
@@ -134,17 +136,22 @@ const addToCart = async () => {
   if (isRestrictedRole.value) {
     return
   }
-  addingToCart.value = true
 
-  const result = await panierStore.addItem(props.produit.id, 1)
-
-  if (result.success) {
-    // Afficher un toast ou notification (à implémenter)
-    console.log('Produit ajouté au panier')
-  } else {
-    console.error('Erreur:', result.message)
+  // Visiteur : le panier est réservé aux clients connectés
+  if (!authStore.isAuthenticated) {
+    toastStore.info('Connectez-vous pour ajouter des produits à votre panier.')
+    router.push({ name: 'login', query: { redirect: router.currentRoute.value.fullPath } })
+    return
   }
 
+  addingToCart.value = true
+  const result = await panierStore.addItem(props.produit.id, 1)
   addingToCart.value = false
+
+  if (result.success) {
+    toastStore.succes(`« ${props.produit.nom} » ajouté au panier.`)
+  } else {
+    toastStore.erreur(result.message || 'Impossible d\'ajouter ce produit au panier.')
+  }
 }
 </script>

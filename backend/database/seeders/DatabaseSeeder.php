@@ -11,9 +11,9 @@ class DatabaseSeeder extends Seeder
         $this->call([
             UserSeeder::class,
             QuartierSeeder::class,
-            ZoneLivraisonSeeder::class,
             CategorieSeeder::class,
             ProduitSeeder::class,
+            VendeurVilleSeeder::class,
         ]);
     }
 }

@@ -1,0 +1,9 @@
+# Fichiers exécutés dans les conteneurs Linux : toujours en LF, même après un
+# checkout sous Windows (core.autocrlf=true convertirait sinon en CRLF et
+# casserait l'entrypoint : « /bin/sh^M: not found »).
+*.sh                  text eol=lf
+Dockerfile            text eol=lf
+.dockerignore         text eol=lf
+docker/**             text eol=lf
+docker-compose*.yml   text eol=lf
+.github/workflows/*   text eol=lf

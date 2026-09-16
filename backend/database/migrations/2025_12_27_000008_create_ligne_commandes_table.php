@@ -17,7 +17,7 @@ return new class extends Migration
             $table->decimal('prix_unitaire', 10, 2);
             $table->decimal('sous_total', 10, 2);
             $table->timestamps();
-            
+
             $table->index('commande_id');
         });
     }

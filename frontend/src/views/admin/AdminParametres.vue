@@ -20,6 +20,9 @@ File: src/views/admin/AdminParametres.vue
         </Button>
       </div>
 
+      <ReglagesBoutique />
+
+      <h2 class="font-display text-lg font-bold text-gray-800 mb-3">Tous les paramètres</h2>
       <Card padding="md" class="mb-6">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div class="md:col-span-2">
@@ -68,7 +71,7 @@ File: src/views/admin/AdminParametres.vue
           </button>
         </div>
 
-        <form @submit.prevent="submitForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form class="grid grid-cols-1 md:grid-cols-2 gap-4" @submit.prevent="submitForm">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Clé *</label>
             <input v-model="form.cle" type="text" class="input" required />
@@ -89,14 +92,15 @@ File: src/views/admin/AdminParametres.vue
             </select>
           </div>
 
-          <div>
+          <div :class="form.type === 'string' ? 'md:col-span-2' : ''">
             <label class="block text-sm font-medium text-gray-700 mb-2">Valeur</label>
-            <input
+            <!-- Zone de texte : certains paramètres sont longs et sur plusieurs lignes (conditions_vendeur) -->
+            <textarea
               v-if="form.type === 'string'"
               v-model="form.valeur"
-              type="text"
-              class="input"
-            />
+              :rows="String(form.valeur || '').length > 120 || String(form.valeur || '').includes('\n') ? 10 : 2"
+              class="input resize-y"
+            ></textarea>
             <input
               v-else-if="form.type === 'integer'"
               v-model="form.valeur"
@@ -116,7 +120,7 @@ File: src/views/admin/AdminParametres.vue
               v-model="form.valeur"
               rows="3"
               class="input resize-none"
-              placeholder='{ "exemple": true }'
+              placeholder="{ &quot;exemple&quot;: true }"
             ></textarea>
           </div>
 
@@ -217,10 +221,16 @@ File: src/views/admin/AdminParametres.vue
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import api from '@/services/api'
+import api, { messageErreur } from '@/services/api'
+import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import ReglagesBoutique from '@/components/admin/ReglagesBoutique.vue'
 import { Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-vue-next'
+
+const toastStore = useToastStore()
+const { confirmer } = useConfirm()
 
 const parametres = ref([])
 const loading = ref(false)
@@ -253,7 +263,8 @@ const form = ref({
 const formatValeur = (valeur, type) => {
   if (valeur === null || valeur === undefined || valeur === '') return '-'
   if (type === 'boolean') return valeur === '1' || valeur === true ? 'Oui' : 'Non'
-  if (type === 'json') return valeur.length > 60 ? `${valeur.slice(0, 60)}...` : valeur
+  // Textes longs (ex. conditions des vendeurs) : aperçu, la valeur complète est dans le formulaire
+  if (type === 'json' || type === 'string') return valeur.length > 60 ? `${valeur.slice(0, 60)}...` : valeur
   return valeur
 }
 
@@ -379,28 +390,33 @@ const submitForm = async () => {
     }
 
     if (response.data.success) {
+      toastStore.succes(isEditing.value ? 'Paramètre mis à jour.' : 'Paramètre créé.')
       showForm.value = false
       fetchParametres()
       resetForm()
     }
   } catch (error) {
-    formError.value = error.response?.data?.message || 'Erreur lors de l\'enregistrement'
-    console.error('Erreur sauvegarde paramètre:', error)
+    formError.value = messageErreur(error, 'Erreur lors de l\'enregistrement.')
   } finally {
     saving.value = false
   }
 }
 
 const deleteParametre = async (param) => {
-  const confirmed = confirm(`Supprimer "${param.cle}" ?`)
+  const confirmed = await confirmer({
+    titre: 'Supprimer le paramètre',
+    message: `Le paramètre « ${param.cle} » sera supprimé.`,
+    libelleConfirmer: 'Supprimer',
+    danger: true,
+  })
   if (!confirmed) return
 
   try {
     await api.admin.parametres.remove(param.id)
+    toastStore.succes('Paramètre supprimé.')
     fetchParametres()
   } catch (error) {
-    console.error('Erreur suppression paramètre:', error)
-    alert('Erreur lors de la suppression')
+    toastStore.erreur(messageErreur(error, 'Erreur lors de la suppression.'))
   }
 }
 

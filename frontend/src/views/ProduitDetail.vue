@@ -34,12 +34,14 @@ File: src/views/ProduitDetail.vue
               :alt="produit.nom"
               class="w-full h-full object-cover"
               loading="lazy"
+              @error="onImageError"
             />
 
             <!-- Badge vedette -->
             <div
-              v-if="produit.est_vedette"
+              v-if="produit.createur?.est_vendeur_vedette"
               class="absolute top-4 left-4 bg-gold-500 text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1"
+              title="Vendeur en vedette"
             >
               <Star :size="16" fill="white" />
               Vedette
@@ -73,7 +75,7 @@ File: src/views/ProduitDetail.vue
               :class="currentImage === image ? 'border-gold-500' : 'border-transparent'"
               @click="currentImage = image"
             >
-              <img :src="image" :alt="`${produit.nom} - ${index + 1}`" class="w-full h-full object-cover" />
+              <img loading="lazy" :src="image" :alt="`${produit.nom} - ${index + 1}`" class="w-full h-full object-cover" @error="onImageError" />
             </button>
           </div>
           <div v-if="allImages.length > 1" class="sm:hidden flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
@@ -84,7 +86,7 @@ File: src/views/ProduitDetail.vue
               :class="currentImage === image ? 'border-gold-500' : 'border-transparent'"
               @click="currentImage = image"
             >
-              <img :src="image" :alt="`${produit.nom} - ${index + 1}`" class="w-full h-full object-cover" />
+              <img loading="lazy" :src="image" :alt="`${produit.nom} - ${index + 1}`" class="w-full h-full object-cover" @error="onImageError" />
             </button>
           </div>
         </div>
@@ -100,9 +102,36 @@ File: src/views/ProduitDetail.vue
           </router-link>
 
           <!-- Nom -->
-          <h1 class="font-display text-3xl md:text-4xl font-bold text-gray-800 mb-4">
+          <h1 class="font-display text-3xl md:text-4xl font-bold text-gray-800 mb-2">
             {{ produit.nom }}
           </h1>
+
+          <!-- Vendeur : il livre les villes qu'il a choisies, à partir de son minimum d'achat -->
+          <router-link
+            v-if="produit.createur?.nom_complet"
+            :to="{ name: 'vendeur-profil', params: { id: produit.createur.id } }"
+            class="inline-flex items-center gap-2 text-sm text-gray-600 mb-4 hover:text-gold-700"
+          >
+            <img
+              v-if="produit.createur.logo_boutique"
+              loading="lazy"
+              :src="resolveImageUrl(produit.createur.logo_boutique, { placeholder: false })"
+              :alt="produit.createur.nom_complet"
+              class="h-8 w-8 rounded-full object-cover border bg-white"
+            />
+            <span>Vendu par <span class="font-medium text-gray-800 underline-offset-2 hover:underline">{{ produit.createur.nom_complet }}</span></span>
+          </router-link>
+
+          <p v-if="livraisonVendeur" class="flex items-center gap-2 text-sm mb-4" :class="livrableIci ? 'text-gray-600' : 'text-orange-700'">
+            <Truck :size="16" />
+            <template v-if="!livraisonVendeur.villes.length">Retrait en boutique uniquement</template>
+            <template v-else-if="villeStore.ville && !livrableIci">
+              Pas de livraison à {{ villeStore.libelle }} (livré à {{ villesVendeur }}) : retrait en boutique possible
+            </template>
+            <template v-else>
+              Livré à {{ villesVendeur }}{{ livraisonVendeur.minimum > 0 ? ` dès ${formatPrice(livraisonVendeur.minimum)} FCFA d'achat` : '' }}
+            </template>
+          </p>
 
           <!-- Prix -->
           <div class="flex items-baseline gap-3 mb-6">
@@ -173,7 +202,9 @@ File: src/views/ProduitDetail.vue
                   type="number"
                   min="1"
                   :max="produit.stock_disponible"
+                  aria-label="Quantité"
                   class="w-20 text-center text-lg font-semibold border-2 border-gray-200 rounded-lg py-2 focus:border-gold-500 focus:ring-2 focus:ring-gold-200 outline-none"
+                  @blur="normaliserQuantite"
                 />
 
                 <button
@@ -186,28 +217,18 @@ File: src/views/ProduitDetail.vue
               </div>
             </div>
 
-            <!-- Boutons d'action -->
-            <div class="flex gap-3">
-              <Button
-                variant="primary"
-                size="lg"
-                full-width
-                :disabled="isRestrictedRole || !produit.est_disponible || produit.stock_disponible === 0"
-                :loading="addingToCart"
-                @click="addToCart"
-              >
-                <ShoppingCart :size="20" />
-                <span class="ml-2">Ajouter au panier</span>
-              </Button>
-
-              <button
-                class="touch-target flex items-center justify-center w-14 h-14 rounded-full border-2 border-gold-500 text-gold-600 hover:bg-gold-50"
-                :class="{ 'bg-gold-100': isFavorite }"
-                @click="toggleFavorite"
-              >
-                <Heart :size="24" :fill="isFavorite ? 'currentColor' : 'none'" />
-              </button>
-            </div>
+            <!-- Bouton d'action -->
+            <Button
+              variant="primary"
+              size="lg"
+              full-width
+              :disabled="isRestrictedRole || !produit.est_disponible || produit.stock_disponible === 0"
+              :loading="addingToCart"
+              @click="addToCart"
+            >
+              <ShoppingCart :size="20" />
+              <span class="ml-2">Ajouter au panier</span>
+            </Button>
 
             <!-- Total -->
             <div class="bg-gold-50 border-2 border-gold-200 rounded-lg p-4">
@@ -229,9 +250,9 @@ File: src/views/ProduitDetail.vue
         </h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <ProduitCard
-            v-for="produit in produitsSimilaires"
-            :key="produit.id"
-            :produit="produit"
+            v-for="similaire in produitsSimilaires"
+            :key="similaire.id"
+            :produit="similaire"
           />
         </div>
       </div>
@@ -280,14 +301,38 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
+import { useToastStore } from '@/stores/toast'
+import { useVilleStore } from '@/stores/ville'
 import api from '@/services/api'
 import ProduitCard from '@/components/produits/ProduitCard.vue'
 import Button from '@/components/common/Button.vue'
-import { ArrowLeft, Star, ShoppingCart, Heart, Minus, Plus, AlertTriangle } from 'lucide-vue-next'
+import { resolveImageUrl, onImageError } from '@/utils/images'
+import { ArrowLeft, Star, ShoppingCart, Minus, Plus, AlertTriangle, Truck } from 'lucide-vue-next'
+import { formatVille } from '@/utils/villes'
 
 const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 const panierStore = usePanierStore()
+const toastStore = useToastStore()
+const villeStore = useVilleStore()
+
+// Villes et minimum du vendeur : prévient avant l'ajout au panier si la ville n'est pas livrée
+const livraisonVendeur = ref(null)
+const villesVendeur = computed(() => (livraisonVendeur.value?.villes || []).map(formatVille).join(' et '))
+const livrableIci = computed(() => !villeStore.ville || Boolean(livraisonVendeur.value?.villes.includes(villeStore.ville)))
+
+const fetchLivraisonVendeur = async (vendeurId) => {
+  livraisonVendeur.value = null
+  if (!vendeurId) return
+  try {
+    const response = await api.livraison.vendeur(vendeurId)
+    const data = response.data?.data || {}
+    livraisonVendeur.value = { villes: data.villes || [], minimum: Number(data.montant_minimum_livraison) || 0 }
+  } catch (error) {
+    console.error('Erreur chargement livraison du vendeur:', error)
+  }
+}
 
 const produit = ref(null)
 const produitsSimilaires = ref([])
@@ -295,23 +340,7 @@ const loading = ref(true)
 const addingToCart = ref(false)
 const quantite = ref(1)
 const currentImage = ref('')
-const isFavorite = ref(false)
-const isRestrictedRole = computed(() => authStore.isAdmin || authStore.isLivreur)
-
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
-const apiOrigin = (() => {
-  try {
-    return new URL(apiBase).origin
-  } catch {
-    return ''
-  }
-})()
-
-const resolveImageUrl = (path, { placeholder = true } = {}) => {
-  if (!path) return placeholder ? '/placeholder-product.jpg' : null
-  if (path.startsWith('http') || path.startsWith('/')) return path
-  return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
-}
+const isRestrictedRole = computed(() => authStore.isAdmin || authStore.isVendeur)
 
 const allImages = computed(() => {
   if (!produit.value) return []
@@ -351,8 +380,9 @@ const fetchProduit = async () => {
       const images = allImages.value
       currentImage.value = images[0] || resolveImageUrl(null)
       
-      // Charger les produits similaires
+      // Produits similaires et conditions de livraison du vendeur en parallèle
       fetchProduitsSimilaires()
+      fetchLivraisonVendeur(produit.value.createur?.id)
     }
   } catch (error) {
     console.error('Erreur chargement produit:', error)
@@ -372,33 +402,44 @@ const fetchProduitsSimilaires = async () => {
   }
 }
 
+// Quantité toujours entière et comprise entre 1 et le stock disponible
+const normaliserQuantite = () => {
+  const stock = Math.max(1, Number(produit.value?.stock_disponible) || 1)
+  const valeur = Math.floor(Number(quantite.value))
+  quantite.value = Number.isFinite(valeur) ? Math.min(Math.max(valeur, 1), stock) : 1
+}
+
 const addToCart = async () => {
   if (isRestrictedRole.value) {
     return
   }
-  addingToCart.value = true
 
-  const result = await panierStore.addItem(produit.value.id, quantite.value)
-
-  if (result.success) {
-    // TODO: Afficher toast de succès
-    console.log('Produit ajouté au panier')
-    quantite.value = 1
-  } else {
-    // TODO: Afficher toast d'erreur
-    console.error(result.message)
+  // Visiteur : le panier est réservé aux clients connectés
+  if (!authStore.isAuthenticated) {
+    toastStore.info('Connectez-vous pour ajouter des produits à votre panier.')
+    router.push({ name: 'login', query: { redirect: route.fullPath } })
+    return
   }
 
+  normaliserQuantite()
+  addingToCart.value = true
+  const result = await panierStore.addItem(produit.value.id, quantite.value)
   addingToCart.value = false
-}
 
-const toggleFavorite = () => {
-  isFavorite.value = !isFavorite.value
-  // TODO: Implémenter l'API des favoris
+  if (result.success) {
+    toastStore.succes(`${quantite.value} × « ${produit.value.nom} » ajouté au panier.`)
+    quantite.value = 1
+  } else {
+    toastStore.erreur(result.message || 'Impossible d\'ajouter ce produit au panier.')
+  }
 }
 
 onMounted(() => {
   fetchProduit()
+})
+
+watch(() => villeStore.ville, () => {
+  if (produit.value) fetchProduitsSimilaires()
 })
 
 watch(

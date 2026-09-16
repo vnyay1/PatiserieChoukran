@@ -4,53 +4,87 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Produit;
+use App\Models\Quartier;
 use Illuminate\Http\Request;
 
 class ProduitController extends Controller
 {
+    // Colonnes autorisées pour le tri : tout le reste est refusé par la validation
+    private const TRIS = ['created_at', 'prix', 'nombre_commandes', 'nom'];
+
     /**
      * Liste des produits avec filtres
      */
     public function index(Request $request)
     {
-        $query = Produit::with('categorie')->disponible();
+        $validated = $request->validate([
+            'categorie_id' => 'nullable|integer',
+            'vendeur_id' => 'nullable|integer',
+            'ville' => 'nullable|'.Quartier::regleVille(),
+            'search' => 'nullable|string|max:100',
+            'prix_min' => 'nullable|numeric|min:0',
+            'prix_max' => 'nullable|numeric|min:0',
+            'sort_by' => 'nullable|in:'.implode(',', self::TRIS),
+            'sort_order' => 'nullable|in:asc,desc',
+            'per_page' => 'nullable|integer|min:1|max:50',
+        ]);
 
-        // Filtre par catégorie
-        if ($request->has('categorie_id')) {
-            $query->where('categorie_id', $request->categorie_id);
+        // Seuls le nom, le logo et la mise en avant du vendeur sont exposés (pas son téléphone).
+        // Ville choisie par le client : seulement les produits qu'on peut lui livrer.
+        $query = Produit::with(['categorie', Produit::VENDEUR_PUBLIC])
+            ->visible()
+            ->livrableDans($validated['ville'] ?? null);
+
+        if (! empty($validated['categorie_id'])) {
+            $query->where('categorie_id', $validated['categorie_id']);
         }
 
-        // Filtre par recherche
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
+        // Page publique d'un vendeur
+        if (! empty($validated['vendeur_id'])) {
+            $query->where('created_by_user_id', $validated['vendeur_id']);
+        }
+
+        if (! empty($validated['search'])) {
+            $search = $validated['search'];
+            $query->where(function ($q) use ($search) {
                 $q->where('nom', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
-        // Filtre produits vedettes
         if ($request->boolean('vedette')) {
             $query->vedette();
         }
 
-        // Filtre produits en promotion
         if ($request->boolean('promotion')) {
             $query->promotion();
         }
 
-        // Tri
-        $sortBy = $request->get('sort_by', 'created_at');
-        $sortOrder = $request->get('sort_order', 'desc');
-        
+        // Prix réellement payé : le prix promo s'il existe, sinon le prix unitaire.
+        // Liaison en entier (FCFA sans centimes) : une chaîne serait mal comparée par SQLite.
+        if (isset($validated['prix_min'])) {
+            $query->whereRaw('COALESCE(prix_promo, prix_unitaire) >= ?', [(int) floor($validated['prix_min'])]);
+        }
+        if (isset($validated['prix_max'])) {
+            $query->whereRaw('COALESCE(prix_promo, prix_unitaire) <= ?', [(int) ceil($validated['prix_max'])]);
+        }
+
+        // Les produits des vendeurs vedettes restent en tête, quel que soit le tri choisi
+        $query->vendeursVedettesEnTete();
+
+        // Tri (colonne et sens validés ci-dessus)
+        $sortBy = $validated['sort_by'] ?? 'created_at';
+        $sortOrder = $validated['sort_order'] ?? 'desc';
+
         if ($sortBy === 'prix') {
-            $query->orderByRaw('COALESCE(prix_promo, prix_unitaire) ' . $sortOrder);
+            $query->orderByRaw('COALESCE(prix_promo, prix_unitaire) '.($sortOrder === 'asc' ? 'asc' : 'desc'));
         } else {
             $query->orderBy($sortBy, $sortOrder);
         }
+        // Ordre stable d'une page à l'autre en cas d'égalité
+        $query->orderBy('id', 'desc');
 
-        // Pagination
-        $produits = $query->paginate($request->get('per_page', 12));
+        $produits = $query->paginate($validated['per_page'] ?? 12);
 
         return response()->json([
             'success' => true,
@@ -64,12 +98,9 @@ class ProduitController extends Controller
     public function show($slug)
     {
         $produit = Produit::where('slug', $slug)
-            ->with('categorie')
-            ->disponible()
+            ->with(['categorie', Produit::VENDEUR_PUBLIC])
+            ->visible()
             ->firstOrFail();
-
-        // Incrémenter le nombre de vues
-        $produit->incrementerVues();
 
         return response()->json([
             'success' => true,
@@ -80,13 +111,16 @@ class ProduitController extends Controller
     /**
      * Produits similaires
      */
-    public function similar($slug)
+    public function similar(Request $request, $slug)
     {
         $produit = Produit::where('slug', $slug)->firstOrFail();
 
         $similaires = Produit::where('categorie_id', $produit->categorie_id)
             ->where('id', '!=', $produit->id)
-            ->disponible()
+            ->with(Produit::VENDEUR_PUBLIC)
+            ->visible()
+            ->livrableDans($this->ville($request))
+            ->vendeursVedettesEnTete()
             ->limit(4)
             ->get();
 
@@ -96,53 +130,8 @@ class ProduitController extends Controller
         ]);
     }
 
-    /**
-     * Produits vedettes pour la page d'accueil
-     */
-    public function featured()
+    private function ville(Request $request): ?string
     {
-        $produits = Produit::vedette()
-            ->disponible()
-            ->with('categorie')
-            ->limit(8)
-            ->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $produits,
-        ]);
-    }
-
-    /**
-     * Nouveautés
-     */
-    public function nouveautes()
-    {
-        $produits = Produit::disponible()
-            ->with('categorie')
-            ->orderBy('created_at', 'desc')
-            ->limit(8)
-            ->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $produits,
-        ]);
-    }
-
-    /**
-     * Promotions
-     */
-    public function promotions()
-    {
-        $produits = Produit::promotion()
-            ->disponible()
-            ->with('categorie')
-            ->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $produits,
-        ]);
+        return $request->validate(['ville' => 'nullable|'.Quartier::regleVille()])['ville'] ?? null;
     }
 }

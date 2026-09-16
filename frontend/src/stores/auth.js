@@ -4,7 +4,7 @@
 // ===================================
 
 import { defineStore } from 'pinia'
-import api from '@/services/api'
+import api, { messageErreur } from '@/services/api'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -17,9 +17,9 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isAuthenticated: (state) => !!state.token,
     isAdmin: (state) => state.user?.role === 'admin',
-    isLivreur: (state) => state.user?.role === 'livreur',
+    isVendeur: (state) => state.user?.role === 'vendeur',
     isClient: (state) => state.user?.role === 'client',
-    canManageCatalogue: (state) => ['admin', 'livreur'].includes(state.user?.role),
+    canManageCatalogue: (state) => ['admin', 'vendeur'].includes(state.user?.role),
     userName: (state) => state.user?.nom_complet || '',
   },
 
@@ -37,15 +37,18 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         const response = await api.auth.login(credentials)
-        
+
         if (response.data.success) {
           this.token = response.data.data.token
           this.user = response.data.data.user
           localStorage.setItem('token', this.token)
           return { success: true }
         }
+
+        this.error = response.data?.message || 'Erreur de connexion'
+        return { success: false, error: this.error }
       } catch (error) {
-        this.error = error.response?.data?.message || 'Erreur de connexion'
+        this.error = messageErreur(error, 'Erreur de connexion')
         return { success: false, error: this.error }
       } finally {
         this.loading = false
@@ -59,15 +62,18 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         const response = await api.auth.register(userData)
-        
+
         if (response.data.success) {
           this.token = response.data.data.token
           this.user = response.data.data.user
           localStorage.setItem('token', this.token)
           return { success: true }
         }
+
+        this.error = response.data?.message || 'Erreur d\'inscription'
+        return { success: false, error: this.error }
       } catch (error) {
-        this.error = error.response?.data?.message || 'Erreur d\'inscription'
+        this.error = messageErreur(error, 'Erreur d\'inscription')
         return { success: false, error: this.error }
       } finally {
         this.loading = false
@@ -104,9 +110,10 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    // Initialiser l'authentification au démarrage
+    // Initialiser l'authentification au démarrage (la garde du router a
+    // généralement déjà chargé l'utilisateur : pas de second appel)
     async initialize() {
-      if (this.token) {
+      if (this.token && !this.user) {
         await this.fetchUser()
       }
     }

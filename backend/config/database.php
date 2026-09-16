@@ -18,6 +18,10 @@ return [
 
     'default' => env('DB_CONNECTION', 'sqlite'),
 
+    // Délai maximal (secondes) d'une lecture MySQL pendant une requête HTTP, appliqué
+    // par AppServiceProvider. 0 = réglage de PHP (mysqlnd.net_read_timeout, 24 h).
+    'read_timeout' => (int) env('DB_READ_TIMEOUT', 5),
+
     /*
     |--------------------------------------------------------------------------
     | Database Connections
@@ -60,6 +64,9 @@ return [
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
+                // Serveur injoignable : échec de la connexion TCP en quelques secondes
+                // (un serveur qui ne répond plus est borné par read_timeout ci-dessus).
+                \PDO::ATTR_TIMEOUT => (int) env('DB_TIMEOUT', 5),
             ]) : [],
         ],
 

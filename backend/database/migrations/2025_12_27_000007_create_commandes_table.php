@@ -23,13 +23,13 @@ return new class extends Migration
                 'prete',
                 'en_livraison',
                 'livree',
-                'annulee'
+                'annulee',
             ])->default('en_attente');
             $table->enum('statut_paiement', [
                 'en_attente',
                 'paye',
                 'echec',
-                'rembourse'
+                'rembourse',
             ])->default('en_attente');
             $table->enum('type_livraison', ['livraison', 'retrait_boutique']);
             $table->foreignId('adresse_livraison_id')->nullable()->constrained('adresses')->onDelete('set null');
@@ -44,7 +44,7 @@ return new class extends Migration
             $table->timestamp('date_paiement')->nullable();
             $table->foreignId('livreur_id')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamps();
-            
+
             $table->index(['user_id', 'statut', 'created_at']);
             $table->index('statut_paiement');
         });

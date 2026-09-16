@@ -5,8 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Panier;
 use App\Models\Produit;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * Panier du client. Chaque endpoint vide d'abord le panier resté trop longtemps sans
+ * modification (durée réglée par l'admin) et les actions renvoient le panier complet :
+ * le SPA n'a pas besoin d'un second appel pour se mettre à jour.
+ */
 class PanierController extends Controller
 {
     /**
@@ -20,21 +26,7 @@ class PanierController extends Controller
 
         $this->purgeExpiredPanier($request);
 
-        $panier = Panier::where('user_id', $request->user()->id)
-            ->nonExpire()
-            ->with('produit.categorie')
-            ->get();
-
-        $total = $panier->sum('sous_total');
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'items' => $panier,
-                'total' => $total,
-                'nombre_items' => $panier->count(),
-            ]
-        ]);
+        return $this->reponsePanier($request);
     }
 
     /**
@@ -55,51 +47,54 @@ class PanierController extends Controller
 
         $produit = Produit::findOrFail($validated['produit_id']);
 
-        // Vérifier la disponibilité
-        if (!$produit->est_disponible) {
+        // Disponible et en vente sur la boutique (catégorie active, vendeur actif au profil complet)
+        if (! Produit::visible()->whereKey($produit->id)->exists()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Ce produit n\'est pas disponible',
             ], 400);
         }
 
-        // Vérifier le stock (indicatif)
-        if ($produit->stock_disponible < $validated['quantite']) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Stock insuffisant',
-            ], 400);
-        }
-
         // Vérifier si le produit existe déjà dans le panier
         $panierItem = Panier::where('user_id', $request->user()->id)
             ->where('produit_id', $validated['produit_id'])
-            ->nonExpire()
             ->first();
 
+        // Le stock doit couvrir la quantité déjà au panier + celle ajoutée
+        $dejaAuPanier = $panierItem?->quantite ?? 0;
+        if ($produit->stock_disponible < $dejaAuPanier + $validated['quantite']) {
+            $reste = max(0, $produit->stock_disponible - $dejaAuPanier);
+
+            return response()->json([
+                'success' => false,
+                'message' => $reste > 0
+                    ? "Stock insuffisant : vous pouvez encore ajouter {$reste} unité(s) de ce produit."
+                    : ($dejaAuPanier > 0
+                        ? 'Tout le stock disponible de ce produit est déjà dans votre panier.'
+                        : 'Ce produit est en rupture de stock.'),
+            ], 400);
+        }
+
         if ($panierItem) {
-            // Mettre à jour la quantité
+            // Mettre à jour la quantité (et le prix, s'il a changé depuis le premier ajout)
             $panierItem->quantite += $validated['quantite'];
+            $panierItem->prix_unitaire_actuel = $produit->prix_actuel;
+            $panierItem->vendeur_id = $produit->created_by_user_id;
             $panierItem->calculerSousTotal();
-            $panierItem->date_expiration = Panier::prochaineExpiration();
-            $panierItem->save();
         } else {
-            // Créer une nouvelle ligne
-            $panierItem = Panier::create([
+            Panier::create([
                 'user_id' => $request->user()->id,
                 'produit_id' => $validated['produit_id'],
+                'vendeur_id' => $produit->created_by_user_id,
                 'quantite' => $validated['quantite'],
                 'prix_unitaire_actuel' => $produit->prix_actuel,
                 'sous_total' => $produit->prix_actuel * $validated['quantite'],
-                'date_expiration' => Panier::prochaineExpiration(),
             ]);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Produit ajouté au panier',
-            'data' => $panierItem->load('produit'),
-        ], 201);
+        Panier::prolonger($request->user()->id);
+
+        return $this->reponsePanier($request, 'Produit ajouté au panier', 201);
     }
 
     /**
@@ -119,26 +114,23 @@ class PanierController extends Controller
 
         $panierItem = Panier::where('user_id', $request->user()->id)
             ->where('id', $id)
+            ->with('produit')
             ->firstOrFail();
 
         // Vérifier le stock
         if ($panierItem->produit->stock_disponible < $validated['quantite']) {
             return response()->json([
                 'success' => false,
-                'message' => 'Stock insuffisant',
+                'message' => "Stock insuffisant : {$panierItem->produit->stock_disponible} unité(s) disponible(s).",
             ], 400);
         }
 
         $panierItem->quantite = $validated['quantite'];
+        $panierItem->vendeur_id = $panierItem->produit->created_by_user_id;
         $panierItem->calculerSousTotal();
-        $panierItem->date_expiration = Panier::prochaineExpiration();
-        $panierItem->save();
+        Panier::prolonger($request->user()->id);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Panier mis à jour',
-            'data' => $panierItem->load('produit'),
-        ]);
+        return $this->reponsePanier($request, 'Panier mis à jour');
     }
 
     /**
@@ -152,16 +144,14 @@ class PanierController extends Controller
 
         $this->purgeExpiredPanier($request);
 
-        $panierItem = Panier::where('user_id', $request->user()->id)
+        Panier::where('user_id', $request->user()->id)
             ->where('id', $id)
-            ->firstOrFail();
+            ->firstOrFail()
+            ->delete();
 
-        $panierItem->delete();
+        Panier::prolonger($request->user()->id);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Article retiré du panier',
-        ]);
+        return $this->reponsePanier($request, 'Article retiré du panier');
     }
 
     /**
@@ -173,35 +163,39 @@ class PanierController extends Controller
             return $response;
         }
 
-        $this->purgeExpiredPanier($request);
-
         Panier::where('user_id', $request->user()->id)->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Panier vidé',
-        ]);
+        return $this->reponsePanier($request, 'Panier vidé');
     }
 
     /**
-     * Nombre d'articles dans le panier (pour badge)
+     * Panier complet : lignes, total et heure à laquelle il sera vidé sans nouvelle modification.
      */
-    public function count(Request $request)
+    private function reponsePanier(Request $request, ?string $message = null, int $statut = 200): JsonResponse
     {
-        if ($response = $this->rejectAdmin($request)) {
-            return $response;
-        }
+        $userId = $request->user()->id;
 
-        $this->purgeExpiredPanier($request);
+        $panier = Panier::where('user_id', $userId)
+            ->with(['produit.categorie', 'produit.createur:id,nom_complet', 'vendeur:id,nom_complet'])
+            ->orderBy('id')
+            ->get();
 
-        $count = Panier::where('user_id', $request->user()->id)
-            ->nonExpire()
-            ->count();
+        $panier->each(function (Panier $panierItem) {
+            $this->syncVendeurFromProduit($panierItem);
+            $this->syncPrixFromProduit($panierItem);
+        });
 
-        return response()->json([
+        return response()->json(array_filter([
             'success' => true,
-            'data' => ['count' => $count]
-        ]);
+            'message' => $message,
+            'data' => [
+                'items' => $panier,
+                'total' => $panier->sum('sous_total'),
+                'nombre_items' => $panier->count(),
+                'expire_le' => Panier::expireLe($userId)?->toIso8601String(),
+                'duree_minutes' => Panier::dureeMinutes(),
+            ],
+        ], fn ($valeur) => $valeur !== null), $statut);
     }
 
     private function purgeExpiredPanier(Request $request): void
@@ -221,5 +215,33 @@ class PanierController extends Controller
         }
 
         return null;
+    }
+
+    // Les corrections de vendeur et de prix ne prolongent pas le panier (updated_at conservé)
+    private function syncVendeurFromProduit(Panier $panierItem): void
+    {
+        $vendeurId = $panierItem->produit?->created_by_user_id;
+
+        if ((int) $panierItem->vendeur_id !== (int) $vendeurId) {
+            $panierItem->vendeur_id = $vendeurId;
+            $panierItem->timestamps = false;
+            $panierItem->save();
+            $panierItem->timestamps = true;
+            $panierItem->load('vendeur:id,nom_complet');
+        }
+    }
+
+    // Le checkout facture au prix actuel du produit : le panier affiche donc le même prix
+    private function syncPrixFromProduit(Panier $panierItem): void
+    {
+        $prixActuel = $panierItem->produit?->prix_actuel;
+
+        if ($prixActuel !== null && (float) $panierItem->prix_unitaire_actuel !== (float) $prixActuel) {
+            $panierItem->prix_unitaire_actuel = $prixActuel;
+            $panierItem->sous_total = $prixActuel * $panierItem->quantite;
+            $panierItem->timestamps = false;
+            $panierItem->save();
+            $panierItem->timestamps = true;
+        }
     }
 }

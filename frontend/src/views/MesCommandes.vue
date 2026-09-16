@@ -11,13 +11,15 @@ File: src/views/MesCommandes.vue
       </h1>
 
       <!-- Filtres -->
-      <div class="flex gap-2 mb-6 overflow-x-auto scrollbar-hide">
+      <div class="flex gap-2 mb-6 overflow-x-auto scrollbar-hide" role="tablist">
         <button
           v-for="filtre in filtres"
           :key="filtre.value"
           class="px-4 py-2 rounded-full whitespace-nowrap transition-colors"
           :class="filtreActif === filtre.value ? 'bg-gold-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
-          @click="filtreActif = filtre.value; fetchCommandes()"
+          role="tab"
+          :aria-selected="filtreActif === filtre.value"
+          @click="changerFiltre(filtre.value)"
         >
           {{ filtre.label }}
         </button>
@@ -30,25 +32,37 @@ File: src/views/MesCommandes.vue
 
       <!-- Commandes -->
       <div v-else-if="commandes.length > 0" class="space-y-4">
+        <p class="text-sm text-gray-600">
+          {{ total }} commande{{ total > 1 ? 's' : '' }}
+        </p>
         <CommandeCard
           v-for="commande in commandes"
           :key="commande.id"
           :commande="commande"
           @click="showCommandeDetail(commande)"
         />
+
+        <div v-if="page < lastPage" class="text-center pt-2">
+          <Button variant="outline" :loading="loadingMore" @click="chargerPlus">
+            Voir plus de commandes
+          </Button>
+        </div>
       </div>
 
       <!-- Empty state -->
       <div v-else class="text-center py-16">
         <div class="text-6xl mb-4">📦</div>
         <h2 class="font-display text-xl font-bold text-gray-800 mb-2">
-          Aucune commande
+          {{ filtreActif === 'tous' ? 'Aucune commande' : 'Aucune commande dans cette catégorie' }}
         </h2>
         <p class="text-gray-600 mb-6">
-          Vous n'avez pas encore passé de commande
+          {{ filtreActif === 'tous' ? 'Vous n\'avez pas encore passé de commande' : 'Essayez un autre filtre.' }}
         </p>
-        <Button variant="primary" @click="$router.push('/produits')">
+        <Button v-if="filtreActif === 'tous'" variant="primary" @click="$router.push('/produits')">
           Découvrir nos produits
+        </Button>
+        <Button v-else variant="outline" @click="changerFiltre('tous')">
+          Voir toutes mes commandes
         </Button>
       </div>
     </div>
@@ -58,15 +72,21 @@ File: src/views/MesCommandes.vue
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '@/services/api'
+import api, { messageErreur } from '@/services/api'
+import { useToastStore } from '@/stores/toast'
 import Button from '@/components/common/Button.vue'
 import CommandeCard from '@/components/commande/CommandeCard.vue'
 
 const router = useRouter()
+const toastStore = useToastStore()
 
 const commandes = ref([])
 const loading = ref(true)
+const loadingMore = ref(false)
 const filtreActif = ref('tous')
+const page = ref(1)
+const lastPage = ref(1)
+const total = ref(0)
 
 const filtres = [
   { value: 'tous', label: 'Toutes' },
@@ -75,24 +95,44 @@ const filtres = [
   { value: 'annulee', label: 'Annulées' },
 ]
 
-const fetchCommandes = async () => {
-  loading.value = true
+const fetchCommandes = async ({ ajouter = false } = {}) => {
+  if (ajouter) {
+    loadingMore.value = true
+  } else {
+    loading.value = true
+    page.value = 1
+  }
 
   try {
-    const params = {}
+    const params = { page: page.value }
     if (filtreActif.value !== 'tous') {
       params.statut = filtreActif.value
     }
 
     const response = await api.commandes.getAll(params)
     if (response.data.success) {
-      commandes.value = response.data.data.data
+      const pagination = response.data.data
+      commandes.value = ajouter ? [...commandes.value, ...pagination.data] : pagination.data
+      lastPage.value = pagination.last_page || 1
+      total.value = pagination.total || 0
     }
   } catch (error) {
-    console.error('Erreur chargement commandes:', error)
+    toastStore.erreur(messageErreur(error, 'Impossible de charger vos commandes.'))
   } finally {
     loading.value = false
+    loadingMore.value = false
   }
+}
+
+const changerFiltre = (valeur) => {
+  if (filtreActif.value === valeur) return
+  filtreActif.value = valeur
+  fetchCommandes()
+}
+
+const chargerPlus = () => {
+  page.value += 1
+  fetchCommandes({ ajouter: true })
 }
 
 const showCommandeDetail = (commande) => {

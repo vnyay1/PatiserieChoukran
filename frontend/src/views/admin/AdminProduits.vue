@@ -76,7 +76,7 @@ File: src/views/admin/AdminProduits.vue
           </button>
         </div>
 
-        <form @submit.prevent="submitForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form class="grid grid-cols-1 md:grid-cols-2 gap-4" @submit.prevent="submitForm">
           <div class="md:col-span-2">
             <label class="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
             <input v-model="form.nom" type="text" class="input" required />
@@ -134,13 +134,46 @@ File: src/views/admin/AdminProduits.vue
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Image principale</label>
-            <input :key="fileInputKey" type="file" accept="image/*" class="input" @change="onImagePrincipale" />
+            <div class="flex items-center gap-3">
+              <img
+                v-if="apercuPrincipale"
+                loading="lazy"
+                :src="apercuPrincipale"
+                alt="Aperçu de l'image principale"
+                class="h-16 w-16 flex-shrink-0 rounded-lg object-cover border"
+                @error="onImageError"
+              />
+              <input
+                :key="fileInputKey"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                class="input"
+                @change="onImagePrincipale"
+              />
+            </div>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Images secondaires</label>
-            <input :key="fileInputKey + 1" type="file" accept="image/*" multiple class="input" @change="onImagesSecondaires" />
+            <label class="block text-sm font-medium text-gray-700 mb-2">Images secondaires (4 max.)</label>
+            <input
+              :key="fileInputKey + 1"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              class="input"
+              @change="onImagesSecondaires"
+            />
+            <p class="text-xs text-gray-500 mt-1">
+              <template v-if="imagesSecondaires.length">{{ imagesSecondaires.length }} image(s) sélectionnée(s).</template>
+              <template v-else-if="isEditing && nbImagesSecondairesActuelles">
+                {{ nbImagesSecondairesActuelles }} image(s) actuelle(s) : un nouvel envoi les remplace.
+              </template>
+            </p>
           </div>
+
+          <p class="md:col-span-2 text-xs text-gray-500 -mt-2">
+            JPEG, PNG ou WebP, {{ TAILLE_MAX_IMAGE_MO }} Mo maximum par image.
+          </p>
 
           <div class="md:col-span-2 flex flex-wrap gap-4">
             <label class="inline-flex items-center gap-2">
@@ -150,14 +183,6 @@ File: src/views/admin/AdminProduits.vue
                 class="rounded border-gray-300 text-gold-600 focus:ring-gold-500"
               />
               <span class="text-sm text-gray-700">Produit disponible</span>
-            </label>
-            <label class="inline-flex items-center gap-2">
-              <input
-                v-model="form.est_vedette"
-                type="checkbox"
-                class="rounded border-gray-300 text-gold-600 focus:ring-gold-500"
-              />
-              <span class="text-sm text-gray-700">Produit vedette</span>
             </label>
           </div>
 
@@ -212,9 +237,10 @@ File: src/views/admin/AdminProduits.vue
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-3">
                     <img
-                      :src="resolveImageUrl(produit.image_principale)"
-                      :alt="produit.nom"
+                      loading="lazy"
+                      :src="resolveImageUrl(produit.image_principale)" :alt="produit.nom"
                       class="h-12 w-12 rounded-lg object-cover border"
+                      @error="onImageError"
                     />
                     <div>
                       <div class="font-semibold text-gray-800">{{ produit.nom }}</div>
@@ -239,7 +265,7 @@ File: src/views/admin/AdminProduits.vue
                     <span class="badge" :class="produit.est_disponible ? 'badge-success' : 'badge-danger'">
                       {{ produit.est_disponible ? 'Disponible' : 'Indisponible' }}
                     </span>
-                    <span v-if="produit.est_vedette" class="badge badge-primary">Vedette</span>
+                    <span v-if="produit.createur?.est_vendeur_vedette" class="badge badge-primary" title="Vendeur mis en vedette par l'admin">Vedette</span>
                   </div>
                 </td>
                 <td class="px-4 py-3">
@@ -276,12 +302,15 @@ File: src/views/admin/AdminProduits.vue
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import api from '@/services/api'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import api, { messageErreur } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import { Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-vue-next'
+import { resolveImageUrl, onImageError, verifierImage, TAILLE_MAX_IMAGE_MO } from '@/utils/images'
 
 const produits = ref([])
 const categories = ref([])
@@ -295,6 +324,8 @@ const perPage = ref(12)
 const totalProduits = ref(0)
 
 const authStore = useAuthStore()
+const toastStore = useToastStore()
+const { confirmer } = useConfirm()
 const isAdmin = computed(() => authStore.isAdmin)
 
 const totalPages = computed(() => {
@@ -317,27 +348,25 @@ const filters = ref({
     promo_active: false,
     stock_disponible: 0,
     est_disponible: true,
-    est_vedette: false,
   })
 
 const imagePrincipale = ref(null)
 const imagesSecondaires = ref([])
-const fileInputKey = ref(0)
+// Image déjà enregistrée (édition) et aperçu local du nouveau fichier
+const imagePrincipaleActuelle = ref(null)
+const nbImagesSecondairesActuelles = ref(0)
+const apercuLocal = ref(null)
+const apercuPrincipale = computed(() => {
+  return apercuLocal.value || (imagePrincipaleActuelle.value ? resolveImageUrl(imagePrincipaleActuelle.value) : null)
+})
 
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
-const apiOrigin = (() => {
-  try {
-    return new URL(apiBase).origin
-  } catch {
-    return ''
+const libererApercu = () => {
+  if (apercuLocal.value) {
+    URL.revokeObjectURL(apercuLocal.value)
+    apercuLocal.value = null
   }
-})()
-
-const resolveImageUrl = (path) => {
-  if (!path) return '/placeholder-product.jpg'
-  if (path.startsWith('http') || path.startsWith('/')) return path
-  return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
 }
+const fileInputKey = ref(0)
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR').format(price || 0)
@@ -413,10 +442,12 @@ const resetForm = () => {
     promo_active: false,
     stock_disponible: 0,
     est_disponible: true,
-    est_vedette: false,
   }
   imagePrincipale.value = null
   imagesSecondaires.value = []
+  imagePrincipaleActuelle.value = null
+  nbImagesSecondairesActuelles.value = 0
+  libererApercu()
   fileInputKey.value += 2
   formError.value = ''
 }
@@ -438,10 +469,12 @@ const openEdit = (produit) => {
     promo_active: !!produit.prix_promo,
     stock_disponible: produit.stock_disponible,
     est_disponible: !!produit.est_disponible,
-    est_vedette: !!produit.est_vedette,
   }
   imagePrincipale.value = null
   imagesSecondaires.value = []
+  imagePrincipaleActuelle.value = produit.image_principale || null
+  nbImagesSecondairesActuelles.value = produit.images_secondaires?.length || 0
+  libererApercu()
   fileInputKey.value += 2
   isEditing.value = true
   showForm.value = true
@@ -454,11 +487,38 @@ const closeForm = () => {
 }
 
 const onImagePrincipale = (event) => {
-  imagePrincipale.value = event.target.files?.[0] || null
+  const fichier = event.target.files?.[0] || null
+  libererApercu()
+
+  const erreur = verifierImage(fichier)
+  if (erreur) {
+    formError.value = erreur
+    imagePrincipale.value = null
+    event.target.value = ''
+    return
+  }
+
+  formError.value = ''
+  imagePrincipale.value = fichier
+  apercuLocal.value = fichier ? URL.createObjectURL(fichier) : null
 }
 
 const onImagesSecondaires = (event) => {
-  imagesSecondaires.value = event.target.files ? Array.from(event.target.files) : []
+  const fichiers = event.target.files ? Array.from(event.target.files) : []
+
+  const erreur = fichiers.length > 4
+    ? 'Vous pouvez envoyer 4 images secondaires au maximum.'
+    : fichiers.map(verifierImage).find(Boolean)
+
+  if (erreur) {
+    formError.value = erreur
+    imagesSecondaires.value = []
+    event.target.value = ''
+    return
+  }
+
+  formError.value = ''
+  imagesSecondaires.value = fichiers
 }
 
 const buildFormData = () => {
@@ -469,7 +529,6 @@ const buildFormData = () => {
   data.append('prix_unitaire', form.value.prix_unitaire)
   data.append('stock_disponible', form.value.stock_disponible)
   data.append('est_disponible', form.value.est_disponible ? 1 : 0)
-  data.append('est_vedette', form.value.est_vedette ? 1 : 0)
 
   if (form.value.description) {
     data.append('description', form.value.description)
@@ -514,28 +573,56 @@ const submitForm = async () => {
     }
 
     if (response.data.success) {
+      toastStore.succes(isEditing.value ? 'Produit mis à jour.' : 'Produit créé.')
       showForm.value = false
       fetchProduits()
       resetForm()
     }
   } catch (error) {
-    formError.value = error.response?.data?.message || 'Erreur lors de l\'enregistrement'
-    console.error('Erreur sauvegarde produit:', error)
+    formError.value = messageErreur(error, 'Erreur lors de l\'enregistrement.')
   } finally {
     saving.value = false
   }
 }
 
 const deleteProduit = async (produit) => {
-  const confirmed = confirm(`Supprimer "${produit.nom}" ?`)
+  const confirmed = await confirmer({
+    titre: 'Supprimer le produit',
+    message: `Le produit « ${produit.nom} » sera supprimé définitivement.`,
+    libelleConfirmer: 'Supprimer',
+    danger: true,
+  })
   if (!confirmed) return
 
   try {
     await api.admin.produits.remove(produit.id)
+    toastStore.succes('Produit supprimé.')
     fetchProduits()
   } catch (error) {
-    console.error('Erreur suppression produit:', error)
-    alert('Erreur lors de la suppression')
+    // Produit présent dans des commandes : on propose de le retirer de la vente
+    if (error.response?.data?.peut_desactiver) {
+      const desactiver = await confirmer({
+        titre: 'Suppression impossible',
+        message: `${error.response.data.message}\n\nVoulez-vous le rendre indisponible à la vente ?`,
+        libelleConfirmer: 'Rendre indisponible',
+      })
+      if (desactiver) await rendreIndisponible(produit)
+      return
+    }
+    toastStore.erreur(messageErreur(error, 'Erreur lors de la suppression.'))
+  }
+}
+
+const rendreIndisponible = async (produit) => {
+  try {
+    const data = new FormData()
+    data.append('est_disponible', 0)
+    data.append('_method', 'PUT')
+    await api.admin.produits.update(produit.id, data)
+    toastStore.succes(`« ${produit.nom} » n'est plus proposé à la vente.`)
+    fetchProduits()
+  } catch (error) {
+    toastStore.erreur(messageErreur(error, 'Impossible de modifier le produit.'))
   }
 }
 
@@ -544,6 +631,8 @@ const changePage = (page) => {
   currentPage.value = page
   fetchProduits()
 }
+
+onBeforeUnmount(libererApercu)
 
 onMounted(() => {
   fetchCategories()

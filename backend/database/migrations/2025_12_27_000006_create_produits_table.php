@@ -24,7 +24,7 @@ return new class extends Migration
             $table->integer('nombre_vues')->default(0);
             $table->integer('nombre_commandes')->default(0);
             $table->timestamps();
-            
+
             $table->index(['categorie_id', 'est_disponible', 'est_vedette']);
         });
     }

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Image indisponible">
+  <rect width="400" height="400" fill="#FFFBF5"/>
+  <g fill="none" stroke="#D4AF37" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="110" y="235" width="180" height="70" rx="10"/>
+    <rect x="140" y="180" width="120" height="55" rx="8"/>
+    <path d="M110 262c20 12 40 12 60 0s40-12 60 0 40 12 60 0"/>
+    <path d="M200 140v40"/>
+  </g>
+  <path d="M200 106c-12 14-12 26 0 34 12-8 12-20 0-34z" fill="#D4AF37"/>
+  <text x="200" y="350" text-anchor="middle" font-family="Georgia, serif" font-size="22" fill="#9C7A10">Choukrane</text>
+</svg>

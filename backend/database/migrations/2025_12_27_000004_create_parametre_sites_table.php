@@ -16,7 +16,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('groupe', 100)->nullable();
             $table->timestamps();
-            
+
             $table->index('groupe');
         });
     }

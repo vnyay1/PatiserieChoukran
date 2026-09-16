@@ -22,6 +22,13 @@ File: src/App.vue
 
     <!-- Footer -->
     <Footer />
+
+    <!-- Retours à l'écran (remplacent alert/confirm/prompt) -->
+    <ToastContainer />
+    <ConfirmDialog />
+
+    <!-- Première visite : le client choisit sa ville (catalogue filtré) -->
+    <ChoixVilleModal />
   </div>
 </template>
 
@@ -33,6 +40,9 @@ import { usePanierStore } from '@/stores/panier'
 import Header from '@/components/layout/Header.vue'
 import Footer from '@/components/layout/Footer.vue'
 import BottomNav from '@/components/layout/BottomNav.vue'
+import ToastContainer from '@/components/common/ToastContainer.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import ChoixVilleModal from '@/components/common/ChoixVilleModal.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -51,7 +61,11 @@ onMounted(async () => {
 watch(
   () => authStore.user?.id,
   async (userId) => {
-    if (!userId) return
+    // Déconnexion : ne pas garder le panier (et son badge) du compte précédent
+    if (!userId) {
+      panierStore.reset()
+      return
+    }
     if (!authStore.isClient) {
       panierStore.reset()
       return

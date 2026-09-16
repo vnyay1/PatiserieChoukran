@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Categorie;
+use App\Services\Images;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -43,17 +44,19 @@ class CategorieController extends Controller
         $validated = $request->validate([
             'nom' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'ordre_affichage' => 'nullable|integer|min:0',
             'est_actif' => 'boolean',
         ]);
 
         if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('categories', 'public');
+            $validated['image'] = Images::enregistrer($request->file('image'), 'categories', 800);
         }
 
         $validated['slug'] = $this->generateUniqueSlug($validated['nom']);
         $validated['created_by_user_id'] = $request->user()->id;
+        // Colonne non nullable (défaut 0) : un champ vide ne doit pas provoquer d'erreur SQL
+        $validated['ordre_affichage'] = $validated['ordre_affichage'] ?? 0;
 
         $categorie = Categorie::create($validated);
 
@@ -87,7 +90,7 @@ class CategorieController extends Controller
         $validated = $request->validate([
             'nom' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'ordre_affichage' => 'nullable|integer|min:0',
             'est_actif' => 'boolean',
         ]);
@@ -96,11 +99,15 @@ class CategorieController extends Controller
             if ($categorie->image) {
                 \Storage::disk('public')->delete($categorie->image);
             }
-            $validated['image'] = $request->file('image')->store('categories', 'public');
+            $validated['image'] = Images::enregistrer($request->file('image'), 'categories', 800);
         }
 
         if (isset($validated['nom']) && $validated['nom'] !== $categorie->nom) {
             $validated['slug'] = $this->generateUniqueSlug($validated['nom'], $categorie->id);
+        }
+
+        if (array_key_exists('ordre_affichage', $validated) && $validated['ordre_affichage'] === null) {
+            $validated['ordre_affichage'] = 0;
         }
 
         $categorie->update($validated);
@@ -118,6 +125,17 @@ class CategorieController extends Controller
     public function destroy(Request $request, $id)
     {
         $categorie = $this->findCategorieForManagement($request, $id);
+
+        // produits.categorie_id est en cascade : supprimer la catégorie supprimerait tous
+        // ses produits, y compris ceux d'autres vendeurs et ceux déjà commandés.
+        $nombreProduits = $categorie->produits()->count();
+        if ($nombreProduits > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => "Impossible de supprimer « {$categorie->nom} » : {$nombreProduits} produit(s) y sont rattachés. "
+                    .'Déplacez-les dans une autre catégorie ou désactivez plutôt la catégorie.',
+            ], 422);
+        }
 
         if ($categorie->image) {
             \Storage::disk('public')->delete($categorie->image);

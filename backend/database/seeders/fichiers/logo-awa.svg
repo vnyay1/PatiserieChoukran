@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
+  <rect width="240" height="240" rx="48" fill="#2c7a7b"/>
+  <circle cx="120" cy="84" r="34" fill="#fbb6ce"/>
+  <circle cx="98" cy="112" r="26" fill="#faf089"/>
+  <circle cx="142" cy="112" r="26" fill="#c6f6d5"/>
+  <path d="M86 128h68l-34 48z" fill="#f6e05e"/>
+  <text x="120" y="212" font-family="Georgia, serif" font-size="28" font-weight="bold" fill="#f0fff4" text-anchor="middle">Glaces d'Awa</text>
+</svg>

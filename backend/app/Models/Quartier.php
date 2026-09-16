@@ -7,6 +7,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Quartier extends Model
 {
+    // Villes desservies par la plateforme (valeurs de quartiers.ville et vendeur_villes.ville)
+    public const VILLES = [
+        'yaoundé' => 'Yaoundé',
+        'douala' => 'Douala',
+    ];
+
     protected $fillable = [
         'nom',
         'ville',
@@ -17,9 +23,14 @@ class Quartier extends Model
         'actif' => 'boolean',
     ];
 
-    public function tarifs(): HasMany
+    public static function regleVille(): string
     {
-        return $this->hasMany(VendeurTarifLivraison::class);
+        return 'in:'.implode(',', array_keys(self::VILLES));
+    }
+
+    public static function libelleVille(?string $ville): string
+    {
+        return self::VILLES[$ville] ?? (string) $ville;
     }
 
     public function adresses(): HasMany

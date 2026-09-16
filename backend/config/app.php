@@ -54,6 +54,9 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // Adresse de la SPA (retours de paiement) ; en Docker c'est la même origine que l'API
+    'frontend_url' => rtrim((string) env('FRONTEND_URL', 'http://localhost:5173'), '/'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone
@@ -65,7 +68,8 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // Cameroun (UTC+1) : "aujourd'hui", les dates de livraison et la numérotation des commandes en dépendent
+    'timezone' => env('APP_TIMEZONE', 'Africa/Douala'),
 
     /*
     |--------------------------------------------------------------------------

@@ -2,11 +2,26 @@ name: CI
 
 on:
   push:
+    branches: ['**']
   pull_request:
+    branches: [master]
+
+# Droits minimaux : les jobs ne font que lire le dépôt.
+permissions:
+  contents: read
+
+# Une seule exécution par branche : les pushes successifs annulent la précédente.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PHP_VERSION: '8.2'
+  NODE_VERSION: '22'
 
 jobs:
-  backend-tests:
-    name: Backend (Laravel) tests
+  backend:
+    name: Backend — tests & style
     runs-on: ubuntu-latest
 
     defaults:
@@ -14,32 +29,108 @@ jobs:
         working-directory: backend
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup PHP
+      - name: Installer PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
-          extensions: sqlite, mbstring, intl, pdo_sqlite
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, intl, pdo_sqlite, sqlite3, gd, bcmath, zip
           coverage: none
+          tools: composer:v2
 
-      - name: Install Composer dependencies
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ runner.os }}-php${{ env.PHP_VERSION }}-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-php${{ env.PHP_VERSION }}-
+
+      - name: Installer les dépendances
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Prepare Laravel application
+      - name: Préparer l'application
         run: |
           cp .env.example .env
           php artisan key:generate
 
-      - name: Run tests
-        run: php artisan test
-
-      - name: PHP lint (Pint)
+      - name: Style de code (Pint)
         run: ./vendor/bin/pint --test
 
-  frontend-build:
-    name: Frontend (Vue) build
+      - name: Tests
+        run: composer test
+
+  migrations-mysql:
+    name: Backend — migrations MySQL
+    runs-on: ubuntu-latest
+
+    # Les tests tournent sur SQLite : ce job vérifie que les migrations
+    # (dont le renommage d'enum en SQL brut) passent bien sur MySQL,
+    # le moteur réellement utilisé en production.
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: secret
+          MYSQL_DATABASE: patiserie_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -psecret"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, intl, pdo_mysql, gd, bcmath, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ runner.os }}-php${{ env.PHP_VERSION }}-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-php${{ env.PHP_VERSION }}-
+
+      - name: Installer les dépendances
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Préparer l'application (MySQL)
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          {
+            echo "DB_CONNECTION=mysql"
+            echo "DB_HOST=127.0.0.1"
+            echo "DB_PORT=3306"
+            echo "DB_DATABASE=patiserie_ci"
+            echo "DB_USERNAME=root"
+            echo "DB_PASSWORD=secret"
+          } >> .env
+
+      - name: Migrer et semer
+        run: php artisan migrate --force --seed
+
+      # Vérifie que chaque down() est correct : un rollback cassé rend
+      # impossible tout retour arrière en production.
+      - name: Annuler puis rejouer toutes les migrations
+        run: |
+          php artisan migrate:reset --force
+          php artisan migrate --force
+
+  frontend:
+    name: Frontend — lint & build
     runs-on: ubuntu-latest
 
     defaults:
@@ -47,53 +138,125 @@ jobs:
         working-directory: frontend
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Installer Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
+      - name: Installer les dépendances
         run: npm ci
 
-      - name: Lint
+      # Sans --fix : la CI signale les problèmes, elle ne les masque pas.
+      - name: Lint (ESLint)
         run: npm run lint
 
       - name: Build
         run: npm run build
 
-  docker-security-scan:
-    name: Docker build & security scan
+  docker:
+    name: Image Docker — build, scan & smoke test
     runs-on: ubuntu-latest
-    needs:
-      - backend-tests
-      - frontend-build
+    needs: [backend, frontend]
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
+      - name: Configurer Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build backend Docker image
-        run: |
-          docker build \
-            -t patiserie-backend:latest \
-            -f backend/Dockerfile \
-            backend
-
-      - name: Security scan with Trivy
-        uses: aquasecurity/trivy-action@v0.28.0
+      - name: Construire l'image
+        uses: docker/build-push-action@v6
         with:
-          image-ref: patiserie-backend:latest
+          context: .
+          file: Dockerfile
+          push: false
+          load: true
+          tags: patiserie-choukran:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Bloque sur toute faille HIGH/CRITICAL déjà corrigée en amont : un échec sans
+      # changement de code signifie qu'une nouvelle faille a été publiée (mettre à jour
+      # les paquets Composer concernés ; l'image fait déjà apk upgrade).
+      - name: Scan de vulnérabilités (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          # Miroirs de la base de vulnérabilités : ghcr.io seul limite souvent les téléchargements
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
+        with:
+          image-ref: patiserie-choukran:latest
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          exit-code: '1'
 
+      - name: Préparer l'environnement de test
+        run: |
+          cp .env.docker.example .env.docker
+          {
+            echo "MYSQL_PASSWORD=ci_password"
+            echo "MYSQL_ROOT_PASSWORD=ci_root_password"
+            echo "DB_PASSWORD=ci_password"
+            echo "APP_KEY=base64:$(openssl rand -base64 32)"
+          } >> .env.docker
+
+      - name: Démarrer la pile
+        env:
+          RUN_SEEDERS: 'true'
+        run: docker compose up -d --no-build
+
+      - name: Attendre que l'application soit saine
+        run: |
+          for _ in $(seq 1 60); do
+            statut=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q app)" 2>/dev/null || echo starting)
+            [ "$statut" = "healthy" ] && exit 0
+            [ "$statut" = "unhealthy" ] && break
+            sleep 5
+          done
+          echo "::error::L'application n'est jamais devenue saine."
+          docker compose logs --no-color app
+          exit 1
+
+      # Prouve la correction G5 : sans le middleware « stateful » de Sanctum,
+      # un POST portant un en-tête Origin n'est plus rejeté en 419.
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          base=http://localhost:8088
+
+          echo "→ SPA"
+          curl -fsS "$base/" | grep -q '<div id="app"'
+
+          echo "→ /up"
+          curl -fsS "$base/up" > /dev/null
+
+          echo "→ catalogue public"
+          curl -fsS "$base/api/v1/produits" | grep -q '"success":true'
+
+          echo "→ connexion (avec en-tête Origin)"
+          jeton=$(curl -fsS -X POST "$base/api/v1/auth/login" \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json' \
+            -H "Origin: $base" \
+            -d '{"telephone":"+237699000003","mot_de_passe":"password123"}' \
+            | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+          test -n "$jeton"
+
+          echo "→ route authentifiée"
+          curl -fsS "$base/api/v1/panier" -H "Authorization: Bearer $jeton" \
+            -H 'Accept: application/json' | grep -q '"success":true'
+
+          echo "→ worker et planificateur en cours d'exécution"
+          docker compose exec -T app sh -c 'pgrep -f "queue:work" >/dev/null && pgrep -f "schedule:work" >/dev/null'
+
+      - name: Journaux en cas d'échec
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Arrêter la pile
+        if: always()
+        run: docker compose down -v

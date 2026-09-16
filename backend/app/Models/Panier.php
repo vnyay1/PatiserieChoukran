@@ -3,25 +3,25 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Carbon\Carbon;
-use App\Models\ParametreSite;
+use Illuminate\Support\Carbon;
 
 class Panier extends Model
 {
+    public const DUREE_PAR_DEFAUT_MINUTES = 1440;
+
     protected $fillable = [
         'user_id',
         'produit_id',
+        'vendeur_id',
         'quantite',
         'prix_unitaire_actuel',
         'sous_total',
-        'date_expiration',
     ];
 
     protected $casts = [
         'quantite' => 'integer',
         'prix_unitaire_actuel' => 'decimal:2',
         'sous_total' => 'float',
-        'date_expiration' => 'datetime',
     ];
 
     // Relations
@@ -35,44 +35,56 @@ class Panier extends Model
         return $this->belongsTo(Produit::class);
     }
 
-    // Scopes
-    public function scopeNonExpire($query)
+    public function vendeur()
     {
-        return $query->where('date_expiration', '>', now());
+        return $this->belongsTo(User::class, 'vendeur_id');
     }
 
-    public function scopeExpire($query)
+    /**
+     * Durée d'inactivité (minutes) après laquelle le panier est vidé : paramètre
+     * « panier_duree_minutes » réglé par l'admin.
+     */
+    public static function dureeMinutes(): int
     {
-        return $query->where('date_expiration', '<=', now());
+        $minutes = (int) ParametreSite::get('panier_duree_minutes', self::DUREE_PAR_DEFAUT_MINUTES);
+
+        return $minutes > 0 ? $minutes : self::DUREE_PAR_DEFAUT_MINUTES;
     }
 
-    // Méthodes utiles
-    public function isExpire()
+    /**
+     * Heure à laquelle le panier de ce client sera vidé (dernière modification + durée),
+     * null si le panier est vide.
+     */
+    public static function expireLe(int $userId): ?Carbon
     {
-        return $this->date_expiration <= now();
+        $derniereModification = static::where('user_id', $userId)->max('updated_at');
+
+        return $derniereModification
+            ? Carbon::parse($derniereModification)->addMinutes(static::dureeMinutes())
+            : null;
     }
 
-    public static function getExpirationHeures(): int
-    {
-        $heures = (int) ParametreSite::get('panier_expiration_heures', 24);
-
-        return $heures > 0 ? $heures : 24;
-    }
-
-    public static function prochaineExpiration(): Carbon
-    {
-        return Carbon::now()->addHours(static::getExpirationHeures());
-    }
-
+    /**
+     * Vide les paniers restés sans modification plus longtemps que la durée réglée
+     * (le panier entier, et non ligne par ligne).
+     */
     public static function purgerExpires(?int $userId = null): int
     {
-        $query = static::expire();
+        $limite = Carbon::now()->subMinutes(static::dureeMinutes());
 
-        if ($userId !== null) {
-            $query->where('user_id', $userId);
-        }
+        $clientsExpires = static::query()
+            ->when($userId !== null, fn ($query) => $query->where('user_id', $userId))
+            ->groupBy('user_id')
+            ->havingRaw('MAX(updated_at) <= ?', [$limite])
+            ->pluck('user_id');
 
-        return $query->delete();
+        return $clientsExpires->isEmpty() ? 0 : static::whereIn('user_id', $clientsExpires)->delete();
+    }
+
+    // Toute modification du panier le prolonge : ajout, quantité, retrait d'un article
+    public static function prolonger(int $userId): void
+    {
+        static::where('user_id', $userId)->update(['updated_at' => Carbon::now()]);
     }
 
     public function calculerSousTotal()
@@ -87,11 +99,7 @@ class Panier extends Model
         parent::boot();
 
         static::creating(function ($panier) {
-            // Expire selon le paramètre du site (24h par défaut)
-            if (empty($panier->date_expiration)) {
-                $panier->date_expiration = static::prochaineExpiration();
-            }
-            $panier->sous_total = (float)($panier->prix_unitaire_actuel * $panier->quantite);
+            $panier->sous_total = (float) ($panier->prix_unitaire_actuel * $panier->quantite);
         });
     }
 }

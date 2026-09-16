@@ -7,6 +7,9 @@ use Illuminate\Support\Str;
 
 class Produit extends Model
 {
+    // Colonnes du vendeur exposées avec un produit sur la boutique (ni téléphone ni e-mail)
+    public const VENDEUR_PUBLIC = 'createur:id,nom_complet,logo_boutique,est_vendeur_vedette';
+
     protected $fillable = [
         'categorie_id',
         'created_by_user_id',
@@ -19,8 +22,6 @@ class Produit extends Model
         'images_secondaires',
         'stock_disponible',
         'est_disponible',
-        'est_vedette',
-        'nombre_vues',
         'nombre_commandes',
     ];
 
@@ -30,8 +31,6 @@ class Produit extends Model
         'images_secondaires' => 'array',
         'stock_disponible' => 'integer',
         'est_disponible' => 'boolean',
-        'est_vedette' => 'boolean',
-        'nombre_vues' => 'integer',
         'nombre_commandes' => 'integer',
     ];
 
@@ -62,14 +61,45 @@ class Produit extends Model
         return $query->where('est_disponible', true);
     }
 
-    public function scopeVedette($query)
+    /**
+     * Produits proposés sur la boutique : disponibles, dans une catégorie active et,
+     * s'ils appartiennent à un vendeur, seulement si ce vendeur est actif et a
+     * complété son profil boutique.
+     */
+    public function scopeVisible($query)
     {
-        return $query->where('est_vedette', true);
+        return $query->disponible()
+            ->whereHas('categorie', fn ($categorie) => $categorie->where('est_actif', true))
+            ->where(function ($q) {
+                $q->whereDoesntHave('createur', fn ($createur) => $createur->vendeurs())
+                    ->orWhereHas('createur', fn ($createur) => $createur->vendeursEnActivite());
+            });
     }
 
-    public function scopeEnStock($query)
+    // Produits qu'un client de cette ville peut se faire livrer (null : pas de filtre)
+    public function scopeLivrableDans($query, ?string $ville)
     {
-        return $query->where('stock_disponible', '>', 0);
+        if (! $ville) {
+            return $query;
+        }
+
+        return $query->whereHas('createur.villesLivraison', fn ($villes) => $villes->where('ville', $ville));
+    }
+
+    // Produits des vendeurs mis en vedette par l'admin
+    public function scopeVedette($query)
+    {
+        return $query->whereHas('createur', fn ($createur) => $createur->where('est_vendeur_vedette', true));
+    }
+
+    // Produits des vendeurs vedettes en premier (à appeler avant le tri choisi)
+    public function scopeVendeursVedettesEnTete($query)
+    {
+        return $query->orderByDesc(
+            User::select('est_vendeur_vedette')
+                ->whereColumn('users.id', 'produits.created_by_user_id')
+                ->limit(1)
+        );
     }
 
     public function scopePromotion($query)
@@ -85,23 +115,10 @@ class Produit extends Model
 
     public function getEnPromotionAttribute()
     {
-        return !is_null($this->prix_promo);
-    }
-
-    public function getPourcentageReductionAttribute()
-    {
-        if (!$this->en_promotion) {
-            return 0;
-        }
-        return round((($this->prix_unitaire - $this->prix_promo) / $this->prix_unitaire) * 100);
+        return ! is_null($this->prix_promo);
     }
 
     // Méthodes utiles
-    public function incrementerVues()
-    {
-        $this->increment('nombre_vues');
-    }
-
     public function incrementerCommandes()
     {
         $this->increment('nombre_commandes');

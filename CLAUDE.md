@@ -1,0 +1,232 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project
+
+Choukrane Pâtisserie is a multi-vendor pastry marketplace for Cameroon: Yaoundé and Douala, prices in FCFA, `+237` phone numbers, and payment by Orange Money, MTN MoMo or cash. The repo holds two independent apps:
+
+- `backend/`: Laravel 12 (PHP 8.2) JSON API with Sanctum bearer tokens and MySQL.
+- `frontend/`: Vue 3 SPA (Vite 5, Pinia, vue-router, Tailwind 3, axios).
+
+Domain vocabulary, DB columns, routes and user-facing messages are in French (`commande`, `panier`, `vendeur`, `quartier`, `statut`…). Keep new code consistent with that.
+
+The backend has no web UI: the real UI is in `frontend/`. The only Blade views are `resources/views/pdf/*` (dompdf invoices and reports) and `resources/views/emails/*`. `routes/web.php` only holds the NotchPay callback redirect.
+
+## Commands
+
+Local development runs on XAMPP on Windows (PHP at `C:\xampp\php`, MySQL; `backend/.env` uses database `patisserie_glacier`). `extension=gd` must be enabled in `C:\xampp\php\php.ini`: dompdf needs it for the images in PDFs.
+
+If requests hang forever (a login button that keeps spinning), check MariaDB first: a corrupted XAMPP data directory can leave `mysqld` accepting connections without ever answering. Look in `C:\xampp\mysql\data\mysql_error.log`. Two safeguards now turn that hang into an error:
+- `config/database.php` sets `PDO::ATTR_TIMEOUT` (`DB_TIMEOUT`, 5 s) for the TCP connect.
+- `AppServiceProvider` caps `mysqlnd.net_read_timeout` for HTTP requests only (`DB_READ_TIMEOUT`, 5 s). mysqlnd copies that value into each connection, so a long-running query in a web request fails too; console commands keep PHP's default.
+
+`bootstrap/app.php` answers a lost DB connection with a 503 and a French message, and axios times out after 30 s.
+
+Backend (from `backend/`):
+```bash
+composer install
+php artisan migrate --seed          # users, quartiers, catégories, produits, villes livrées par les vendeurs
+php artisan storage:link            # uploaded images are served from /storage
+php artisan serve                   # http://localhost:8000, API under /api/v1
+composer test                       # config:clear + PHPUnit on in-memory SQLite (phpunit.xml)
+php artisan test --filter=CheckoutMultiVendeurTest
+php vendor/bin/pint                 # formatter; CI runs `pint --test`
+```
+XAMPP's `php.ini` has OPcache enabled (`opcache.enable_cli=1`, `revalidate_freq=0`; the original is `C:\xampp\php\php.ini.avant-opcache`). Without it every `artisan serve` request recompiles the framework: about 450 ms instead of 25 ms for `/up`.
+
+Seeded accounts (`UserSeeder`, password `password123`): admin `+237699000001`, vendeurs `+237699000002` (Jean) and `+237699000004` (Awa), client `+237699000003`. Seeded products are split between the two vendors.
+
+The seeded vendors:
+- have a complete shop profile, with SVG logos copied from `database/seeders/fichiers/` to the public disk;
+- use `@choukrane.test` emails, so demo orders never mail a real domain;
+- have a delivery minimum: 5000 FCFA for Jean, 3000 FCFA for Awa;
+- Jean is also a featured vendor.
+
+`VendeurVilleSeeder` fills the cities each vendor delivers to: Jean delivers Yaoundé only and Awa Douala only, so the catalogue visibly changes with the chosen city. Every other vendor delivers both cities. It uses `insertOrIgnore` and can be rerun alone with `--class`.
+
+With `QUEUE_CONNECTION=sync` (the XAMPP default), emails and invoices are sent by the same PHP process right after the response (`Support\Differe`). Set `MAIL_MAILER=log` locally to avoid sending real mail.
+
+Prefer `composer test`: it clears the config cache first. With a cached config, tests would use the MySQL connection from `.env` instead of in-memory SQLite, and `RefreshDatabase` would wipe the dev database.
+
+Frontend (from `frontend/`):
+```bash
+npm install
+npm run dev       # http://localhost:5173
+npm run build
+npm run lint      # ESLint 10, flat config in eslint.config.js; CI runs this
+npm run lint:fix
+```
+`frontend/.env` (see `frontend/.env.example`) sets `VITE_API_URL=/api/v1`. In dev, the Vite proxy forwards `/api` and `/storage` to `http://127.0.0.1:8000`, so calls are same-origin: no CORS preflight, and no ~200 ms IPv6 attempt per connection that `localhost` costs on Windows (`php artisan serve` closes every connection). The Docker image uses the same value, because nginx serves the SPA and the API from one origin.
+
+Docker (from repo root) — one image holds nginx, php-fpm, the queue worker, the scheduler and the built SPA:
+```bash
+cp .env.docker.example .env.docker      # then fill in the passwords and APP_KEY
+docker compose up -d --build --remove-orphans   # app on :8088, phpMyAdmin on :8081
+RUN_SEEDERS=true docker compose up -d   # first run only: demo data, then `docker compose up -d` again without it
+```
+There are only three services: `app`, `db` and `phpmyadmin`. There is no separate `frontend` container, because the SPA is served by nginx inside `app`. Containers left over from the old architecture (`frontend`, `backend-web`, `queue-worker`) still carry the `patiseriechoukran` project label. Docker Desktop then starts them with the stack and they crash (`host not found in upstream "backend-web"`). `--remove-orphans` removes them. Seeders are not idempotent: a container created with `RUN_SEEDERS=true` would crash on every restart.
+`docker/entrypoint.sh` waits for MySQL, runs `migrate --force`, then rebuilds `config:cache`, `route:cache`, `view:cache` and `event:cache` from the environment. With no `APP_KEY` it generates one into the `app_storage` volume and warns. MySQL's port is deliberately not published, so it never clashes with XAMPP.
+
+The app port defaults to 8088 because an Oracle listener holds 8080 on the dev machine. Override it with `APP_PORT` in the shell or in a root `.env`: `env_file: .env.docker` does not feed compose's `${…}` interpolation. Invoices and reports are stored on the `local` disk, `storage/app/private`, which lives in the `app_storage` volume.
+
+CI (`.github/workflows/ci.yml`), four jobs:
+- **backend**: `pint --test` then `composer test` (SQLite).
+- **migrations-mysql**: `migrate --seed` against a real MySQL 8 service, then `migrate:reset` + `migrate` so every `down()` stays usable.
+- **frontend**: `npm run lint` (no `--fix`) then `npm run build`.
+- **docker**: build, Trivy scan blocking on CRITICAL/HIGH, then a Compose smoke test (SPA, `/up`, catalogue, login with an `Origin` header, an authenticated route, and the presence of both background workers).
+  - The scan can fail without any code change, as soon as a fixed vulnerability is published. The final image already runs `apk upgrade`, so the fix is usually `composer update <package> --with-dependencies`.
+  - Reproduce it locally with `docker run --rm -v //var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 patiserie-choukran:latest`.
+
+CD (`.github/workflows/cd.yml`) runs after a successful CI on a push to `master`, or by hand (`workflow_dispatch`):
+- **image**: builds the CI-validated commit and pushes `ghcr.io/<owner>/<repo>` with the tags `sha-<commit>` and `latest`.
+- **deploy** (environment `production`): skipped with a notice until the secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` and `DEPLOY_KNOWN_HOSTS` exist. The optional variables are `DEPLOY_PORT`, `DEPLOY_PATH` (default `~/patiserie-choukran`) and `DEPLOY_URL`. The job:
+  - streams `docker-compose.prod.yml` to the server;
+  - logs in to GHCR with the job token, passed over stdin and never on the remote command line;
+  - pulls `APP_IMAGE`, runs `up -d`, waits for the container healthcheck, then checks `DEPLOY_URL/up`.
+- The server keeps its own `.env.docker`. `docker-compose.prod.yml` never builds. Its phpMyAdmin runs only under the `admin` profile and listens on `127.0.0.1` only. Validate workflow changes with `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint`.
+
+Tests live in `backend/tests/Feature/`, with shared factories in `tests/Concerns/CreeDonneesBoutique.php`:
+- `creerUtilisateur('vendeur')` creates a vendor with a complete shop profile;
+- `creerVendeurIncomplet()` creates one without it;
+- the base `TestCase` fakes the `local` and `public` disks, so generated PDFs never land in `storage/app`.
+
+All migrations must run on SQLite as well as MySQL:
+- `2026_08_04_000001_rename_role_livreur_to_vendeur` runs raw `ALTER TABLE … MODIFY COLUMN` on MySQL/MariaDB only and uses the schema builder's `->change()` elsewhere.
+- A migration that drops a column must drop that column's indexes first, or SQLite refuses. This applies to `down()` rollbacks too.
+- On MySQL, an index can also back a foreign key. Create its replacement before dropping it, or MySQL fails with error 1553. See `2026_09_15_000004_vendeurs_vedette`, which drops `produits.est_vedette`.
+
+## Architecture
+
+### Roles and routing
+`users.role` is `client | admin | vendeur`. The `vendeur` role replaced the old `livreur` (delivery person) role; vendors sell and deliver their own products. An order's vendor is set at checkout (`commandes.vendeur_id`) and never reassigned.
+
+`2026_09_15_000009_nettoyage_colonnes_et_tables_inutilisees` removed what was left unused:
+- columns `commandes.livreur_id`, `devise` and `operateur_mobile`, `notifications.canal`, `produits.nombre_vues`, and `users.photo_profil`, `adresse_principale`, `email_verified_at` and `remember_token`;
+- the `assign-livreur` / `assign-vendeur` routes and the `vendeur/livraisons/*` aliases;
+- the `sessions`, `cache`, `cache_locks` and `job_batches` tables. `jobs` and `failed_jobs` remain for the Docker worker.
+
+Use `vendeur` in new code.
+
+`bootstrap/app.php` registers the middleware aliases `admin`, `client`, `vendeur`, `actif` and `profil.vendeur`. Route groups in `routes/api.php`, all under `/api/v1`:
+- public: auth, catalogue (optional `?ville=`), `livraison/quartiers`, `livraison/vendeur/{id}`, `vendeurs/{id}`, `conditions-vendeur`
+- `auth:sanctum`: profile, adresses, notifications, plus a nested `client` group for panier, commandes and `commandes/{id}/facture`
+- `auth:sanctum` + `admin`: `/admin/*`, including `rapports`
+- `auth:sanctum` + `vendeur`: `/vendeur/profil` (GET/PUT), then everything else under `/vendeur/*` behind `profil.vendeur`
+
+### Vendor shop profile
+- A vendor must complete a shop profile before selling: `email`, `logo_boutique` (public disk, `boutiques/`), `description_boutique` (30+ chars) and `conditions_acceptees_le`.
+- The conditions text is the `conditions_vendeur` parameter.
+- `User::estProfilVendeurComplet()` and `scopeProfilVendeurComplet()` implement the rule. The appended attribute `profil_vendeur_complet` is `true` for non-vendors.
+- An incomplete vendor:
+  - gets a 403 `{ code: 'profil_vendeur_incomplet' }` from `EnsureProfilVendeurComplet`;
+  - is redirected by the router guard to `/vendeur/profil-boutique`. `api.js` also redirects on that 403;
+  - has hidden products: `Produit::scopeVisible()` shows a product only if its creator is not a vendor, or is an active vendor with a complete profile. The same rule blocks those products at panier and checkout.
+- `Admin\UserController::updateRole` notifies a newly promoted vendor (`NotificationsCompte::devenuVendeur`).
+- The public shop page is `GET /vendeurs/{id}`, shown by `views/VendeurProfil.vue`. The API returns 404 unless the vendor is active and complete.
+
+### Featured vendors
+- The admin sets `users.est_vendeur_vedette` with `PATCH /admin/users/{id}/vedette`. It replaced the old `produits.est_vedette`.
+- `Produit::scopeVedette()` keeps the products of featured vendors. `scopeVendeursVedettesEnTete()` sorts them first and runs before the requested sort in the catalogue lists.
+- Public product JSON loads the creator with `Produit::VENDEUR_PUBLIC`: `id, nom_complet, logo_boutique, est_vendeur_vedette`, with no phone and no email. The badge reads `produit.createur.est_vendeur_vedette`.
+
+### Vendor ownership
+`created_by_user_id` identifies a product's vendor; categories also have this column. The `Admin\` Categorie and Produit controllers are also mounted under `/vendeur/catalogue/*`. Each has a private `isVendeur()` that limits vendors to their own rows. Keep that scoping working for both entry points when editing them.
+
+### Cart → orders (multi-vendor)
+- `paniers.vendeur_id` is copied from `produit.created_by_user_id` and re-synced when the cart is read and at checkout.
+- The whole cart is emptied after `panier_duree_minutes` (default 1440) without any modification. The deadline is computed from `MAX(paniers.updated_at)`, so a changed setting applies to existing carts at once. Every panier endpoint purges first (`Panier::purgerExpires()`), `panier:purge-expired` runs every 5 minutes, and add/update/remove call `Panier::prolonger()`.
+- Panier endpoints return the full cart `{ items, total, nombre_items, expire_le, duree_minutes }`, so the store needs no second request. `stores/panier.js` refetches at `expire_le` and `Panier.vue` shows the deadline.
+- Admins edit cart duration, delivery fee and vendor terms on the Settings page (`components/admin/ReglagesBoutique.vue` → `GET/PUT /admin/reglages`).
+- `Api\CommandeController::store` groups the cart by `vendeur_id` and creates **one `Commande` per vendor** inside a `DB::transaction`. Each order gets its own delivery fee, `LigneCommande` rows, stock decrement and first `HistoriqueStatutCommande` entry. Vendors are notified after the commit (in-app `Notification` plus an email via `Mail::raw`). Business-rule failures throw `\InvalidArgumentException`, which is returned as a 422.
+- Delivery rules live in `App\Services\LivraisonVendeur`:
+  - the fee is the same for everyone: the `frais_livraison_standard` parameter, 1500 FCFA by default, charged per vendor order;
+  - the vendor must deliver the address's city (`vendeur_villes`, managed from "Ma livraison"). The city is `Adresse::villeDeLivraison()`, i.e. the city of the chosen quartier. There are no delivery delays;
+  - the vendor's products must reach `users.montant_minimum_livraison` (0 means no minimum). Pickup in store ignores the minimum and the fee.
+- Vendors set their cities and minimum together with `GET/PUT /vendeur/livraison` (`Vendeur\LivraisonController`).
+- The frontend previews all of this through the public `GET /livraison/vendeur/{id}`, which returns `{ frais_livraison, montant_minimum_livraison, villes }`. The backend re-checks it authoritatively in `store()` and `update()`.
+- Catalogue filtered by city:
+  - the client picks a city (`stores/ville.js`, kept in `localStorage`, header selector and first-visit prompt);
+  - `api.js` adds `?ville=` to the catalogue calls (home page, products, promotions, similar, categories);
+  - the backend applies `Produit::scopeLivrableDans($ville)`, which keeps only products whose vendor delivers that city;
+  - a vendor's public page ignores the city and shows the cities they deliver.
+- The former zone system (`zone_livraisons`, `livreur_zone_livraisons`, `adresses.zone_livraison_id`, `calculate-shipping`) and the per-quartier coverage (`vendeur_tarifs_livraison`) were removed in `2026_09_15_000005_livraison_par_ville`.
+- Change order status with `Commande::changerStatut()`, which records history. `scopeArchivee` and `scopeVisibleDansListes` define which orders the operational lists hide (cancelled, or delivered and paid).
+
+### Mobile money payments (NotchPay)
+- Config lives in `services.notchpay` (`NOTCHPAY_PUBLIC_KEY`, `NOTCHPAY_WEBHOOK_HASH`, `NOTCHPAY_CALLBACK_URL`). With no public key, `NotchPay::estConfigure()` is false and Orange Money / MTN MoMo orders stay to be confirmed by hand, as before. `tests/TestCase.php` blanks the keys and calls `Http::preventStrayRequests()`, so tests fake NotchPay with `Http::fake`.
+- One `Paiement` covers every order of a checkout (`commandes.paiement_id`). Its reference is `CHK-ymd-XXXXXXXX`. The real API returns no `transaction.id`: NotchPay's own reference `transaction.reference` (`trx.…`) is stored in `paiements.notchpay_id`, and our reference comes back in `merchant_reference` / `trxref`. `GET /payments/{reference}` only accepts the `trx.…` reference and answers 404 to ours. In sandbox, `POST /payments/{trx}` with `channel: cm.mtn` and phone `+237680000000` completes a payment. `Services\Paiements::demarrer()` creates it and calls `POST /payments`. `CommandeController::store` returns `paiement: { reference, url_paiement }`, or `erreur_paiement` when NotchPay fails; the orders are created either way. `POST /commandes/{id}/payer` restarts payment for a single unpaid order.
+- The status is only ever trusted from `GET /payments/{reference}` (`Paiements::synchroniser()`, idempotent, row locked): on `complete` each order goes through `confirmerPaiement("NotchPay {ref}")`; on failed, canceled or expired, orders still `en_attente` become `echec`. Two paths call it:
+  - the client returns to the SPA page `/paiement/retour` (`views/PaiementRetour.vue`), which polls `GET /paiements/{reference}`. The reference comes from the URL, or else from `sessionStorage` (`utils/paiement.js`);
+  - the public webhook `POST /webhooks/notchpay` is checked with HMAC-SHA256 of the raw body (`X-Notch-Signature`) and matches our reference or `notchpay_id`.
+- The callback defaults to `FRONTEND_URL/paiement/retour`. `GET /payments/callback` (in `routes/web.php`, and a SPA redirect of the same path) forwards the older callback URL there.
+
+### Invoices and reports (dompdf)
+- **Invoices.** Moving an order to `confirmee` dispatches `GenererEtEnvoyerFacture` from `changerStatut()`, whoever confirms it:
+  - `Services\Factures::generer()` is idempotent and creates one `Facture` per order. Numbers are `FAC-AAAAMM-NNNN`; the PDF is written to `factures/AAAA/MM/` on the private `local` disk;
+  - if the client has an email, the job sends `FactureCommandeMail` with the PDF attached and sets `envoyee_le`;
+  - `FactureController` serves the download to the client (`commandes/{id}/facture`), the vendor (`vendeur/commandes/{id}/facture`) and the admin (`admin/commandes/{id}/facture`). A missing file is regenerated;
+  - order `show` endpoints load `facture:id,commande_id,numero_facture,envoyee_le`.
+- **Monthly reports.** `Services\RapportMensuelVendeurs` covers every vendor, based on orders created in the month; amounts exclude cancelled orders:
+  - `GET /admin/rapports/mensuel?mois=AAAA-MM&format=json|pdf|csv`. CSV is UTF-8 with BOM and a `;` separator. A closed month's files are stored under `rapports/AAAA-MM/` and served again;
+  - `rapports:mensuels` (scheduled on the 1st at 06:00) stores last month and notifies the admins.
+- dompdf cannot load remote URLs: the vendor logo is inlined as a data URI, and `enable_font_subsetting` keeps PDFs around 25 KB instead of 850 KB.
+- The frontend downloads with `responseType: 'blob'` plus `utils/telechargement.js`, and reads blob errors with `lireErreurBlob()`. CORS exposes `Content-Disposition`.
+
+### Other backend conventions
+- The password column is `mot_de_passe`, hashed by a mutator on `User`. Login is by `telephone`, which `AuthController` normalizes to `+237XXXXXXXXX`. Logging in revokes all previous tokens.
+- JSON responses use `{ success, message?, data }`.
+- Runtime settings are stored in `parametre_sites` and read and written with `ParametreSite::get()` / `set()`. Values are typed: string, integer, boolean or json. `get()` reads every setting from one cached array (10 minutes), which model `saved` / `deleted` events clear; raw `DB::table('parametre_sites')` writes in migrations are only picked up when the cache expires.
+- Cities are the lowercase values `yaoundé` / `douala`:
+  - backend: `Quartier::VILLES`, `Quartier::regleVille()` for validation, `Quartier::libelleVille()` for display;
+  - frontend: `utils/villes.js`;
+  - admins manage quartiers at `/admin/quartiers`.
+- `adresses` has a text column `quartier` (the name) and a `quartier_id` FK. The relation is deliberately named `Adresse::quartierLivraison()` (JSON key `quartier_livraison`). A relation named `quartier()` would replace the text column in the JSON whenever it is eager-loaded. An address is created with `ville` and `quartier_id` (both required, and the quartier must belong to that city), plus a free, optional `zone` (sector, crossroads…). `AdresseController` copies the quartier name and city into the `quartier` / `ville` columns.
+- Uploads go to the `public` disk under `produits/`, `categories/` and `boutiques/`. `Services\Images::enregistrer($fichier, $dossier, $largeurMax)` resizes images (1200 px for products, 800 for categories, 400 for logos), applies EXIF orientation and saves them as WebP. It keeps the original file when GD cannot read it.
+- Slow work (invoice PDF, SMTP) goes through `Support\Differe::executer($job)`. With a worker it is queued. With `QUEUE_CONNECTION=sync` (local dev) it runs after the HTTP response through Laravel's `defer()`. Never use `dispatch()->afterResponse()`: its terminating callbacks run again on every request of a test.
+- Performance defaults:
+  - `CACHE_STORE=file` and `SESSION_DRIVER=array` (the API is stateless);
+  - `App\Models\PersonalAccessToken` writes Sanctum's `last_used_at` at most every 5 minutes;
+  - the home page loads in one call, `GET /accueil?ville=`, which returns `{ categories, vedettes, nouveautes }`;
+  - Vite puts vue, vue-router, pinia and axios in a separate `vendor` chunk;
+  - off-screen `<img>` tags use `loading="lazy"`.
+- In-app and email notifications go through `NotificationsCommande::creer()` / `envoyerEmail()` (queued, or deferred when the queue is sync). `NotificationsCompte` reuses them for account events.
+- Emails:
+  - every message handed to the mail transport is logged with its Message-ID in `storage/logs/mail.log` (`MessageSent` listener in `AppServiceProvider`). Use it to match counts with Brevo's logs;
+  - queued email closures never rethrow, so a worker retry cannot duplicate a mail;
+  - the invoice job claims `factures.envoyee_le` atomically before sending;
+  - `EmailsCommandeTest` pins the flow "order + confirmation" to exactly 2 emails.
+- `RegleMetierException` (a business-rule refusal rendered as 422) is excluded from error reporting.
+- PHPUnit runs with `LOG_CHANNEL=null`: tests never write to the dev `laravel.log`.
+
+### Frontend
+- `src/services/api.js` is the only axios client. It adds the bearer token from the auth store, logs out and redirects to `login` on a 401, and groups methods by resource (e.g. `api.panier.add(...)`). The `admin.*` methods pick their prefix from the role: `/vendeur/catalogue` or `/vendeur/commandes` for vendors, `/admin/...` for admins. As a result, the `views/admin/*` screens serve both roles.
+- Multipart updates are sent as `POST` with `_method=PUT` (Laravel method spoofing), because PHP doesn't parse multipart PUT bodies.
+- Router guards in `src/router/index.js` read these meta flags:
+  - `requiresAuth`
+  - `requiresAdmin`
+  - `requiresCatalogueManager` / `requiresCommandesManager` (admin or vendeur)
+  - `requiresVendeur` (vendor-only pages `/vendeur/livraison` "Ma livraison" and `/vendeur/profil-boutique`)
+  - `guest`
+  - `mobileOnly`
+
+  Admins and vendors are redirected away from the client cart and order pages. A vendor whose `user.profil_vendeur_complet === false` is sent to `vendeur-profil-boutique` from any other route.
+- `composables/useLivraisonVendeurs.js` holds the multi-vendor logic shared by `Panier`, `Checkout` and `CommandeDetail`:
+  - `grouperParVendeur(items)`;
+  - a per-vendor cache of `{ frais, minimum, villes }`;
+  - `livraisonDesGroupes(groupes, ville)`, which returns a status for each group (`ok | non_couvert | minimum_non_atteint | sans_ville | sans_vendeur | chargement | erreur`), plus `frais`, `minimum` and `manque`.
+
+  `utils/villes.js` provides `villeAdresse()` and `libelleAdresse()`.
+- `components/adresse/AdresseFormModal.vue` is the single address form, used by Checkout and Profil. The fields come in order: city, then a quartier filtered by that city, then an optional zone.
+- `api.js` also exports `messageErreur(error, fallback)`, which returns the first validation error or else the backend message. The client times out after 30 s, and on a 403 `profil_vendeur_incomplet` it reloads the user and opens the shop-profile form.
+- Pinia stores: `auth` (token in `localStorage`, role getters), `panier`, `notifications` and `toast`.
+- Polling goes through `utils/sondagePartage.js`:
+  - at most one request per interval (2 min) across all open tabs;
+  - the value and the next due time are shared in `localStorage`, keyed per user;
+  - no request while the tab is hidden, and the delay doubles on errors (up to 15 min).
+- The unread notification count (Header) and the vendor's pending-orders badge (`composables/useVendeurCommandesBadge.js`) use it. Navigating never triggers a request. Pass `{ force: true }` only when fresh data is needed: the Notifications page, or after a vendor acts on an order.
+- Shared helpers, used instead of per-component copies: `utils/images.js` (`resolveImageUrl`, `onImageError`, `verifierImage`), `utils/format.js` (prices, dates, status labels and classes) and `utils/redirection.js`.
+- No `alert`/`confirm`/`prompt`: use the `toast` store and `useConfirm()` (`components/common/ConfirmDialog.vue`).
+- `@` is an alias for `frontend/src`.
+
+The root `todo` file lists pending work (in French).

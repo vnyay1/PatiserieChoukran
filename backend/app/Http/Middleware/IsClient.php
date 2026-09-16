@@ -13,7 +13,7 @@ class IsClient
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!$request->user() || $request->user()->role !== 'client') {
+        if (! $request->user() || $request->user()->role !== 'client') {
             return response()->json([
                 'success' => false,
                 'message' => 'Accès non autorisé. Réservé aux clients.',

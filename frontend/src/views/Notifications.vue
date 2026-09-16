@@ -172,9 +172,14 @@ import { useRouter } from 'vue-router'
 import { Bell, Package } from 'lucide-vue-next'
 import Button from '@/components/common/Button.vue'
 import { useNotificationsStore } from '@/stores/notifications'
+import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
+import { formatDateHeure } from '@/utils/format'
 
 const router = useRouter()
 const notificationsStore = useNotificationsStore()
+const toastStore = useToastStore()
+const { confirmer } = useConfirm()
 
 const typeFilter = ref('')
 const readFilter = ref('all')
@@ -200,15 +205,7 @@ const labelType = (type) => {
   return type
 }
 
-const formatDate = (value) => {
-  if (!value) return 'Date inconnue'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('fr-FR', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(date)
-}
+const formatDate = (value) => formatDateHeure(value) || 'Date inconnue'
 
 const buildFetchParams = () => {
   const params = {
@@ -250,7 +247,7 @@ const changePage = (page) => {
 const markAsRead = async (id) => {
   const result = await notificationsStore.markAsRead(id)
   if (!result.success) {
-    alert(result.message || 'Impossible de marquer la notification comme lue.')
+    toastStore.erreur(result.message || 'Impossible de marquer la notification comme lue.')
   }
 }
 
@@ -260,17 +257,22 @@ const markAllAsRead = async () => {
   actionLoading.value = false
 
   if (!result.success) {
-    alert(result.message || 'Impossible de marquer toutes les notifications comme lues.')
+    toastStore.erreur(result.message || 'Impossible de marquer toutes les notifications comme lues.')
   }
 }
 
 const removeNotification = async (notification) => {
-  const confirmed = confirm('Supprimer cette notification ?')
+  const confirmed = await confirmer({
+    titre: 'Supprimer la notification',
+    message: 'Cette notification sera définitivement supprimée.',
+    libelleConfirmer: 'Supprimer',
+    danger: true,
+  })
   if (!confirmed) return
 
   const result = await notificationsStore.remove(notification.id)
   if (!result.success) {
-    alert(result.message || 'Impossible de supprimer cette notification.')
+    toastStore.erreur(result.message || 'Impossible de supprimer cette notification.')
     return
   }
 
@@ -282,7 +284,12 @@ const removeNotification = async (notification) => {
 }
 
 const clearReadNotifications = async () => {
-  const confirmed = confirm('Supprimer toutes les notifications lues ?')
+  const confirmed = await confirmer({
+    titre: 'Supprimer les notifications lues',
+    message: 'Toutes les notifications déjà lues seront supprimées.',
+    libelleConfirmer: 'Supprimer',
+    danger: true,
+  })
   if (!confirmed) return
 
   actionLoading.value = true
@@ -290,12 +297,14 @@ const clearReadNotifications = async () => {
   actionLoading.value = false
 
   if (!result.success) {
-    alert(result.message || 'Impossible de supprimer les notifications lues.')
+    toastStore.erreur(result.message || 'Impossible de supprimer les notifications lues.')
     return
   }
 
   if (result.partial && result.message) {
-    alert(result.message)
+    toastStore.info(result.message)
+  } else {
+    toastStore.succes('Notifications lues supprimées.')
   }
 
   if (notifications.value.length === 0 && currentPage.value > 1) {
@@ -346,7 +355,7 @@ watch(currentPage, () => {
 })
 
 onMounted(async () => {
-  await notificationsStore.fetchUnreadCount()
+  await notificationsStore.fetchUnreadCount({ force: true })
   fetchNotifications()
 })
 </script>

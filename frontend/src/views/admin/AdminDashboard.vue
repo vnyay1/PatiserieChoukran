@@ -53,20 +53,20 @@ File: src/views/admin/AdminDashboard.vue
 
         <div class="w-full xl:w-80">
           <label class="block text-sm font-medium text-gray-700 mb-2">
-            Filtrer par livreur
+            Filtrer par vendeur
           </label>
           <select
             class="input"
-            :value="selectedLivreurId"
-            @change="setLivreur($event.target.value)"
+            :value="selectedVendeurId"
+            @change="setVendeur($event.target.value)"
           >
-            <option value="">Tous les livreurs</option>
+            <option value="">Tous les vendeurs</option>
             <option
-              v-for="livreur in livreurs"
-              :key="livreur.id"
-              :value="String(livreur.id)"
+              v-for="vendeur in vendeurs"
+              :key="vendeur.id"
+              :value="String(vendeur.id)"
             >
-              {{ livreur.nom_complet }}
+              {{ vendeur.nom_complet }}
             </option>
           </select>
         </div>
@@ -160,9 +160,10 @@ File: src/views/admin/AdminDashboard.vue
             <div v-else class="space-y-3">
               <div v-for="produit in topProduits" :key="produit.id" class="flex items-center gap-3">
                 <img
-                  :src="resolveImageUrl(produit.image_principale)"
-                  :alt="produit.nom"
+                  loading="lazy"
+                  :src="resolveImageUrl(produit.image_principale)" :alt="produit.nom"
                   class="h-12 w-12 rounded-lg object-cover border"
+                  @error="onImageError"
                 />
                 <div class="flex-1">
                   <div class="font-semibold text-gray-800 text-sm">{{ produit.nom }}</div>
@@ -228,13 +229,24 @@ import { ref, computed, onMounted } from 'vue'
 import api from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import { resolveImageUrl, onImageError } from '@/utils/images'
+import {
+  dateIso,
+  formatDate,
+  formatPrice,
+  formatPrice as formatNumber,
+  libelleStatut as getStatutLabel,
+  classeStatut as getBadgeClass,
+  libellePaiement as getPaymentLabel,
+  classePaiement as getPaymentBadgeClass,
+} from '@/utils/format'
 
 const loading = ref(false)
 const error = ref('')
 
 const periode = ref('mois')
-const selectedLivreurId = ref('')
-const livreurs = ref([])
+const selectedVendeurId = ref('')
+const vendeurs = ref([])
 const periodes = [
   { value: 'aujourd_hui', label: "Aujourd'hui" },
   { value: 'semaine', label: 'Semaine' },
@@ -259,13 +271,13 @@ const ventesParJour = ref([])
 const topProduits = ref([])
 const dernieresCommandes = ref([])
 
-const hasLivreurFilter = computed(() => Boolean(selectedLivreurId.value))
-const selectedLivreur = computed(() => {
-  return livreurs.value.find((item) => String(item.id) === String(selectedLivreurId.value)) || null
+const hasVendeurFilter = computed(() => Boolean(selectedVendeurId.value))
+const selectedVendeur = computed(() => {
+  return vendeurs.value.find((item) => String(item.id) === String(selectedVendeurId.value)) || null
 })
 const dashboardSubtitle = computed(() => {
-  if (selectedLivreur.value) {
-    return `Vue d'ensemble des ventes, clients et produits pour ${selectedLivreur.value.nom_complet}.`
+  if (selectedVendeur.value) {
+    return `Vue d'ensemble des ventes, clients et produits pour ${selectedVendeur.value.nom_complet}.`
   }
   return "Vue d'ensemble des ventes, clients et produits."
 })
@@ -277,8 +289,8 @@ const statCards = computed(() => [
   { key: 'commandes_livrees', label: 'Livrées (période)', value: stats.value.commandes_livrees },
   { key: 'revenus_total', label: 'Revenus (période)', value: stats.value.revenus_total, format: 'currency' },
   { key: 'revenus_aujourd_hui', label: "Revenus aujourd'hui", value: stats.value.revenus_aujourd_hui, format: 'currency' },
-  { key: 'total_clients', label: hasLivreurFilter.value ? 'Clients du livreur' : 'Clients actifs', value: stats.value.total_clients },
-  { key: 'nouveaux_clients', label: hasLivreurFilter.value ? 'Clients (période)' : 'Nouveaux clients', value: stats.value.nouveaux_clients },
+  { key: 'total_clients', label: hasVendeurFilter.value ? 'Clients du vendeur' : 'Clients actifs', value: stats.value.total_clients },
+  { key: 'nouveaux_clients', label: hasVendeurFilter.value ? 'Clients (période)' : 'Nouveaux clients', value: stats.value.nouveaux_clients },
   { key: 'total_produits', label: 'Produits disponibles', value: stats.value.total_produits },
   { key: 'produits_stock_faible', label: 'Stock faible', value: stats.value.produits_stock_faible, helper: '≤ 5 unités' },
 ])
@@ -300,7 +312,8 @@ const chartData = computed(() => {
   for (let i = 6; i >= 0; i--) {
     const date = new Date()
     date.setDate(date.getDate() - i)
-    const iso = date.toISOString().slice(0, 10)
+    // Date locale : toISOString donnerait la date UTC, décalée d'un jour en soirée
+    const iso = dateIso(date)
     const data = map.get(iso)
     days.push({
       date: iso,
@@ -318,106 +331,13 @@ const maxMontant = computed(() => {
   return Math.max(...chartData.value.map((item) => item.montant))
 })
 
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
-const apiOrigin = (() => {
-  try {
-    return new URL(apiBase).origin
-  } catch {
-    return ''
-  }
-})()
-
-const resolveImageUrl = (path) => {
-  if (!path) return '/placeholder-product.jpg'
-  if (path.startsWith('http') || path.startsWith('/')) return path
-  return apiOrigin ? `${apiOrigin}/storage/${path}` : `/storage/${path}`
-}
-
 const getBarHeight = (value) => {
   if (!maxMontant.value || value <= 0) return 0
   return Math.max(4, (value / maxMontant.value) * 100)
 }
 
-const formatNumber = (value) => {
-  return new Intl.NumberFormat('fr-FR').format(value || 0)
-}
-
-const formatPrice = (value) => {
-  return new Intl.NumberFormat('fr-FR').format(value || 0)
-}
-
-const toDate = (value) => {
-  if (!value) return null
-  if (typeof value === 'string' && value.length === 10) {
-    return new Date(`${value}T00:00:00`)
-  }
-  return new Date(value)
-}
-
-const formatDateShort = (date) => {
-  const parsed = toDate(date)
-  if (!parsed) return ''
-  return parsed.toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: 'short',
-  })
-}
-
-const formatDateTime = (date) => {
-  const parsed = toDate(date)
-  if (!parsed) return ''
-  return parsed.toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
-}
-
-const getStatutLabel = (statut) => {
-  const labels = {
-    en_attente: 'En attente',
-    confirmee: 'Confirmée',
-    en_preparation: 'En préparation',
-    prete: 'Prête',
-    en_livraison: 'En livraison',
-    livree: 'Livrée',
-    annulee: 'Annulée',
-  }
-  return labels[statut] || statut
-}
-
-const getBadgeClass = (statut) => {
-  const classes = {
-    en_attente: 'bg-yellow-100 text-yellow-700',
-    confirmee: 'bg-blue-100 text-blue-700',
-    en_preparation: 'bg-purple-100 text-purple-700',
-    prete: 'bg-indigo-100 text-indigo-700',
-    en_livraison: 'bg-orange-100 text-orange-700',
-    livree: 'bg-green-100 text-green-700',
-    annulee: 'bg-red-100 text-red-700',
-  }
-  return classes[statut] || 'bg-gray-100 text-gray-700'
-}
-
-const getPaymentLabel = (statut) => {
-  const labels = {
-    en_attente: 'À payer',
-    paye: 'Payé',
-    echec: 'Échec',
-    rembourse: 'Remboursé',
-  }
-  return labels[statut] || statut
-}
-
-const getPaymentBadgeClass = (statut) => {
-  const classes = {
-    en_attente: 'bg-yellow-100 text-yellow-700',
-    paye: 'bg-green-100 text-green-700',
-    echec: 'bg-red-100 text-red-700',
-    rembourse: 'bg-gray-100 text-gray-700',
-  }
-  return classes[statut] || 'bg-gray-100 text-gray-700'
-}
+const formatDateShort = (date) => formatDate(date, { day: '2-digit', month: 'short' })
+const formatDateTime = (date) => formatDate(date)
 
 const setPeriode = (value) => {
   if (periode.value === value) return
@@ -425,10 +345,10 @@ const setPeriode = (value) => {
   fetchStats()
 }
 
-const setLivreur = (value) => {
+const setVendeur = (value) => {
   const normalized = value ? String(value) : ''
-  if (selectedLivreurId.value === normalized) return
-  selectedLivreurId.value = normalized
+  if (selectedVendeurId.value === normalized) return
+  selectedVendeurId.value = normalized
   fetchStats()
 }
 
@@ -438,8 +358,8 @@ const fetchStats = async () => {
 
   try {
     const params = { periode: periode.value }
-    if (selectedLivreurId.value) {
-      params.livreur_id = Number(selectedLivreurId.value)
+    if (selectedVendeurId.value) {
+      params.vendeur_id = Number(selectedVendeurId.value)
     }
 
     const response = await api.admin.dashboard.stats(params)
@@ -448,10 +368,10 @@ const fetchStats = async () => {
       ventesParJour.value = response.data.data.ventes_par_jour || []
       topProduits.value = response.data.data.top_produits || []
       dernieresCommandes.value = response.data.data.dernieres_commandes || []
-      livreurs.value = response.data.data.livreurs || []
+      vendeurs.value = response.data.data.vendeurs || []
 
-      const livreurIdFromApi = response.data.data.selected_livreur_id
-      selectedLivreurId.value = livreurIdFromApi ? String(livreurIdFromApi) : ''
+      const vendeurIdFromApi = response.data.data.selected_vendeur_id
+      selectedVendeurId.value = vendeurIdFromApi ? String(vendeurIdFromApi) : ''
     } else {
       error.value = 'Impossible de charger les statistiques.'
     }

@@ -7,13 +7,32 @@ File: src/components/layout/Header.vue
   <header class="bg-white shadow-sm sticky top-0 z-40 safe-top">
     <div class="container mx-auto px-4">
       <div class="flex items-center justify-between h-14 md:h-20">
-        <!-- Logo -->
-        <router-link to="/" class="flex items-center space-x-2">
-          <img src="/logo.png" alt="Choukrane" class="h-10 md:h-12 w-auto" loading="lazy" />
-        </router-link>
+        <!-- Logo et ville du client (le catalogue est filtré par ville) -->
+        <div class="flex items-center gap-2 md:gap-4 min-w-0">
+          <router-link to="/" class="flex items-center space-x-2 flex-shrink-0">
+            <img src="/logo.png" alt="Choukrane" class="h-10 md:h-12 w-auto" />
+          </router-link>
+          <VilleSelecteur v-if="!authStore.isAdmin && !authStore.isVendeur" />
+        </div>
 
         <!-- Mobile actions -->
         <div class="flex items-center gap-3 md:hidden">
+          <router-link
+            v-if="authStore.isAuthenticated"
+            to="/notifications"
+            class="relative touch-target h-11 w-11 rounded-full border border-gray-200 bg-white text-gray-700 flex items-center justify-center"
+            aria-label="Notifications"
+            title="Notifications"
+          >
+            <Bell :size="20" />
+            <span
+              v-if="unreadNotificationsCount > 0"
+              class="absolute -top-1 -right-1 bg-gold-600 text-white text-[10px] rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
+            >
+              {{ formatNotificationBadgeCount(unreadNotificationsCount) }}
+            </span>
+          </router-link>
+
           <router-link
             v-if="authStore.isAuthenticated && authStore.isClient"
             to="/panier"
@@ -57,10 +76,10 @@ File: src/components/layout/Header.vue
           >
             <span>{{ item.label }}</span>
             <span
-              v-if="showLivreurCommandesBadge(item.name)"
+              v-if="showVendeurCommandesBadge(item.name)"
               class="bg-gold-600 text-white text-xs rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
             >
-              {{ formatBadgeCount(livreurCommandesCount) }}
+              {{ formatBadgeCount(vendeurCommandesCount) }}
             </span>
           </router-link>
         </nav>
@@ -81,7 +100,13 @@ File: src/components/layout/Header.vue
             </span>
           </router-link>
 
-          <router-link v-if="authStore.isAuthenticated" to="/notifications" class="relative">
+          <router-link
+            v-if="authStore.isAuthenticated"
+            to="/notifications"
+            class="relative"
+            aria-label="Notifications"
+            title="Notifications"
+          >
             <Bell
               :size="24"
               :class="route.name === 'notifications' ? 'text-gold-600' : 'text-gray-700 hover:text-gold-600'"
@@ -139,8 +164,8 @@ File: src/components/layout/Header.vue
               <button
                 type="button"
                 class="touch-target h-10 w-10 rounded-full border border-gray-200 flex items-center justify-center"
-                @click="toggleMobileNav(false)"
                 aria-label="Fermer le menu"
+                @click="toggleMobileNav(false)"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 18L18 6M6 6l12 12" />
@@ -159,10 +184,10 @@ File: src/components/layout/Header.vue
               >
                 <span>{{ item.label }}</span>
                 <span
-                  v-if="showLivreurCommandesBadge(item.name)"
+                  v-if="showVendeurCommandesBadge(item.name)"
                   class="bg-gold-600 text-white text-[11px] rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
                 >
-                  {{ formatBadgeCount(livreurCommandesCount) }}
+                  {{ formatBadgeCount(vendeurCommandesCount) }}
                 </span>
               </router-link>
             </div>
@@ -207,19 +232,20 @@ File: src/components/layout/Header.vue
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
 import { useNotificationsStore } from '@/stores/notifications'
-import { useLivreurCommandesBadge } from '@/composables/useLivreurCommandesBadge'
+import { useVendeurCommandesBadge } from '@/composables/useVendeurCommandesBadge'
+import VilleSelecteur from '@/components/layout/VilleSelecteur.vue'
 import { ShoppingCart, User, Info, Bell } from 'lucide-vue-next'
 
 const route = useRoute()
 const authStore = useAuthStore()
 const panierStore = usePanierStore()
 const notificationsStore = useNotificationsStore()
-const { livreurCommandesCount, formatBadgeCount, showLivreurCommandesBadge } = useLivreurCommandesBadge()
+const { vendeurCommandesCount, formatBadgeCount, showVendeurCommandesBadge } = useVendeurCommandesBadge()
 const mobileOpen = ref(false)
 
 const panierCount = computed(() => panierStore.itemCount)
@@ -240,16 +266,23 @@ const desktopNavItems = computed(() => {
     items.push({ name: 'admin-commandes', label: 'Commandes', to: '/admin/commandes' })
     items.push({ name: 'admin-parametres', label: 'Paramètres', to: '/admin/parametres' })
     items.push({ name: 'admin-users', label: 'Utilisateurs', to: '/admin/users' })
+    items.push({ name: 'admin-rapports', label: 'Rapports', to: '/admin/rapports' })
+    items.push({ name: 'admin-quartiers', label: 'Quartiers', to: '/admin/quartiers' })
   }
 
-  if (authStore.isLivreur) {
+  if (authStore.isVendeur) {
     items.push({ name: 'admin-commandes', label: 'Commandes', to: '/admin/commandes' })
   }
 
   if (authStore.canManageCatalogue) {
     items.push({ name: 'admin-categories', label: 'Catégories', to: '/admin/categories' })
     items.push({ name: 'admin-produits', label: 'Produits', to: '/admin/produits' })
-    items.push({ name: 'admin-zones', label: 'Zones', to: '/admin/zones-livraison' })
+  }
+
+  if (authStore.isVendeur) {
+    // Villes livrées et minimum d'achat (utilisés au checkout)
+    items.push({ name: 'vendeur-livraison', label: 'Livraison', to: '/vendeur/livraison' })
+    items.push({ name: 'vendeur-profil-boutique', label: 'Ma boutique', to: '/vendeur/profil-boutique' })
   }
 
   return items
@@ -257,37 +290,33 @@ const desktopNavItems = computed(() => {
 
 const mobileNavItems = desktopNavItems
 
-const isActiveRoute = (name) => {
-  if (name === 'home') return route.name === 'home'
-  if (name === 'produits') return route.name === 'produits' || route.name === 'produit-detail'
-  if (name === 'commandes') return route.name === 'mes-commandes' || route.name === 'commande-detail'
-  if (name === 'admin-dashboard') return route.name === 'admin-dashboard'
-  if (name === 'admin-commandes') return route.name === 'admin-commandes'
-  if (name === 'admin-categories') return route.name === 'admin-categories'
-  if (name === 'admin-parametres') return route.name === 'admin-parametres'
-  if (name === 'admin-produits') return route.name === 'admin-produits'
-  if (name === 'admin-users') return route.name === 'admin-users'
-  if (name === 'admin-zones') return route.name === 'admin-zones'
-  return false
+// Entrées dont plusieurs pages sont « actives » ; les autres correspondent à une seule route
+const ROUTES_ACTIVES = {
+  produits: ['produits', 'produit-detail'],
+  commandes: ['mes-commandes', 'commande-detail'],
 }
+
+const isActiveRoute = (name) => (ROUTES_ACTIVES[name] || [name]).includes(route.name)
 
 const formatNotificationBadgeCount = (count) => {
   return count > 99 ? '99+' : count
 }
 
-const syncNotificationsState = async () => {
-  if (!authStore.isAuthenticated) {
-    notificationsStore.stopPolling()
+// Le compteur de notifications suit l'utilisateur connecté (et non la simple présence
+// d'un token : l'utilisateur est chargé après le premier rendu)
+watch(
+  () => authStore.user?.id,
+  (userId) => {
+    if (userId) {
+      notificationsStore.startPolling()
+      return
+    }
+
+    notificationsStore.stopPolling({ oublier: true })
     notificationsStore.reset()
-    return
-  }
-
-  await notificationsStore.startPolling()
-}
-
-onMounted(() => {
-  syncNotificationsState()
-})
+  },
+  { immediate: true }
+)
 
 watch(
   () => mobileOpen.value,
@@ -296,23 +325,11 @@ watch(
   }
 )
 
+// Changer de page ne déclenche aucun appel réseau (le sondage partagé s'en charge)
 watch(
   () => route.fullPath,
   () => {
     mobileOpen.value = false
-  }
-)
-
-watch(
-  () => authStore.isAuthenticated,
-  (isAuthenticated) => {
-    if (isAuthenticated) {
-      syncNotificationsState()
-      return
-    }
-
-    notificationsStore.stopPolling()
-    notificationsStore.reset()
   }
 )
 

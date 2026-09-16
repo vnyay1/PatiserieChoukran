@@ -15,12 +15,14 @@ File: src/views/Produits.vue
               v-model="searchQuery"
               type="search"
               placeholder="Rechercher un produit..."
+              aria-label="Rechercher un produit"
               class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-gold-500 focus:ring-2 focus:ring-gold-200 outline-none"
               @input="handleSearch"
             />
           </div>
           <button
             class="md:hidden h-12 min-w-12 px-3 rounded-xl bg-gold-500 text-white flex items-center justify-center gap-2 shadow-sm"
+            aria-label="Afficher les filtres"
             @click="showFilters = true"
           >
             <SlidersHorizontal :size="18" />
@@ -32,16 +34,15 @@ File: src/views/Produits.vue
 
     <div class="container mx-auto px-4 py-6">
       <div class="flex gap-6">
-        <!-- Filtres Sidebar (Desktop) -->
+        <!-- Filtres Sidebar (Desktop) : appliqués dès qu'ils changent -->
         <aside class="hidden md:block w-64 flex-shrink-0">
           <div class="sticky top-32">
             <FiltersSidebar
-              v-model:selectedCategory="selectedCategory"
-              v-model:priceRange="priceRange"
-              v-model:showPromo="showPromo"
-              v-model:showVedette="showVedette"
+              v-model:selected-category="selectedCategory"
+              v-model:price-range="priceRange"
+              v-model:show-promo="showPromo"
+              v-model:show-vedette="showVedette"
               :categories="categories"
-              @apply="applyFilters"
             />
           </div>
         </aside>
@@ -62,8 +63,8 @@ File: src/views/Produits.vue
             <!-- Tri -->
             <select
               v-model="sortBy"
+              aria-label="Trier les produits"
               class="hidden md:block px-4 py-2 rounded-lg border border-gray-200 focus:border-gold-500 focus:ring-2 focus:ring-gold-200 outline-none"
-              @change="applyFilters"
             >
               <option value="recent">Plus récents</option>
               <option value="price_asc">Prix croissant</option>
@@ -74,27 +75,46 @@ File: src/views/Produits.vue
 
           <!-- Filtres actifs (chips) -->
           <div v-if="hasActiveFilters" class="flex flex-wrap gap-2 mb-4">
-            <div
+            <button
+              v-if="searchQuery"
+              class="badge badge-primary flex items-center gap-2"
+              @click="searchQuery = ''; handleSearch()"
+            >
+              « {{ searchQuery }} »
+              <X :size="14" />
+            </button>
+            <button
               v-if="selectedCategory"
               class="badge badge-primary flex items-center gap-2"
+              @click="selectedCategory = null"
             >
               {{ getCategoryName(selectedCategory) }}
-              <X :size="14" class="cursor-pointer" @click="selectedCategory = null; applyFilters()" />
-            </div>
-            <div
+              <X :size="14" />
+            </button>
+            <button
+              v-if="hasPriceFilter"
+              class="badge badge-primary flex items-center gap-2"
+              @click="priceRange = [null, null]"
+            >
+              {{ libellePrix }}
+              <X :size="14" />
+            </button>
+            <button
               v-if="showPromo"
               class="badge badge-danger flex items-center gap-2"
+              @click="showPromo = false"
             >
               En promotion
-              <X :size="14" class="cursor-pointer" @click="showPromo = false; applyFilters()" />
-            </div>
-            <div
+              <X :size="14" />
+            </button>
+            <button
               v-if="showVedette"
               class="badge badge-success flex items-center gap-2"
+              @click="showVedette = false"
             >
-              Produits vedettes
-              <X :size="14" class="cursor-pointer" @click="showVedette = false; applyFilters()" />
-            </div>
+              Vendeurs vedettes
+              <X :size="14" />
+            </button>
           </div>
 
           <!-- Loading -->
@@ -130,6 +150,7 @@ File: src/views/Produits.vue
             <div class="flex items-center gap-2">
               <button
                 :disabled="currentPage === 1"
+                aria-label="Page précédente"
                 class="px-4 py-2 rounded-lg border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                 @click="changePage(currentPage - 1)"
               >
@@ -146,6 +167,7 @@ File: src/views/Produits.vue
                       ? 'bg-gold-500 text-white'
                       : 'border border-gray-200 hover:bg-gray-50'
                   ]"
+                  :aria-current="page === currentPage ? 'page' : undefined"
                   @click="changePage(page)"
                 >
                   {{ page }}
@@ -154,6 +176,7 @@ File: src/views/Produits.vue
 
               <button
                 :disabled="currentPage === totalPages"
+                aria-label="Page suivante"
                 class="px-4 py-2 rounded-lg border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                 @click="changePage(currentPage + 1)"
               >
@@ -179,7 +202,7 @@ File: src/views/Produits.vue
           <div class="mx-auto mb-4 h-1 w-12 rounded-full bg-gray-300"></div>
           <div class="flex items-center justify-between mb-6">
             <h2 class="font-display text-xl font-bold text-gray-800">Filtres</h2>
-            <button @click="showFilters = false">
+            <button aria-label="Fermer les filtres" @click="showFilters = false">
               <X :size="24" />
             </button>
           </div>
@@ -198,20 +221,19 @@ File: src/views/Produits.vue
           </div>
 
           <FiltersSidebar
-            v-model:selectedCategory="selectedCategory"
-            v-model:priceRange="priceRange"
-            v-model:showPromo="showPromo"
-            v-model:showVedette="showVedette"
+            v-model:selected-category="selectedCategory"
+            v-model:price-range="priceRange"
+            v-model:show-promo="showPromo"
+            v-model:show-vedette="showVedette"
             :categories="categories"
-            @apply="applyFilters(); showFilters = false"
           />
 
           <div class="flex gap-3 mt-6">
             <Button variant="outline" full-width @click="resetFilters(); showFilters = false">
               Réinitialiser
             </Button>
-            <Button variant="primary" full-width @click="applyFilters(); showFilters = false">
-              Appliquer
+            <Button variant="primary" full-width @click="showFilters = false">
+              Voir {{ totalProduits }} résultat{{ totalProduits > 1 ? 's' : '' }}
             </Button>
           </div>
         </div>
@@ -221,9 +243,11 @@ File: src/views/Produits.vue
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import api from '@/services/api'
+import api, { messageErreur } from '@/services/api'
+import { useToastStore } from '@/stores/toast'
+import { useVilleStore } from '@/stores/ville'
 import ProduitCard from '@/components/produits/ProduitCard.vue'
 import FiltersSidebar from '@/components/produits/FiltersSidebar.vue'
 import Button from '@/components/common/Button.vue'
@@ -231,6 +255,15 @@ import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight } from 'lucide-
 
 const route = useRoute()
 const router = useRouter()
+const toastStore = useToastStore()
+const villeStore = useVilleStore()
+
+const TRIS = {
+  recent: { sort_by: 'created_at', sort_order: 'desc' },
+  price_asc: { sort_by: 'prix', sort_order: 'asc' },
+  price_desc: { sort_by: 'prix', sort_order: 'desc' },
+  popular: { sort_by: 'nombre_commandes', sort_order: 'desc' },
+}
 
 // State
 const produits = ref([])
@@ -238,10 +271,10 @@ const categories = ref([])
 const loading = ref(false)
 const showFilters = ref(false)
 
-// Filtres
+// Filtres (reflétés dans l'URL : partage, rafraîchissement et bouton retour conservent la recherche)
 const searchQuery = ref('')
 const selectedCategory = ref(null)
-const priceRange = ref([0, 100000])
+const priceRange = ref([null, null])
 const showPromo = ref(false)
 const showVedette = ref(false)
 const sortBy = ref('recent')
@@ -268,14 +301,73 @@ const displayedPages = computed(() => {
   return pages
 })
 
+const hasPriceFilter = computed(() => priceRange.value[0] != null || priceRange.value[1] != null)
 const hasActiveFilters = computed(() => {
-  return selectedCategory.value || showPromo.value || showVedette.value
+  return Boolean(searchQuery.value || selectedCategory.value || showPromo.value || showVedette.value || hasPriceFilter.value)
 })
 const activeFiltersCount = computed(() => {
-  return [selectedCategory.value, showPromo.value, showVedette.value].filter(Boolean).length
+  return [selectedCategory.value, showPromo.value, showVedette.value, hasPriceFilter.value].filter(Boolean).length
 })
 
-// Méthodes
+const formatPrice = (price) => new Intl.NumberFormat('fr-FR').format(price)
+
+const libellePrix = computed(() => {
+  const [min, max] = priceRange.value
+  if (min != null && max != null) return `${formatPrice(min)} - ${formatPrice(max)} FCFA`
+  if (min != null) return `Dès ${formatPrice(min)} FCFA`
+  return `Jusqu'à ${formatPrice(max)} FCFA`
+})
+
+// ---------- Synchronisation avec l'URL ----------
+
+let lectureUrlEnCours = false
+
+const lireQuery = async () => {
+  lectureUrlEnCours = true
+  const q = route.query
+  searchQuery.value = typeof q.q === 'string' ? q.q : ''
+  selectedCategory.value = Number(q.categorie) > 0 ? Number(q.categorie) : null
+  showPromo.value = q.promo === '1'
+  showVedette.value = q.vedette === '1'
+  sortBy.value = TRIS[q.tri] ? q.tri : 'recent'
+  priceRange.value = [
+    q.prix_min !== undefined && Number(q.prix_min) >= 0 ? Number(q.prix_min) : null,
+    q.prix_max !== undefined && Number(q.prix_max) >= 0 ? Number(q.prix_max) : null,
+  ]
+  currentPage.value = Number(q.page) > 0 ? Number(q.page) : 1
+  // Les watchers déclenchés par ces affectations s'exécutent avant ce nextTick : ils sont ignorés
+  await nextTick()
+  lectureUrlEnCours = false
+}
+
+const construireQuery = () => {
+  const query = {}
+  if (searchQuery.value) query.q = searchQuery.value
+  if (selectedCategory.value) query.categorie = String(selectedCategory.value)
+  if (showPromo.value) query.promo = '1'
+  if (showVedette.value) query.vedette = '1'
+  if (sortBy.value !== 'recent') query.tri = sortBy.value
+  if (priceRange.value[0] != null) query.prix_min = String(priceRange.value[0])
+  if (priceRange.value[1] != null) query.prix_max = String(priceRange.value[1])
+  if (currentPage.value > 1) query.page = String(currentPage.value)
+  return query
+}
+
+const memeQuery = (a, b) => {
+  const cles = new Set([...Object.keys(a), ...Object.keys(b)])
+  return [...cles].every((cle) => String(a[cle] ?? '') === String(b[cle] ?? ''))
+}
+
+const mettreAJourUrl = (page = 1) => {
+  currentPage.value = page
+  const query = construireQuery()
+  if (!memeQuery(query, route.query)) {
+    router.push({ query })
+  }
+}
+
+// ---------- Chargement ----------
+
 const fetchProduits = async () => {
   loading.value = true
 
@@ -283,24 +375,15 @@ const fetchProduits = async () => {
     const params = {
       page: currentPage.value,
       per_page: perPage.value,
+      ...TRIS[sortBy.value],
     }
 
     if (searchQuery.value) params.search = searchQuery.value
     if (selectedCategory.value) params.categorie_id = selectedCategory.value
-    if (showPromo.value) params.promotion = true
-    if (showVedette.value) params.vedette = true
-
-    // Sort
-    if (sortBy.value === 'price_asc') {
-      params.sort_by = 'prix'
-      params.sort_order = 'asc'
-    } else if (sortBy.value === 'price_desc') {
-      params.sort_by = 'prix'
-      params.sort_order = 'desc'
-    } else if (sortBy.value === 'popular') {
-      params.sort_by = 'nombre_commandes'
-      params.sort_order = 'desc'
-    }
+    if (showPromo.value) params.promotion = 1
+    if (showVedette.value) params.vedette = 1
+    if (priceRange.value[0] != null) params.prix_min = priceRange.value[0]
+    if (priceRange.value[1] != null) params.prix_max = priceRange.value[1]
 
     const response = await api.produits.getAll(params)
 
@@ -309,7 +392,9 @@ const fetchProduits = async () => {
       totalProduits.value = response.data.data.total
     }
   } catch (error) {
-    console.error('Erreur chargement produits:', error)
+    produits.value = []
+    totalProduits.value = 0
+    toastStore.erreur(messageErreur(error, 'Impossible de charger les produits.'))
   } finally {
     loading.value = false
   }
@@ -334,41 +419,53 @@ const getCategoryName = (id) => {
 let searchTimeout = null
 const handleSearch = () => {
   clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => {
-    currentPage.value = 1
-    applyFilters()
-  }, 500)
-}
-
-const applyFilters = () => {
-  currentPage.value = 1
-  fetchProduits()
+  searchTimeout = setTimeout(() => mettreAJourUrl(1), 400)
 }
 
 const resetFilters = () => {
   searchQuery.value = ''
   selectedCategory.value = null
-  priceRange.value = [0, 100000]
+  priceRange.value = [null, null]
   showPromo.value = false
   showVedette.value = false
   sortBy.value = 'recent'
-  applyFilters()
+  mettreAJourUrl(1)
 }
 
 const changePage = (page) => {
-  currentPage.value = page
-  fetchProduits()
+  if (page < 1 || page > totalPages.value) return
+  mettreAJourUrl(page)
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-// Lifecycle
-onMounted(() => {
-  // Récupérer les paramètres de l'URL
-  if (route.query.categorie) {
-    selectedCategory.value = parseInt(route.query.categorie)
+// Tout changement de filtre repart de la page 1
+watch(
+  [selectedCategory, showPromo, showVedette, sortBy, () => priceRange.value.join('|')],
+  () => {
+    if (!lectureUrlEnCours) mettreAJourUrl(1)
   }
+)
 
+// L'URL fait foi : chaque changement (filtre, page, retour arrière, lien) recharge la liste
+watch(
+  () => route.query,
+  async () => {
+    // Pendant la transition vers une autre page, la query change aussi : on l'ignore
+    if (route.name !== 'produits') return
+    await lireQuery()
+    fetchProduits()
+  },
+  { immediate: true }
+)
+
+fetchCategories()
+
+// Nouvelle ville : liste et compteurs des catégories rechargés, retour à la page 1
+watch(() => villeStore.ville, () => {
   fetchCategories()
-  fetchProduits()
+  if (currentPage.value === 1) fetchProduits()
+  else mettreAJourUrl(1)
 })
+
+onBeforeUnmount(() => clearTimeout(searchTimeout))
 </script>

@@ -19,7 +19,7 @@ return new class extends Migration
             $table->text('complement_adresse')->nullable();
             $table->boolean('est_principale')->default(false);
             $table->timestamps();
-            
+
             $table->index(['user_id', 'est_principale']);
         });
     }

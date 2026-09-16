@@ -15,6 +15,7 @@ const Panier = () => import('@/views/Panier.vue')
 const Checkout = () => import('@/views/Checkout.vue')
 const MesCommandes = () => import('@/views/MesCommandes.vue')
 const CommandeDetail = () => import('@/views/CommandeDetail.vue')
+const PaiementRetour = () => import('@/views/PaiementRetour.vue')
 const Notifications = () => import('@/views/Notifications.vue')
 const Profil = () => import('@/views/Profil.vue')
 const Login = () => import('@/views/Login.vue')
@@ -25,7 +26,15 @@ const AdminCommandes = () => import('@/views/admin/AdminCommandes.vue')
 const AdminParametres = () => import('@/views/admin/AdminParametres.vue')
 const AdminProduits = () => import('@/views/admin/AdminProduits.vue')
 const AdminUsers = () => import('@/views/admin/AdminUsers.vue')
-const AdminZones = () => import('@/views/admin/AdminZones.vue')
+const AdminQuartiers = () => import('@/views/admin/AdminQuartiers.vue')
+const MaLivraison = () => import('@/views/vendeur/MaLivraison.vue')
+const AdminRapports = () => import('@/views/admin/AdminRapports.vue')
+const ProfilBoutique = () => import('@/views/vendeur/ProfilBoutique.vue')
+const VendeurProfil = () => import('@/views/VendeurProfil.vue')
+const NotFound = () => import('@/views/NotFound.vue')
+
+// Pages qu'un vendeur au profil boutique incomplet peut encore ouvrir
+const ROUTES_PROFIL_INCOMPLET = ['vendeur-profil-boutique', 'not-found']
 
 const routes = [
   {
@@ -53,6 +62,12 @@ const routes = [
     meta: { title: 'Détail Produit' }
   },
   {
+    path: '/vendeurs/:id',
+    name: 'vendeur-profil',
+    component: VendeurProfil,
+    meta: { title: 'Boutique' }
+  },
+  {
     path: '/panier',
     name: 'panier',
     component: Panier,
@@ -75,6 +90,18 @@ const routes = [
     name: 'commande-detail',
     component: CommandeDetail,
     meta: { title: 'Détail Commande', requiresAuth: true }
+  },
+  {
+    // Page de retour configurée comme callback NotchPay (NOTCHPAY_CALLBACK_URL)
+    path: '/paiement/retour',
+    name: 'paiement-retour',
+    component: PaiementRetour,
+    meta: { title: 'Paiement', requiresAuth: true }
+  },
+  {
+    // Ancien chemin de callback, conservé si NOTCHPAY_CALLBACK_URL y pointe
+    path: '/payments/callback',
+    redirect: (to) => ({ name: 'paiement-retour', query: to.query }),
   },
   {
     path: '/notifications',
@@ -142,10 +169,35 @@ const routes = [
     meta: { title: 'Administration Utilisateurs', requiresAuth: true, requiresAdmin: true }
   },
   {
-    path: '/admin/zones-livraison',
-    name: 'admin-zones',
-    component: AdminZones,
-    meta: { title: 'Administration Zones de livraison', requiresAuth: true, requiresCatalogueManager: true }
+    path: '/admin/quartiers',
+    name: 'admin-quartiers',
+    component: AdminQuartiers,
+    meta: { title: 'Quartiers', requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/vendeur/livraison',
+    name: 'vendeur-livraison',
+    component: MaLivraison,
+    meta: { title: 'Ma livraison', requiresAuth: true, requiresVendeur: true }
+  },
+  {
+    path: '/admin/rapports',
+    name: 'admin-rapports',
+    component: AdminRapports,
+    meta: { title: 'Rapports mensuels', requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/vendeur/profil-boutique',
+    name: 'vendeur-profil-boutique',
+    component: ProfilBoutique,
+    meta: { title: 'Ma boutique', requiresAuth: true, requiresVendeur: true }
+  },
+  {
+    // Toute URL inconnue : page 404 plutôt qu'un écran vide
+    path: '/:pathMatch(.*)*',
+    name: 'not-found',
+    component: NotFound,
+    meta: { title: 'Page introuvable' }
   }
 ]
 
@@ -170,9 +222,9 @@ router.beforeEach(async (to, from, next) => {
 
   const isAuthenticated = authStore.isAuthenticated
   const isAdmin = authStore.isAdmin
-  const isLivreur = authStore.isLivreur
+  const isVendeur = authStore.isVendeur
   const canManageCatalogue = authStore.canManageCatalogue
-  const canManageCommandes = isAdmin || isLivreur
+  const canManageCommandes = isAdmin || isVendeur
 
   // Mettre à jour le titre de la page
   document.title = `${to.meta.title || 'Choukrane'} - Pâtisserie`
@@ -189,20 +241,32 @@ router.beforeEach(async (to, from, next) => {
     return
   }
 
-  // Routes de gestion commandes (admin + livreur)
+  // Routes réservées aux vendeurs
+  if (to.meta.requiresVendeur && !isVendeur) {
+    next({ name: 'home' })
+    return
+  }
+
+  // Vendeur au profil boutique incomplet : il doit le compléter avant tout le reste
+  if (isVendeur && authStore.user?.profil_vendeur_complet === false && !ROUTES_PROFIL_INCOMPLET.includes(to.name)) {
+    next({ name: 'vendeur-profil-boutique' })
+    return
+  }
+
+  // Routes de gestion commandes (admin + vendeur)
   if (to.meta.requiresCommandesManager && !canManageCommandes) {
     next({ name: 'home' })
     return
   }
 
-  // Routes de gestion catalogue (admin + livreur)
+  // Routes de gestion catalogue (admin + vendeur)
   if (to.meta.requiresCatalogueManager && !canManageCatalogue) {
     next({ name: 'home' })
     return
   }
 
-  // Empêcher admin/livreur d'accéder aux pages client de commande
-  if ((isAdmin || isLivreur) && ['panier', 'checkout', 'mes-commandes', 'commande-detail'].includes(to.name)) {
+  // Empêcher admin/vendeur d'accéder aux pages client de commande
+  if ((isAdmin || isVendeur) && ['panier', 'checkout', 'mes-commandes', 'commande-detail'].includes(to.name)) {
     next({ name: isAdmin ? 'admin-dashboard' : 'admin-commandes' })
     return
   }

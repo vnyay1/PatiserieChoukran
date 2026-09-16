@@ -85,7 +85,7 @@ class NotificationController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => ['count' => $count]
+            'data' => ['count' => $count],
         ]);
     }
 
@@ -121,4 +121,3 @@ class NotificationController extends Controller
         ]);
     }
 }
-
