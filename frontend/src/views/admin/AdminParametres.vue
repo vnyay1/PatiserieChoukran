@@ -4,7 +4,7 @@ File: src/views/admin/AdminParametres.vue
 =================================== -->
 
 <template>
-  <div class="admin-parametres-page bg-cream min-h-screen pb-20">
+  <div class="admin-parametres-page pb-6">
     <div class="container mx-auto px-4 py-6 max-w-6xl">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>

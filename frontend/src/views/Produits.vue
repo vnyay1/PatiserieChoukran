@@ -4,9 +4,9 @@ File: src/views/Produits.vue
 =================================== -->
 
 <template>
-  <div class="produits-page bg-cream min-h-screen pb-4">
+  <div class="produits-page pb-6">
     <!-- Header avec recherche -->
-    <div class="bg-surface sticky top-16 md:top-20 z-30 shadow-sm">
+    <div class="sticky top-14 z-30 border-b border-gray-200 bg-surface/95 backdrop-blur-md md:top-[4.5rem]">
       <div class="container mx-auto px-4 py-4">
         <div class="flex items-center gap-2">
           <div class="flex-1 relative">

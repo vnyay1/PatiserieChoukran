@@ -4,7 +4,7 @@ File: src/views/Panier.vue
 =================================== -->
 
 <template>
-  <div class="panier-page bg-cream min-h-screen pb-20">
+  <div class="panier-page pb-6">
     <div class="container mx-auto px-4 py-6">
       <!-- Header -->
       <div class="flex items-center justify-between mb-6">
@@ -91,7 +91,7 @@ File: src/views/Panier.vue
 
         <!-- Résumé -->
         <div class="lg:col-span-1">
-          <div class="sticky top-24">
+          <div class="lg:sticky lg:top-24">
             <Card padding="lg">
               <h2 class="font-display text-xl font-bold text-gray-800 mb-6">
                 Résumé de la commande

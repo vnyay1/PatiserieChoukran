@@ -2,92 +2,54 @@
 1. BOTTOM NAVIGATION (Mobile)
 File: src/components/layout/BottomNav.vue
 =================================== -->
-
+<!--
+  Cinq onglets de 64 px de haut. Onglet actif : pastille or derrière l'icône,
+  trait plus épais et aria-current="page" (l'état ne repose pas que sur la couleur).
+-->
 <template>
-  <nav class="fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur border-t border-gray-100 safe-bottom z-50 md:hidden">
-    <div class="flex justify-around items-center h-16 px-2">
-      <router-link
-        v-for="item in navItems"
-        :key="item.name"
-        :to="item.to"
-        class="flex flex-col items-center justify-center flex-1 h-full touch-target relative"
-        :class="isActive(item.name) ? 'text-gold-600' : 'text-gray-500'"
-      >
-        <!-- Badge pour le panier -->
-        <span
-          v-if="authStore.isAuthenticated && item.name === 'panier' && panierCount > 0"
-          class="absolute top-1 right-1/4 bg-gold-600 text-on-accent text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold"
+  <nav
+    class="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-surface/95 backdrop-blur-md md:hidden"
+    aria-label="Navigation mobile"
+  >
+    <ul class="grid h-16" :style="{ gridTemplateColumns: `repeat(${liensBarreBas.length}, minmax(0, 1fr))` }">
+      <li v-for="lien in liensBarreBas" :key="lien.name">
+        <router-link
+          :to="lien.to"
+          class="group flex h-full flex-col items-center justify-center gap-1 text-xs font-semibold text-gray-600 transition-colors
+                 aria-[current=page]:text-gray-900"
+          :aria-current="estActif(lien) ? 'page' : undefined"
         >
-          {{ panierCount }}
-        </span>
-        <span
-          v-if="showVendeurCommandesBadge(item.name)"
-          class="absolute top-1 right-1/4 bg-gold-600 text-on-accent text-xs rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
-        >
-          {{ formatBadgeCount(vendeurCommandesCount) }}
-        </span>
-
-        <component :is="item.icon" :size="24" :stroke-width="isActive(item.name) ? 2.5 : 2" />
-        <span class="text-[11px] mt-1 font-semibold">{{ item.label }}</span>
-      </router-link>
-    </div>
+          <span
+            class="relative flex h-8 w-14 items-center justify-center rounded-full transition-colors duration-200
+                   group-hover:bg-gray-100 group-aria-[current=page]:bg-gold-100 group-aria-[current=page]:text-gold-800"
+          >
+            <component :is="lien.icone" :size="22" :stroke-width="estActif(lien) ? 2.4 : 1.9" aria-hidden="true" />
+            <span v-if="compteur(lien) > 0" class="badge-compteur absolute -top-1 right-1.5">
+              {{ compteur(lien) > 99 ? '99+' : compteur(lien) }}
+              <span class="sr-only">{{ lien.name === 'panier' ? 'articles' : 'à traiter' }}</span>
+            </span>
+          </span>
+          <span class="leading-none">{{ lien.court }}</span>
+        </router-link>
+      </li>
+    </ul>
   </nav>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
 import { usePanierStore } from '@/stores/panier'
 import { useAuthStore } from '@/stores/auth'
 import { useVendeurCommandesBadge } from '@/composables/useVendeurCommandesBadge'
-import { Home, ShoppingBag, ShoppingCart, Package, User, Shield, Settings, Truck } from 'lucide-vue-next'
+import { useNavigation } from '@/composables/useNavigation'
 
-const route = useRoute()
 const panierStore = usePanierStore()
 const authStore = useAuthStore()
-const { vendeurCommandesCount, formatBadgeCount, showVendeurCommandesBadge } = useVendeurCommandesBadge()
+const { vendeurCommandesCount, showVendeurCommandesBadge } = useVendeurCommandesBadge()
+const { liensBarreBas, estActif } = useNavigation()
 
-const panierCount = computed(() => panierStore.itemCount)
-
-const navItems = computed(() => {
-  if (authStore.isAdmin) {
-    return [
-      { name: 'home', label: 'Accueil', icon: Home, to: '/' },
-      { name: 'produits', label: 'Produits', icon: ShoppingBag, to: '/produits' },
-      { name: 'admin-dashboard', label: 'Admin', icon: Shield, to: '/admin/dashboard' },
-      { name: 'admin-commandes', label: 'Commandes', icon: Package, to: '/admin/commandes' },
-      { name: 'admin-parametres', label: 'Paramètres', icon: Settings, to: '/admin/parametres' },
-    ]
-  }
-
-  if (authStore.isVendeur) {
-    return [
-      { name: 'home', label: 'Accueil', icon: Home, to: '/' },
-      { name: 'produits', label: 'Produits', icon: ShoppingBag, to: '/produits' },
-      { name: 'admin-commandes', label: 'Commandes', icon: Package, to: '/admin/commandes' },
-      { name: 'admin-produits', label: 'Catalogue', icon: Shield, to: '/admin/produits' },
-      { name: 'vendeur-livraison', label: 'Livraison', icon: Truck, to: '/vendeur/livraison' },
-    ]
-  }
-
-  return [
-    { name: 'home', label: 'Accueil', icon: Home, to: '/' },
-    { name: 'produits', label: 'Produits', icon: ShoppingBag, to: '/produits' },
-    { name: 'panier', label: 'Panier', icon: ShoppingCart, to: '/panier' },
-    { name: 'commandes', label: 'Commandes', icon: Package, to: '/mes-commandes' },
-    { name: 'profil', label: 'Profil', icon: User, to: '/profil' },
-  ]
-})
-
-// Entrées dont plusieurs pages sont « actives » ; les autres correspondent à une seule route
-const ROUTES_ACTIVES = {
-  produits: ['produits', 'produit-detail'],
-  panier: ['panier', 'checkout'],
-  commandes: ['mes-commandes', 'commande-detail'],
-  // L'onglet Admin regroupe les pages d'administration sans onglet propre
-  'admin-dashboard': ['admin-dashboard', 'admin-produits', 'admin-users', 'admin-quartiers', 'admin-categories', 'admin-rapports'],
+const compteur = (lien) => {
+  if (lien.name === 'panier' && authStore.isAuthenticated) return panierStore.itemCount
+  if (showVendeurCommandesBadge(lien.name)) return vendeurCommandesCount.value
+  return 0
 }
-
-const isActive = (name) => (ROUTES_ACTIVES[name] || [name]).includes(route.name)
-
 </script>

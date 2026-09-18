@@ -4,7 +4,7 @@ File: src/views/admin/AdminRapports.vue
 =================================== -->
 
 <template>
-  <div class="admin-rapports-page bg-cream min-h-screen pb-20">
+  <div class="admin-rapports-page pb-6">
     <div class="container mx-auto px-4 py-6 max-w-7xl">
       <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
         <div>

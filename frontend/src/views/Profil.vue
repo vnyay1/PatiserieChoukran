@@ -4,7 +4,7 @@ File: src/views/Profil.vue
 =================================== -->
 
 <template>
-  <div class="profil-page bg-cream min-h-screen pb-20">
+  <div class="profil-page pb-6">
     <div class="container mx-auto px-4 py-6">
       <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600 mb-6">
         Mon Profil

@@ -4,7 +4,7 @@ File: src/views/VendeurProfil.vue
 =================================== -->
 
 <template>
-  <div class="vendeur-profil-page bg-cream min-h-screen pb-20">
+  <div class="vendeur-profil-page pb-6">
     <div class="container mx-auto px-4 py-6 max-w-6xl">
       <div v-if="loading" class="space-y-4">
         <div class="skeleton h-48 rounded-elegant"></div>

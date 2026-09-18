@@ -1,5 +1,5 @@
 <template>
-  <div class="notifications-page bg-cream min-h-screen pb-20">
+  <div class="notifications-page pb-6">
     <div class="container mx-auto px-4 py-6">
       <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between mb-6">
         <div>

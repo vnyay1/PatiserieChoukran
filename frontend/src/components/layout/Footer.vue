@@ -2,147 +2,112 @@
 3. FOOTER (Responsive)
 File: src/components/layout/Footer.vue
 =================================== -->
-
 <template>
-  <footer class="bg-surface border-t border-gray-100 mt-12">
-    <!-- Mobile accordions -->
-    <div class="md:hidden px-4 py-8 space-y-4">
-      <div class="flex items-center gap-3">
-        <img src="/logo.png" alt="Choukrane" class="h-10 w-auto" loading="lazy" />
-        <p class="text-sm text-gray-600">Chaque création est une promesse de douceur.</p>
-      </div>
-
-      <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 overflow-hidden">
-        <details v-for="section in mobileSections" :key="section.title" class="group">
-          <summary class="flex items-center justify-between px-4 py-3 bg-surface cursor-pointer">
-            <span class="font-semibold text-gray-800">{{ section.title }}</span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 9l6 6 6-6" />
-            </svg>
-          </summary>
-          <div class="px-4 pb-4 space-y-2">
-            <template v-if="section.type === 'links'">
-              <router-link
-                v-for="item in footerNavItems"
-                :key="item.to"
-                :to="item.to"
-                class="block text-sm text-gray-600 hover:text-gold-600"
-              >
-                {{ item.label }}
-              </router-link>
-            </template>
-            <template v-else-if="section.type === 'contact'">
-              <div class="flex items-center gap-2 text-sm text-gray-600">
-                <Phone :size="16" class="text-gold-500" />
-                <a href="tel:+237658555600" class="hover:text-gold-600">+237 658 55 56 00</a>
-              </div>
-              <div class="flex items-center gap-2 text-sm text-gray-600">
-                <MapPin :size="16" class="text-gold-500" />
-                <span>Yaoundé - Olembé Échangeur</span>
-              </div>
-              <div class="flex items-center gap-2 text-sm text-gray-600">
-                <Instagram :size="16" class="text-gold-500" />
-                <a href="https://instagram.com/Choukran.Patisserie" target="_blank" rel="noopener noreferrer" class="hover:text-gold-600">
-                  @Choukran.Patisserie
-                </a>
-              </div>
-            </template>
-            <template v-else-if="section.type === 'hours'">
-              <p class="text-sm text-gray-600">Lun - Ven: 8h - 18h</p>
-              <p class="text-sm text-gray-600">Samedi: 9h - 17h</p>
-              <p class="text-sm text-gray-600">Dimanche: Fermé</p>
-            </template>
-          </div>
-        </details>
-      </div>
-
-      <div class="text-center text-xs text-gray-500 pt-2">
-        <p>&copy; {{ currentYear }} Choukrane Pâtisserie. Tous droits réservés.</p>
-        <p class="mt-1 ornament">✦ L'art de sublimer vos moments gourmands ✦</p>
-      </div>
-    </div>
-
-    <!-- Desktop grid -->
-    <div class="hidden md:block container mx-auto px-4 py-12">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+  <footer class="mt-16 border-t border-gray-200 bg-surface">
+    <div class="container mx-auto py-10 md:py-14">
+      <div class="grid grid-cols-1 gap-8 md:grid-cols-4 md:gap-10">
         <!-- À propos -->
-        <div>
-          <img src="/logo.png" alt="Choukrane" class="h-12 w-auto mb-4" loading="lazy" />
-          <p class="text-sm text-gray-600 leading-relaxed">
-            Chez Choukrane, chaque création est une promesse de douceur.
+        <div class="md:pr-4">
+          <img src="/logo.png" alt="Choukrane Pâtisserie" class="mb-4 h-11 w-auto" loading="lazy" />
+          <p class="text-sm leading-relaxed text-gray-600">
+            Chaque création est une promesse de douceur. Pâtisseries, gâteaux et glaces
+            livrés à Yaoundé et Douala.
           </p>
         </div>
 
-        <!-- Navigation -->
-        <div>
-          <h3 class="font-display font-semibold text-lg mb-4 text-gold-600">Navigation</h3>
-          <ul class="space-y-2">
-            <li v-for="item in footerNavItems" :key="item.to">
-              <router-link
-                :to="item.to"
-                class="text-sm text-gray-600 hover:text-gold-600 transition-colors"
-              >
-                {{ item.label }}
-              </router-link>
-            </li>
-          </ul>
-        </div>
+        <!-- Sections : accordéons sur mobile, colonnes dès md -->
+        <component
+          :is="estMobile ? 'details' : 'div'"
+          v-for="section in SECTIONS"
+          :key="section.titre"
+          class="group border-gray-200 max-md:rounded-2xl max-md:border"
+        >
+          <component
+            :is="estMobile ? 'summary' : 'div'"
+            class="flex items-center justify-between max-md:min-h-12 max-md:cursor-pointer max-md:list-none max-md:px-4 max-md:[&::-webkit-details-marker]:hidden"
+          >
+            <h2 class="font-body text-sm font-bold uppercase tracking-wider text-gray-900 md:mb-4">
+              {{ section.titre }}
+            </h2>
+            <ChevronDown :size="18" class="text-gray-500 transition-transform duration-200 group-open:rotate-180 md:hidden" aria-hidden="true" />
+          </component>
 
-        <!-- Contact -->
-        <div>
-          <h3 class="font-display font-semibold text-lg mb-4 text-gold-600">Contact</h3>
-          <ul class="space-y-2 text-sm text-gray-600">
-            <li class="flex items-center space-x-2">
-              <Phone :size="16" class="text-gold-500" />
-              <a href="tel:+237658555600" class="hover:text-gold-600">+237 658 55 56 00</a>
-            </li>
-            <li class="flex items-center space-x-2">
-              <MapPin :size="16" class="text-gold-500" />
-              <span>Yaoundé - Olembé Échangeur</span>
-            </li>
-            <li class="flex items-center space-x-2">
-              <Instagram :size="16" class="text-gold-500" />
-              <a href="https://instagram.com/Choukran.Patisserie" target="_blank" rel="noopener noreferrer" class="hover:text-gold-600">
-                @Choukran.Patisserie
+          <div class="max-md:px-4 max-md:pb-4">
+            <ul v-if="section.type === 'liens'" class="space-y-1">
+              <li v-for="item in footerNavItems" :key="item.to">
+                <router-link :to="item.to" class="lien-pied">{{ item.label }}</router-link>
+              </li>
+            </ul>
+
+            <address v-else-if="section.type === 'contact'" class="space-y-1 not-italic">
+              <a href="tel:+237658555600" class="lien-pied">
+                <Phone :size="16" class="text-gold-600" aria-hidden="true" />
+                <span><span class="sr-only">Téléphone : </span>+237 658 55 56 00</span>
               </a>
-            </li>
-          </ul>
-        </div>
+              <p class="flex min-h-9 items-center gap-2 text-sm text-gray-600">
+                <MapPin :size="16" class="flex-shrink-0 text-gold-600" aria-hidden="true" />
+                Yaoundé, Olembé Échangeur
+              </p>
+              <a href="https://instagram.com/Choukran.Patisserie" target="_blank" rel="noopener noreferrer" class="lien-pied">
+                <Instagram :size="16" class="text-gold-600" aria-hidden="true" />
+                <span>@Choukran.Patisserie<span class="sr-only"> sur Instagram (nouvel onglet)</span></span>
+              </a>
+            </address>
 
-        <!-- Horaires -->
-        <div>
-          <h3 class="font-display font-semibold text-lg mb-4 text-gold-600">Horaires</h3>
-          <ul class="space-y-1 text-sm text-gray-600">
-            <li>Lun - Ven: 8h - 18h</li>
-            <li>Samedi: 9h - 17h</li>
-            <li>Dimanche: Fermé</li>
-          </ul>
-        </div>
+            <dl v-else class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm text-gray-600">
+              <template v-for="horaire in HORAIRES" :key="horaire.jours">
+                <dt class="font-medium text-gray-800">{{ horaire.jours }}</dt>
+                <dd>{{ horaire.heures }}</dd>
+              </template>
+            </dl>
+          </div>
+        </component>
       </div>
 
-      <div class="divider-ornament"></div>
+      <div class="divider-ornament my-8"></div>
 
-      <div class="text-center text-sm text-gray-500">
+      <div class="flex flex-col items-center justify-between gap-2 text-center text-sm text-gray-600 md:flex-row md:text-left">
         <p>&copy; {{ currentYear }} Choukrane Pâtisserie. Tous droits réservés.</p>
-        <p class="mt-1 ornament">✦ L'art de sublimer vos moments gourmands ✦</p>
+        <p class="font-display italic text-gold-700">L'art de sublimer vos moments gourmands</p>
       </div>
     </div>
   </footer>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { Phone, MapPin, Instagram } from 'lucide-vue-next'
+import { Phone, MapPin, Instagram, ChevronDown } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
-const currentYear = computed(() => new Date().getFullYear())
+const currentYear = new Date().getFullYear()
+
+const SECTIONS = [
+  { titre: 'Navigation', type: 'liens' },
+  { titre: 'Contact', type: 'contact' },
+  { titre: 'Horaires', type: 'horaires' },
+]
+
+const HORAIRES = [
+  { jours: 'Lun – Ven', heures: '8 h – 18 h' },
+  { jours: 'Samedi', heures: '9 h – 17 h' },
+  { jours: 'Dimanche', heures: 'Fermé' },
+]
+
+// Accordéons (<details>) sous md seulement : un seul balisage pour les deux tailles
+const requete = window.matchMedia('(max-width: 767px)')
+const estMobile = ref(requete.matches)
+const suivre = (event) => {
+  estMobile.value = event.matches
+}
+onMounted(() => requete.addEventListener('change', suivre))
+onBeforeUnmount(() => requete.removeEventListener('change', suivre))
 
 // Liens adaptés au profil : pas de lien vers des pages qui redirigeraient
 const footerNavItems = computed(() => {
   const items = [
     { label: 'Accueil', to: '/' },
-    { label: 'Nos Produits', to: '/produits' },
+    { label: 'Nos produits', to: '/produits' },
   ]
 
   if (!authStore.isAuthenticated) {
@@ -151,18 +116,18 @@ const footerNavItems = computed(() => {
     return items
   }
 
-  items.push({ label: 'Mon Compte', to: '/profil' })
+  items.push({ label: 'Mon compte', to: '/profil' })
   if (authStore.isClient) {
-    items.push({ label: 'Mes Commandes', to: '/mes-commandes' })
+    items.push({ label: 'Mes commandes', to: '/mes-commandes' })
   } else {
     items.push({ label: 'Gestion des commandes', to: '/admin/commandes' })
   }
   return items
 })
-
-const mobileSections = [
-  { title: 'Navigation', type: 'links' },
-  { title: 'Contact', type: 'contact' },
-  { title: 'Horaires', type: 'hours' },
-]
 </script>
+
+<style scoped>
+.lien-pied {
+  @apply inline-flex min-h-9 items-center gap-2 text-sm text-gray-600 underline-offset-4 transition-colors hover:text-gray-900 hover:underline;
+}
+</style>

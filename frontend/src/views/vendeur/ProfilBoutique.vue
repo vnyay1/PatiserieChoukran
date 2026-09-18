@@ -4,7 +4,7 @@ File: src/views/vendeur/ProfilBoutique.vue
 =================================== -->
 
 <template>
-  <div class="profil-boutique-page bg-cream min-h-screen pb-20">
+  <div class="profil-boutique-page pb-6">
     <div class="container mx-auto px-4 py-6 max-w-3xl">
       <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>

@@ -4,7 +4,7 @@ File: src/views/ProduitDetail.vue
 =================================== -->
 
 <template>
-  <div class="produit-detail bg-cream min-h-screen pb-20">
+  <div class="produit-detail pb-6">
     <!-- Loading -->
     <div v-if="loading" class="container mx-auto px-4 py-8">
       <div class="skeleton h-96 rounded-elegant mb-6"></div>

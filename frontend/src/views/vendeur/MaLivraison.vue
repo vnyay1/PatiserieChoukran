@@ -4,7 +4,7 @@ File: src/views/vendeur/MaLivraison.vue
 =================================== -->
 
 <template>
-  <div class="ma-livraison-page bg-cream min-h-screen pb-20">
+  <div class="ma-livraison-page pb-6">
     <div class="container mx-auto px-4 py-6 max-w-3xl">
       <div class="mb-6">
         <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">

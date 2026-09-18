@@ -4,7 +4,7 @@ File: src/views/CommandeDetail.vue
 =================================== -->
 
 <template>
-  <div class="commande-detail-page bg-cream min-h-screen pb-20">
+  <div class="commande-detail-page pb-6">
     <div class="container mx-auto px-4 py-6 max-w-5xl">
       <!-- Header -->
       <div class="flex items-center justify-between mb-6">
