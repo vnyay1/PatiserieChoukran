@@ -2,142 +2,96 @@
 3. PAGE D'INSCRIPTION (Mobile-First)
 File: src/views/Register.vue
 =================================== -->
-
+<!--
+  Champs dans l'ordre naturel, autocomplete complet (remplissage automatique du téléphone),
+  règle du mot de passe affichée avant la saisie, erreurs sous chaque champ.
+-->
 <template>
-  <div class="min-h-screen flex items-center justify-center p-4 bg-gradient-peach">
-    <div class="w-full max-w-md">
-      <!-- Logo -->
-      <div class="text-center mb-8">
-        <img src="/logo.png" alt="Choukrane" class="h-16 mx-auto mb-4" />
-        <h1 class="font-display text-3xl font-bold text-gold-700">Inscription</h1>
-        <p class="text-gray-600 mt-2">Rejoignez Choukrane</p>
-      </div>
-
-      <!-- Formulaire -->
-      <Card padding="lg">
-        <form @submit.prevent="handleRegister">
-          <!-- Nom complet -->
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Nom complet
-            </label>
-            <input
-              v-model="form.nom_complet"
-              type="text"
-              placeholder="Jean Dupont"
-              class="input"
-              required
-            />
-          </div>
-
-          <!-- Téléphone -->
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Numéro de téléphone
-            </label>
-            <div class="flex">
-              <span
-                class="inline-flex items-center px-4 py-3 rounded-l-xl border border-gray-200 border-r-0 bg-gray-100 text-gray-500"
-              >
-                +237
-              </span>
-              <input
-                v-model="telephoneInput"
-                type="tel"
-                inputmode="numeric"
-                autocomplete="tel-national"
-                placeholder="699123456"
-                class="input rounded-l-none border-l-0"
-                required
-              />
-            </div>
-            <p class="text-xs text-gray-500 mt-1">Indicatif non modifiable</p>
-          </div>
-
-          <!-- Email (optionnel) -->
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Email (optionnel)
-            </label>
-            <input
-              v-model="form.email"
-              type="email"
-              placeholder="jean@example.com"
-              class="input"
-            />
-          </div>
-
-          <!-- Mot de passe -->
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Mot de passe
-            </label>
-            <PasswordInput
-              v-model="form.mot_de_passe"
-              placeholder="••••••••"
-              autocomplete="new-password"
-              required
-              minlength="6"
-            />
-            <p class="text-xs text-gray-500 mt-1">Minimum 6 caractères</p>
-          </div>
-
-          <!-- Confirmation mot de passe -->
-          <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Confirmer le mot de passe
-            </label>
-            <PasswordInput
-              v-model="form.mot_de_passe_confirmation"
-              placeholder="••••••••"
-              autocomplete="new-password"
-              required
-              minlength="6"
-            />
-          </div>
-
-          <!-- Erreur -->
-          <div v-if="error" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600">{{ error }}</p>
-          </div>
-
-          <!-- Bouton -->
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            :loading="loading"
-            full-width
-          >
-            S'inscrire
-          </Button>
-        </form>
-
-        <!-- Lien connexion -->
-        <div class="mt-6 text-center">
-          <p class="text-sm text-gray-600">
-            Déjà un compte ?
-            <router-link
-              :to="{ name: 'login', query: route.query }"
-              class="text-gold-600 hover:text-gold-700 font-medium"
-            >
-              Se connecter
-            </router-link>
-          </p>
+  <div class="bg-gradient-peach">
+    <div class="container mx-auto flex justify-center py-10 md:py-16">
+      <div class="w-full max-w-md">
+        <div class="mb-7 text-center">
+          <h1>Créer mon compte</h1>
+          <p class="mt-2 text-gray-700">Commandez en quelques secondes et suivez chaque livraison.</p>
         </div>
-      </Card>
+
+        <div class="card p-6 sm:p-8">
+          <form class="space-y-5" novalidate @submit.prevent="handleRegister">
+            <FormField v-slot="{ attrs }" label="Nom complet" requis :erreur="erreurs.nom_complet">
+              <input
+                v-model="form.nom_complet"
+                v-bind="attrs"
+                type="text"
+                autocomplete="name"
+                autocapitalize="words"
+                class="input"
+              />
+            </FormField>
+
+            <FormField
+              v-slot="{ attrs }"
+              label="Numéro de téléphone"
+              requis
+              aide="Il vous servira d'identifiant et au vendeur pour vous livrer."
+              :erreur="erreurs.telephone"
+            >
+              <TelephoneInput v-model="form.telephone" v-bind="attrs" />
+            </FormField>
+
+            <FormField
+              v-slot="{ attrs }"
+              label="E-mail"
+              facultatif
+              aide="Pour recevoir vos factures."
+              :erreur="erreurs.email"
+            >
+              <input v-model="form.email" v-bind="attrs" type="email" autocomplete="email" inputmode="email" class="input" />
+            </FormField>
+
+            <FormField
+              v-slot="{ attrs }"
+              label="Mot de passe"
+              requis
+              aide="6 caractères minimum."
+              :erreur="erreurs.mot_de_passe"
+            >
+              <PasswordInput v-model="form.mot_de_passe" v-bind="attrs" autocomplete="new-password" minlength="6" />
+            </FormField>
+
+            <FormField v-slot="{ attrs }" label="Confirmer le mot de passe" requis :erreur="erreurs.mot_de_passe_confirmation">
+              <PasswordInput v-model="form.mot_de_passe_confirmation" v-bind="attrs" autocomplete="new-password" minlength="6" />
+            </FormField>
+
+            <AlertMessage v-if="error" type="error">{{ error }}</AlertMessage>
+
+            <Button type="submit" variant="primary" size="lg" :loading="loading" full-width>
+              Créer mon compte
+            </Button>
+          </form>
+
+          <div class="mt-7 border-t border-gray-200 pt-6 text-center">
+            <p class="text-sm text-gray-600">Déjà un compte ?</p>
+            <Button :to="{ name: 'login', query: route.query }" variant="secondary" full-width class="mt-3">
+              Se connecter
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import Button from '@/components/common/Button.vue'
-import Card from '@/components/common/Card.vue'
+import FormField from '@/components/common/FormField.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
 import PasswordInput from '@/components/common/PasswordInput.vue'
+import TelephoneInput from '@/components/common/TelephoneInput.vue'
 import { destinationApresConnexion } from '@/utils/redirection'
+import { estTelephoneComplet, telephoneComplet } from '@/utils/telephone'
 
 const route = useRoute()
 const router = useRouter()
@@ -153,43 +107,36 @@ const form = ref({
 
 const loading = ref(false)
 const error = ref(null)
+const erreurs = ref({})
 
-const sanitizeLocalTelephone = (value) => {
-  const digits = (value || '').replace(/\D/g, '')
-  const withoutPrefix = digits.startsWith('237') ? digits.slice(3) : digits
-  return withoutPrefix.slice(0, 9)
-}
+const EMAIL_VALIDE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const buildTelephone = (value) => {
-  const local = sanitizeLocalTelephone(value)
-  return local ? `+237${local}` : ''
-}
-
-const telephoneInput = computed({
-  get: () => form.value.telephone,
-  set: (value) => {
-    form.value.telephone = sanitizeLocalTelephone(value)
+const valider = () => {
+  const manquants = {}
+  if (!form.value.nom_complet.trim()) manquants.nom_complet = 'Indiquez votre nom et votre prénom.'
+  if (!estTelephoneComplet(form.value.telephone)) manquants.telephone = 'Le numéro doit comporter 9 chiffres (ex. 699 12 34 56).'
+  if (form.value.email && !EMAIL_VALIDE.test(form.value.email)) manquants.email = 'Cette adresse e-mail n\'est pas valide (ex. nom@exemple.com).'
+  if (form.value.mot_de_passe.length < 6) manquants.mot_de_passe = 'Le mot de passe doit contenir au moins 6 caractères.'
+  if (form.value.mot_de_passe_confirmation !== form.value.mot_de_passe) {
+    manquants.mot_de_passe_confirmation = 'Les deux mots de passe ne correspondent pas.'
   }
-})
+  erreurs.value = manquants
+  return Object.keys(manquants).length === 0
+}
 
 const handleRegister = async () => {
-  if (sanitizeLocalTelephone(form.value.telephone).length !== 9) {
-    error.value = 'Le numéro de téléphone doit comporter 9 chiffres.'
-    return
-  }
-
-  // Vérifier que les mots de passe correspondent
-  if (form.value.mot_de_passe !== form.value.mot_de_passe_confirmation) {
-    error.value = 'Les mots de passe ne correspondent pas'
+  error.value = null
+  if (!valider()) {
+    await nextTick()
+    document.querySelector('[aria-invalid="true"]')?.focus()
     return
   }
 
   loading.value = true
-  error.value = null
 
   const result = await authStore.register({
-    nom_complet: form.value.nom_complet,
-    telephone: buildTelephone(form.value.telephone),
+    nom_complet: form.value.nom_complet.trim(),
+    telephone: telephoneComplet(form.value.telephone),
     email: form.value.email || null,
     mot_de_passe: form.value.mot_de_passe,
     mot_de_passe_confirmation: form.value.mot_de_passe_confirmation

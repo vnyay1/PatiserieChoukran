@@ -2,82 +2,76 @@
 2. PAGE MES COMMANDES
 File: src/views/MesCommandes.vue
 =================================== -->
-
+<!--
+  Filtres en boutons bascule (aria-pressed) : ce ne sont pas des onglets (pas de panneaux).
+  Le nombre de commandes est annoncé quand le filtre change.
+-->
 <template>
-  <div class="mes-commandes-page pb-6">
-    <div class="container mx-auto px-4 py-6">
-      <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600 mb-6">
-        Mes Commandes
-      </h1>
+  <div class="container mx-auto pb-6 pt-6 md:pt-8">
+    <h1>Mes commandes</h1>
 
-      <!-- Filtres -->
-      <div class="flex gap-2 mb-6 overflow-x-auto scrollbar-hide" role="tablist">
-        <button
-          v-for="filtre in filtres"
-          :key="filtre.value"
-          class="px-4 py-2 rounded-full whitespace-nowrap transition-colors"
-          :class="filtreActif === filtre.value ? 'bg-gold-500 text-on-gold' : 'bg-surface text-gray-700 hover:bg-gray-50'"
-          role="tab"
-          :aria-selected="filtreActif === filtre.value"
-          @click="changerFiltre(filtre.value)"
-        >
-          {{ filtre.label }}
-        </button>
-      </div>
+    <div class="-mx-4 mb-6 mt-5 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide" role="group" aria-label="Filtrer les commandes">
+      <button
+        v-for="filtre in filtres"
+        :key="filtre.value"
+        type="button"
+        class="puce flex-shrink-0"
+        :aria-pressed="filtreActif === filtre.value"
+        @click="changerFiltre(filtre.value)"
+      >
+        {{ filtre.label }}
+      </button>
+    </div>
 
-      <!-- Loading -->
-      <div v-if="loading" class="space-y-4">
-        <div v-for="n in 3" :key="n" class="skeleton h-40 rounded-elegant"></div>
-      </div>
+    <p class="sr-only" aria-live="polite">
+      <template v-if="!loading">{{ total }} commande{{ total > 1 ? 's' : '' }}</template>
+    </p>
 
-      <!-- Commandes -->
-      <div v-else-if="commandes.length > 0" class="space-y-4">
-        <p class="text-sm text-gray-600">
-          {{ total }} commande{{ total > 1 ? 's' : '' }}
-        </p>
-        <CommandeCard
-          v-for="commande in commandes"
-          :key="commande.id"
-          :commande="commande"
-          @click="showCommandeDetail(commande)"
-        />
+    <!-- Chargement -->
+    <div v-if="loading" class="space-y-4" aria-hidden="true">
+      <div v-for="n in 3" :key="n" class="skeleton h-44 rounded-elegant"></div>
+    </div>
 
-        <div v-if="page < lastPage" class="text-center pt-2">
-          <Button variant="outline" :loading="loadingMore" @click="chargerPlus">
-            Voir plus de commandes
-          </Button>
-        </div>
-      </div>
+    <!-- Commandes -->
+    <div v-else-if="commandes.length > 0">
+      <p class="mb-3 text-sm text-gray-600" aria-hidden="true">
+        {{ total }} commande{{ total > 1 ? 's' : '' }}
+      </p>
+      <ul class="space-y-4">
+        <li v-for="commande in commandes" :key="commande.id">
+          <CommandeCard :commande="commande" />
+        </li>
+      </ul>
 
-      <!-- Empty state -->
-      <div v-else class="text-center py-16">
-        <div class="text-6xl mb-4">📦</div>
-        <h2 class="font-display text-xl font-bold text-gray-800 mb-2">
-          {{ filtreActif === 'tous' ? 'Aucune commande' : 'Aucune commande dans cette catégorie' }}
-        </h2>
-        <p class="text-gray-600 mb-6">
-          {{ filtreActif === 'tous' ? 'Vous n\'avez pas encore passé de commande' : 'Essayez un autre filtre.' }}
-        </p>
-        <Button v-if="filtreActif === 'tous'" variant="primary" @click="$router.push('/produits')">
-          Découvrir nos produits
-        </Button>
-        <Button v-else variant="outline" @click="changerFiltre('tous')">
-          Voir toutes mes commandes
+      <div v-if="page < lastPage" class="pt-6 text-center">
+        <Button variant="outline" :loading="loadingMore" @click="chargerPlus">
+          Voir plus de commandes
         </Button>
       </div>
     </div>
+
+    <!-- Aucune commande -->
+    <EmptyState
+      v-else
+      :icone="Package"
+      :titre="filtreActif === 'tous' ? 'Aucune commande pour le moment' : 'Aucune commande dans cette catégorie'"
+      :texte="filtreActif === 'tous' ? 'Vos commandes apparaîtront ici, avec leur suivi de livraison.' : 'Essayez un autre filtre.'"
+    >
+      <Button v-if="filtreActif === 'tous'" to="/produits" variant="primary">Découvrir nos produits</Button>
+      <Button v-else variant="outline" @click="changerFiltre('tous')">Voir toutes mes commandes</Button>
+    </EmptyState>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import api, { messageErreur } from '@/services/api'
 import { useToastStore } from '@/stores/toast'
 import Button from '@/components/common/Button.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 import CommandeCard from '@/components/commande/CommandeCard.vue'
+import { Package } from 'lucide-vue-next'
 
-const router = useRouter()
 const toastStore = useToastStore()
 
 const commandes = ref([])
@@ -133,10 +127,6 @@ const changerFiltre = (valeur) => {
 const chargerPlus = () => {
   page.value += 1
   fetchCommandes({ ajouter: true })
-}
-
-const showCommandeDetail = (commande) => {
-  router.push(`/mes-commandes/${commande.id}`)
 }
 
 onMounted(() => {

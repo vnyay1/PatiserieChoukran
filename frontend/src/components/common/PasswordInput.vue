@@ -2,7 +2,10 @@
 COMPOSANT CHAMP MOT DE PASSE (afficher / masquer)
 File: src/components/common/PasswordInput.vue
 =================================== -->
-
+<!--
+  Le bouton garde le même libellé et expose son état par aria-pressed
+  (« Afficher le mot de passe, activé »). Les attributs vont au <input> (id, aria-*, autocomplete).
+-->
 <template>
   <div class="relative">
     <input
@@ -14,12 +17,13 @@ File: src/components/common/PasswordInput.vue
     />
     <button
       type="button"
-      class="absolute inset-y-0 right-0 flex items-center px-4 text-gray-500 hover:text-gold-600"
-      :aria-label="visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+      class="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-gray-600 transition-colors hover:text-gray-900"
+      aria-label="Afficher le mot de passe"
+      :aria-pressed="visible"
       @click="visible = !visible"
     >
-      <EyeOff v-if="visible" :size="18" />
-      <Eye v-else :size="18" />
+      <EyeOff v-if="visible" :size="19" aria-hidden="true" />
+      <Eye v-else :size="19" aria-hidden="true" />
     </button>
   </div>
 </template>

@@ -2,202 +2,203 @@
 3. PAGE PROFIL
 File: src/views/Profil.vue
 =================================== -->
-
+<!--
+  Onglets ARIA (tablist / tab / tabpanel) : flèches, Début et Fin déplacent le focus,
+  un seul onglet dans l'ordre de tabulation. Horizontaux sur mobile, verticaux dès lg.
+-->
 <template>
-  <div class="profil-page pb-6">
-    <div class="container mx-auto px-4 py-6">
-      <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600 mb-6">
-        Mon Profil
-      </h1>
+  <div class="container mx-auto pb-6 pt-6 md:pt-8">
+    <h1 class="mb-6">Mon compte</h1>
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Menu -->
-        <div class="lg:col-span-1">
-          <Card padding="md">
-            <div class="text-center mb-6">
-              <div class="w-20 h-20 rounded-full bg-gold-500 flex items-center justify-center text-on-gold text-2xl font-bold mx-auto mb-3">
-                {{ initiales }}
-              </div>
-              <h2 class="font-display font-semibold text-lg">{{ authStore.user?.nom_complet }}</h2>
-              <p class="text-sm text-gray-600">{{ authStore.user?.telephone }}</p>
-            </div>
-
-            <nav class="space-y-1">
-              <button
-                v-for="item in menuItems"
-                :key="item.id"
-                class="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors"
-                :class="activeTab === item.id ? 'bg-gold-500 text-on-gold' : 'hover:bg-gray-50 text-gray-700'"
-                @click="activeTab = item.id"
-              >
-                <component :is="item.icon" :size="20" />
-                <span>{{ item.label }}</span>
-              </button>
-            </nav>
-
-            <div class="mt-6 pt-6 border-t">
-              <button
-                class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
-                @click="logout"
-              >
-                <LogOut :size="20" />
-                <span>Déconnexion</span>
-              </button>
-            </div>
-          </Card>
+    <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-8">
+      <!-- Identité et navigation -->
+      <div class="card p-4 sm:p-5">
+        <div class="flex items-center gap-3 lg:flex-col lg:text-center">
+          <span class="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-gold-500 text-lg font-bold text-on-gold lg:h-20 lg:w-20 lg:text-2xl" aria-hidden="true">
+            {{ initiales }}
+          </span>
+          <div class="min-w-0">
+            <p class="truncate font-display text-lg font-semibold text-gray-900">{{ authStore.user?.nom_complet }}</p>
+            <p class="text-sm text-gray-600">{{ authStore.user?.telephone }}</p>
+          </div>
         </div>
 
-        <!-- Contenu -->
-        <div class="lg:col-span-2">
-          <!-- Informations personnelles -->
-          <Card v-if="activeTab === 'infos'" padding="lg">
-            <h2 class="font-display text-xl font-bold text-gray-800 mb-6">
-              Informations personnelles
-            </h2>
-            <form @submit.prevent="updateProfile">
-              <div class="space-y-4 mb-6">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">Nom complet</label>
-                  <input v-model="profileForm.nom_complet" type="text" class="input" required />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
-                  <div class="flex">
-                    <span
-                      class="inline-flex items-center px-4 py-3 rounded-l-xl border border-gray-200 border-r-0 bg-gray-100 text-gray-500"
-                    >
-                      +237
-                    </span>
-                    <input
-                      v-model="profileTelephoneInput"
-                      type="tel"
-                      class="input rounded-l-none border-l-0"
-                      :class="{ 'bg-gray-100 text-gray-500 cursor-not-allowed': isClientProfileLocked }"
-                      placeholder="699123456"
-                      required
-                      :disabled="isClientProfileLocked"
-                    />
-                  </div>
-                  <p class="text-xs text-gray-500 mt-1">Indicatif non modifiable</p>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                  <input
-                    v-model="profileForm.email"
-                    type="email"
-                    class="input"
-                    :class="{ 'bg-gray-100 text-gray-500 cursor-not-allowed': isClientProfileLocked }"
-                    :disabled="isClientProfileLocked"
-                  />
-                </div>
-              </div>
-              <p v-if="isClientProfileLocked" class="text-xs text-gray-500 mb-4">
-                Pour les comptes clients, l'email et le numéro de téléphone ne sont pas modifiables.
-              </p>
-              <p v-if="profileError" class="text-sm text-red-600 mb-4">
-                {{ profileError }}
-              </p>
-              <Button type="submit" variant="primary" :loading="updating">
-                Enregistrer les modifications
-              </Button>
-            </form>
-          </Card>
+        <div
+          role="tablist"
+          aria-label="Rubriques du compte"
+          :aria-orientation="estLarge ? 'vertical' : 'horizontal'"
+          class="-mx-1 mt-5 flex gap-1 overflow-x-auto px-1 pb-1 scrollbar-hide lg:flex-col lg:overflow-visible"
+          @keydown="naviguerOnglets"
+        >
+          <button
+            v-for="item in menuItems"
+            :id="`onglet-${item.id}`"
+            :key="item.id"
+            type="button"
+            role="tab"
+            class="onglet"
+            :aria-selected="activeTab === item.id"
+            :aria-controls="`panneau-${item.id}`"
+            :tabindex="activeTab === item.id ? 0 : -1"
+            @click="activeTab = item.id"
+          >
+            <component :is="item.icon" :size="19" aria-hidden="true" />
+            {{ item.label }}
+          </button>
+        </div>
 
-          <!-- Adresses -->
-          <Card v-if="activeTab === 'adresses'" padding="lg">
-            <div class="flex items-center justify-between mb-6">
-              <h2 class="font-display text-xl font-bold text-gray-800">Mes adresses</h2>
-              <Button variant="outline" size="sm" @click="openAddAddress">
-                + Ajouter
-              </Button>
-            </div>
-            <div class="space-y-3">
-              <div
-                v-for="adresse in adresses"
-                :key="adresse.id"
-                class="p-4 border border-gray-200 rounded-lg hover:border-gold-600 transition-colors"
-              >
-                <div class="flex items-start justify-between">
-                  <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-1">
-                      <span class="font-semibold">{{ adresse.libelle }}</span>
-                      <span v-if="adresse.est_principale" class="badge badge-primary text-xs">Principale</span>
-                    </div>
-                    <p class="text-sm text-gray-600">
-                      {{ [adresse.zone, adresse.quartier, formatVille(villeAdresse(adresse))].filter(Boolean).join(', ') }}<br />
-                      {{ adresse.telephone_contact }}
-                    </p>
-                    <p v-if="!adresse.quartier_id" class="text-xs text-orange-600 mt-1">
-                      Quartier à préciser pour pouvoir être livré.
-                    </p>
-                  </div>
-                  <div class="flex items-center gap-2 ml-3">
-                    <button class="text-gray-500 hover:text-gray-700" @click="openEditAddress(adresse)">
-                      <Pencil :size="18" />
-                    </button>
-                    <button class="text-red-500 hover:text-red-600" @click="deleteAdresse(adresse)">
-                      <Trash2 :size="18" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          <!-- Sécurité -->
-          <Card v-if="activeTab === 'securite'" padding="lg">
-            <h2 class="font-display text-xl font-bold text-gray-800 mb-6">
-              Changer le mot de passe
-            </h2>
-            <form @submit.prevent="changePassword">
-              <div class="space-y-4 mb-6">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">Mot de passe actuel</label>
-                  <input
-                    v-model="passwordForm.ancien_mot_de_passe"
-                    type="password"
-                    class="input"
-                    autocomplete="current-password"
-                    required
-                  />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">Nouveau mot de passe</label>
-                  <input
-                    v-model="passwordForm.nouveau_mot_de_passe"
-                    type="password"
-                    class="input"
-                    autocomplete="new-password"
-                    minlength="6"
-                    required
-                  />
-                  <p class="text-xs text-gray-500 mt-1">Minimum 6 caractères</p>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">Confirmer le mot de passe</label>
-                  <input
-                    v-model="passwordForm.nouveau_mot_de_passe_confirmation"
-                    type="password"
-                    class="input"
-                    autocomplete="new-password"
-                    minlength="6"
-                    required
-                  />
-                </div>
-              </div>
-              <p v-if="passwordError" class="text-sm text-red-600 mb-4">
-                {{ passwordError }}
-              </p>
-              <Button type="submit" variant="primary" :loading="updatingPassword">
-                Changer le mot de passe
-              </Button>
-            </form>
-          </Card>
+        <div class="mt-5 space-y-4 border-t border-gray-200 pt-5">
+          <ThemeToggle variante="segments" />
+          <button type="button" class="btn-ghost w-full justify-start text-red-700 hover:bg-red-50" @click="logout">
+            <LogOut :size="19" aria-hidden="true" />
+            Se déconnecter
+          </button>
         </div>
       </div>
+
+      <!-- Informations personnelles -->
+      <section
+        v-if="activeTab === 'infos'"
+        id="panneau-infos"
+        role="tabpanel"
+        aria-labelledby="onglet-infos"
+        tabindex="0"
+        class="card p-5 sm:p-8"
+      >
+        <h2 class="text-xl">Informations personnelles</h2>
+        <form class="mt-6 max-w-lg space-y-5" novalidate @submit.prevent="updateProfile">
+          <FormField v-slot="{ attrs }" label="Nom complet" requis :erreur="erreursProfil.nom_complet">
+            <input v-model="profileForm.nom_complet" v-bind="attrs" type="text" autocomplete="name" class="input" />
+          </FormField>
+
+          <FormField v-slot="{ attrs }" label="Numéro de téléphone" :requis="!isClientProfileLocked" :erreur="erreursProfil.telephone">
+            <TelephoneInput v-model="profileForm.telephone" v-bind="attrs" :disabled="isClientProfileLocked" />
+          </FormField>
+
+          <FormField v-slot="{ attrs }" label="E-mail" :facultatif="!isClientProfileLocked" :erreur="erreursProfil.email">
+            <input
+              v-model="profileForm.email"
+              v-bind="attrs"
+              type="email"
+              autocomplete="email"
+              class="input"
+              :disabled="isClientProfileLocked"
+            />
+          </FormField>
+
+          <AlertMessage v-if="isClientProfileLocked" type="info">
+            Le numéro de téléphone et l'e-mail d'un compte client ne sont pas modifiables.
+            Contactez-nous au +237 658 55 56 00 pour les changer.
+          </AlertMessage>
+
+          <AlertMessage v-if="profileError" type="error">{{ profileError }}</AlertMessage>
+
+          <Button type="submit" variant="primary" :loading="updating">
+            Enregistrer les modifications
+          </Button>
+        </form>
+      </section>
+
+      <!-- Adresses -->
+      <section
+        v-if="activeTab === 'adresses'"
+        id="panneau-adresses"
+        role="tabpanel"
+        aria-labelledby="onglet-adresses"
+        tabindex="0"
+        class="card p-5 sm:p-8"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-xl">Mes adresses</h2>
+          <Button variant="secondary" size="sm" :icon="Plus" @click="openAddAddress">
+            Ajouter une adresse
+          </Button>
+        </div>
+
+        <EmptyState
+          v-if="!chargementAdresses && adresses.length === 0"
+          :icone="MapPin"
+          niveau="h3"
+          titre="Aucune adresse enregistrée"
+          texte="Ajoutez votre adresse une fois pour toutes : elle sera proposée à chaque commande."
+        />
+
+        <ul v-else class="mt-5 space-y-3">
+          <li
+            v-for="adresse in adresses"
+            :key="adresse.id"
+            class="flex items-start gap-3 rounded-2xl border border-gray-200 p-4"
+          >
+            <MapPin :size="20" class="mt-0.5 flex-shrink-0 text-gold-600" aria-hidden="true" />
+            <div class="min-w-0 flex-1">
+              <p class="flex flex-wrap items-center gap-2 font-semibold text-gray-900">
+                {{ adresse.libelle || adresse.quartier || 'Adresse' }}
+                <span v-if="adresse.est_principale" class="badge badge-primary">Principale</span>
+              </p>
+              <p class="text-sm text-gray-600">
+                {{ [adresse.zone, adresse.quartier, formatVille(villeAdresse(adresse))].filter(Boolean).join(', ') }}
+              </p>
+              <p v-if="adresse.telephone_contact" class="text-sm text-gray-600">{{ adresse.telephone_contact }}</p>
+              <p v-if="!adresse.quartier_id" class="mt-1 flex items-center gap-1.5 text-sm font-medium text-orange-700">
+                <AlertTriangle :size="14" aria-hidden="true" />
+                Quartier à préciser pour pouvoir être livré
+              </p>
+            </div>
+            <div class="-my-1 -mr-2 flex flex-shrink-0">
+              <button
+                type="button"
+                class="btn-icone"
+                :aria-label="`Modifier l'adresse ${adresse.libelle || adresse.quartier}`"
+                @click="openEditAddress(adresse)"
+              >
+                <Pencil :size="18" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                class="btn-icone hover:bg-red-50 hover:text-red-700"
+                :aria-label="`Supprimer l'adresse ${adresse.libelle || adresse.quartier}`"
+                @click="deleteAdresse(adresse)"
+              >
+                <Trash2 :size="18" aria-hidden="true" />
+              </button>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Sécurité -->
+      <section
+        v-if="activeTab === 'securite'"
+        id="panneau-securite"
+        role="tabpanel"
+        aria-labelledby="onglet-securite"
+        tabindex="0"
+        class="card p-5 sm:p-8"
+      >
+        <h2 class="text-xl">Changer le mot de passe</h2>
+        <p class="mt-1 text-sm text-gray-600">Vous serez déconnecté de tous vos appareils et devrez vous reconnecter.</p>
+
+        <form class="mt-6 max-w-lg space-y-5" novalidate @submit.prevent="changePassword">
+          <FormField v-slot="{ attrs }" label="Mot de passe actuel" requis :erreur="erreursMotDePasse.ancien_mot_de_passe">
+            <PasswordInput v-model="passwordForm.ancien_mot_de_passe" v-bind="attrs" autocomplete="current-password" />
+          </FormField>
+          <FormField v-slot="{ attrs }" label="Nouveau mot de passe" requis aide="6 caractères minimum." :erreur="erreursMotDePasse.nouveau_mot_de_passe">
+            <PasswordInput v-model="passwordForm.nouveau_mot_de_passe" v-bind="attrs" autocomplete="new-password" minlength="6" />
+          </FormField>
+          <FormField v-slot="{ attrs }" label="Confirmer le nouveau mot de passe" requis :erreur="erreursMotDePasse.nouveau_mot_de_passe_confirmation">
+            <PasswordInput v-model="passwordForm.nouveau_mot_de_passe_confirmation" v-bind="attrs" autocomplete="new-password" minlength="6" />
+          </FormField>
+
+          <AlertMessage v-if="passwordError" type="error">{{ passwordError }}</AlertMessage>
+
+          <Button type="submit" variant="primary" :loading="updatingPassword">
+            Changer le mot de passe
+          </Button>
+        </form>
+      </section>
     </div>
 
-    <!-- Modal ajout / modification adresse -->
+    <!-- Ajout / modification d'adresse -->
     <AdresseFormModal
       v-if="showAddAddress"
       :adresse="adresseEnEdition"
@@ -209,17 +210,23 @@ File: src/views/Profil.vue
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import api, { messageErreur } from '@/services/api'
-import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import FormField from '@/components/common/FormField.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import PasswordInput from '@/components/common/PasswordInput.vue'
+import TelephoneInput from '@/components/common/TelephoneInput.vue'
+import ThemeToggle from '@/components/common/ThemeToggle.vue'
 import AdresseFormModal from '@/components/adresse/AdresseFormModal.vue'
 import { formatVille, villeAdresse } from '@/utils/villes'
+import { chiffresLocaux, telephoneComplet } from '@/utils/telephone'
 import { useConfirm } from '@/composables/useConfirm'
-import { User, MapPin, Lock, LogOut, Trash2, Pencil } from 'lucide-vue-next'
+import { User, MapPin, Lock, LogOut, Trash2, Pencil, Plus, AlertTriangle } from 'lucide-vue-next'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -232,8 +239,11 @@ const updatingPassword = ref(false)
 const showAddAddress = ref(false)
 const adresseEnEdition = ref(null)
 const adresses = ref([])
+const chargementAdresses = ref(true)
 const profileError = ref('')
 const passwordError = ref('')
+const erreursProfil = ref({})
+const erreursMotDePasse = ref({})
 
 const profileForm = ref({
   nom_complet: authStore.user?.nom_complet || '',
@@ -253,49 +263,66 @@ const menuItems = [
   { id: 'securite', label: 'Sécurité', icon: Lock },
 ]
 
+// Orientation des onglets (verticaux dès lg) : annoncée et utilisée par le clavier
+const requeteLarge = window.matchMedia('(min-width: 1024px)')
+const estLarge = ref(requeteLarge.matches)
+const suivreLargeur = (event) => {
+  estLarge.value = event.matches
+}
+onMounted(() => requeteLarge.addEventListener('change', suivreLargeur))
+onBeforeUnmount(() => requeteLarge.removeEventListener('change', suivreLargeur))
+
+const naviguerOnglets = async (event) => {
+  const index = menuItems.findIndex((item) => item.id === activeTab.value)
+  const dernier = menuItems.length - 1
+  const TOUCHES = {
+    ArrowRight: index === dernier ? 0 : index + 1,
+    ArrowDown: index === dernier ? 0 : index + 1,
+    ArrowLeft: index === 0 ? dernier : index - 1,
+    ArrowUp: index === 0 ? dernier : index - 1,
+    Home: 0,
+    End: dernier,
+  }
+  if (!(event.key in TOUCHES)) return
+
+  event.preventDefault()
+  activeTab.value = menuItems[TOUCHES[event.key]].id
+  await nextTick()
+  document.getElementById(`onglet-${activeTab.value}`)?.focus()
+}
+
 const initiales = computed(() => {
   return authStore.user?.nom_complet
     ?.split(' ')
-    .map(n => n[0])
+    .filter(Boolean)
+    .map((mot) => mot[0])
     .join('')
     .toUpperCase()
     .slice(0, 2) || 'U'
 })
 const isClientProfileLocked = computed(() => authStore.user?.role === 'client')
 
-const sanitizeLocalTelephone = (value) => {
-  const digits = (value || '').replace(/\D/g, '')
-  const withoutPrefix = digits.startsWith('237') ? digits.slice(3) : digits
-  return withoutPrefix.slice(0, 9)
+const focusPremiereErreur = async () => {
+  await nextTick()
+  document.querySelector('[aria-invalid="true"]')?.focus()
 }
-
-const buildTelephone = (value) => {
-  const local = sanitizeLocalTelephone(value)
-  return local ? `+237${local}` : ''
-}
-
-const profileTelephoneInput = computed({
-  get: () => profileForm.value.telephone,
-  set: (value) => {
-    profileForm.value.telephone = sanitizeLocalTelephone(value)
-  }
-})
 
 const updateProfile = async () => {
   profileError.value = ''
+  erreursProfil.value = {}
 
   const nomComplet = (profileForm.value.nom_complet || '').trim()
-  const localTelephone = sanitizeLocalTelephone(profileForm.value.telephone)
-  const telephone = buildTelephone(localTelephone)
+  const localTelephone = chiffresLocaux(profileForm.value.telephone)
   const email = (profileForm.value.email || '').trim()
 
   if (!nomComplet) {
-    profileError.value = 'Le nom complet est requis.'
-    return
+    erreursProfil.value.nom_complet = 'Le nom complet est requis.'
   }
-
   if (!isClientProfileLocked.value && localTelephone.length !== 9) {
-    profileError.value = 'Le numéro de téléphone doit contenir 9 chiffres.'
+    erreursProfil.value.telephone = 'Le numéro de téléphone doit contenir 9 chiffres.'
+  }
+  if (Object.keys(erreursProfil.value).length > 0) {
+    focusPremiereErreur()
     return
   }
 
@@ -305,7 +332,7 @@ const updateProfile = async () => {
       nom_complet: nomComplet,
     }
     if (!isClientProfileLocked.value) {
-      payload.telephone = telephone
+      payload.telephone = telephoneComplet(localTelephone)
       payload.email = email || null
     }
 
@@ -322,18 +349,20 @@ const updateProfile = async () => {
     }
 
     profileForm.value.nom_complet = authStore.user?.nom_complet || nomComplet
-    profileForm.value.telephone = sanitizeLocalTelephone(authStore.user?.telephone || telephone)
+    profileForm.value.telephone = chiffresLocaux(authStore.user?.telephone || localTelephone)
     profileForm.value.email = authStore.user?.email || ''
 
     toastStore.succes('Profil mis à jour.')
   } catch (error) {
     const validationErrors = error.response?.data?.errors || {}
-    profileError.value =
-      validationErrors.nom_complet?.[0] ||
-      validationErrors.telephone?.[0] ||
-      validationErrors.email?.[0] ||
-      error.response?.data?.message ||
-      'Erreur lors de la mise à jour du profil.'
+    erreursProfil.value = {
+      nom_complet: validationErrors.nom_complet?.[0],
+      telephone: validationErrors.telephone?.[0],
+      email: validationErrors.email?.[0],
+    }
+    if (!Object.values(erreursProfil.value).some(Boolean)) {
+      profileError.value = messageErreur(error, 'Erreur lors de la mise à jour du profil.')
+    }
     console.error('Erreur mise à jour profil:', error)
   } finally {
     updating.value = false
@@ -342,9 +371,15 @@ const updateProfile = async () => {
 
 const changePassword = async () => {
   passwordError.value = ''
-
+  const erreurs = {}
+  if (!passwordForm.value.ancien_mot_de_passe) erreurs.ancien_mot_de_passe = 'Saisissez votre mot de passe actuel.'
+  if (passwordForm.value.nouveau_mot_de_passe.length < 6) erreurs.nouveau_mot_de_passe = 'Le nouveau mot de passe doit contenir au moins 6 caractères.'
   if (passwordForm.value.nouveau_mot_de_passe !== passwordForm.value.nouveau_mot_de_passe_confirmation) {
-    passwordError.value = 'Les nouveaux mots de passe ne correspondent pas.'
+    erreurs.nouveau_mot_de_passe_confirmation = 'Les deux mots de passe ne correspondent pas.'
+  }
+  erreursMotDePasse.value = erreurs
+  if (Object.keys(erreurs).length > 0) {
+    focusPremiereErreur()
     return
   }
 
@@ -372,12 +407,14 @@ const fetchAdresses = async () => {
     }
   } catch (error) {
     console.error('Erreur:', error)
+  } finally {
+    chargementAdresses.value = false
   }
 }
 
 const deleteAdresse = async (adresse) => {
   const confirmed = await confirmer({
-    titre: 'Supprimer l\'adresse',
+    titre: 'Supprimer l\'adresse ?',
     message: `L'adresse « ${adresse.libelle || adresse.quartier} » sera supprimée.`,
     libelleConfirmer: 'Supprimer',
     danger: true,
@@ -433,9 +470,19 @@ watch(
   (user) => {
     if (!user) return
     profileForm.value.nom_complet = user.nom_complet || ''
-    profileForm.value.telephone = sanitizeLocalTelephone(user.telephone || '')
+    profileForm.value.telephone = chiffresLocaux(user.telephone || '')
     profileForm.value.email = user.email || ''
   },
   { immediate: true }
 )
 </script>
+
+<style scoped>
+.onglet {
+  @apply flex min-h-11 flex-shrink-0 items-center gap-3 whitespace-nowrap rounded-xl px-4 text-[0.9375rem] font-semibold text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900;
+}
+
+.onglet[aria-selected='true'] {
+  @apply bg-gold-100 text-gold-800;
+}
+</style>

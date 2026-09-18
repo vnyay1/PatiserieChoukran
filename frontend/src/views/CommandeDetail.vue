@@ -2,348 +2,278 @@
 PAGE DÉTAIL COMMANDE
 File: src/views/CommandeDetail.vue
 =================================== -->
-
+<!--
+  En tête : numéro, statuts (texte + couleur), montant et l'action attendue (« Payer maintenant »).
+  Puis articles et suivi (frise ordonnée), livraison et paiement en colonne latérale.
+  Annulation confirmée par useConfirm (focus sur « Garder la commande »).
+-->
 <template>
-  <div class="commande-detail-page pb-6">
-    <div class="container mx-auto px-4 py-6 max-w-5xl">
-      <!-- Header -->
-      <div class="flex items-center justify-between mb-6">
-        <button
-          class="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800"
-          @click="router.back()"
-        >
-          <ArrowLeft :size="16" />
-          Retour
-        </button>
-        <span
-          v-if="commande"
-          :class="['badge', getBadgeClass(commande.statut)]"
-        >
-          {{ getStatutLabel(commande.statut) }}
-        </span>
-      </div>
+  <div class="container mx-auto max-w-6xl pb-6 pt-5 md:pt-8">
+    <router-link to="/mes-commandes" class="btn-ghost btn-sm -ml-3 mb-4">
+      <ArrowLeft :size="16" aria-hidden="true" />
+      Mes commandes
+    </router-link>
 
-      <!-- Loading -->
-      <div v-if="loading" class="space-y-4">
-        <div v-for="n in 3" :key="n" class="skeleton h-40 rounded-elegant"></div>
-      </div>
-
-      <!-- Empty/Error -->
-      <div v-else-if="!commande" class="text-center py-16">
-        <div class="text-6xl mb-4">📦</div>
-        <h2 class="font-display text-xl font-bold text-gray-800 mb-2">
-          Commande introuvable
-        </h2>
-        <p class="text-gray-600 mb-6">{{ error || 'Impossible de charger la commande.' }}</p>
-        <Button variant="primary" @click="$router.push('/mes-commandes')">
-          Retour à mes commandes
-        </Button>
-      </div>
-
-      <div v-else class="space-y-6">
-        <!-- Résumé -->
-        <Card padding="lg">
-          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 class="font-display text-2xl font-bold text-gray-800">
-                {{ commande.numero_commande }}
-              </h1>
-              <p class="text-sm text-gray-600">
-                Créée le {{ formatDate(commande.created_at) }}
-              </p>
-              <p v-if="commande.vendeur?.nom_complet" class="text-sm text-gray-600">
-                Vendeur :
-                <router-link
-                  :to="{ name: 'vendeur-profil', params: { id: commande.vendeur.id } }"
-                  class="text-gold-600 hover:text-gold-700"
-                >
-                  {{ commande.vendeur.nom_complet }}
-                </router-link>
-              </p>
-            </div>
-            <div class="text-right">
-              <div class="text-sm text-gray-600 mb-1">Montant total</div>
-              <div class="price text-2xl">{{ formatPrice(commande.montant_total) }} FCFA</div>
-              <div v-if="commande.statut !== 'annulee'" :class="['badge mt-2', getPaymentBadgeClass(commande.statut_paiement)]">
-                {{ getPaymentLabel(commande.statut_paiement) }}
-              </div>
-              <!-- Facture générée quand le vendeur confirme la commande -->
-              <div v-if="commande.facture" class="mt-3">
-                <Button variant="outline" size="sm" :icon="FileDown" :icon-size="16" :loading="telechargementFacture" @click="telechargerFacture">
-                  Facture {{ commande.facture.numero_facture }}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <!-- Articles -->
-        <Card padding="lg">
-          <h2 class="font-display text-xl font-bold text-gray-800 mb-4">
-            Articles
-          </h2>
-          <div class="space-y-4">
-            <div
-              v-for="ligne in commande.ligne_commandes || []"
-              :key="ligne.id"
-              class="flex gap-4 items-center"
-            >
-              <div class="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                <img
-                  loading="lazy"
-                  :src="resolveImageUrl(ligne.produit?.image_principale)" :alt="ligne.nom_produit"
-                  class="w-full h-full object-cover"
-                  @error="onImageError"
-                />
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="font-semibold text-gray-800">
-                  {{ ligne.nom_produit }}
-                </div>
-                <div class="text-sm text-gray-600">
-                  {{ ligne.quantite }} × {{ formatPrice(ligne.prix_unitaire) }} FCFA
-                </div>
-              </div>
-              <div class="price text-lg">
-                {{ formatPrice(ligne.sous_total) }} FCFA
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <!-- Livraison & Paiement -->
-        <Card padding="lg">
-          <h2 class="font-display text-xl font-bold text-gray-800 mb-4">
-            Livraison & Paiement
-          </h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <div class="flex items-center gap-2 text-gray-700 mb-3">
-                <component :is="getDeliveryIcon(commande.type_livraison)" :size="18" />
-                <span class="font-medium">
-                  {{ commande.type_livraison === 'livraison' ? 'Livraison' : 'Retrait en boutique' }}
-                </span>
-              </div>
-
-              <div v-if="commande.type_livraison === 'livraison'" class="space-y-2 text-sm text-gray-600">
-                <div class="flex items-start gap-2">
-                  <MapPin :size="16" class="mt-0.5" />
-                  <span>{{ libelleAdresse(commande.adresse_livraison) || 'Adresse supprimée' }}</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <Phone :size="16" />
-                  <span>{{ commande.telephone_livraison || '-' }}</span>
-                </div>
-              </div>
-
-              <div v-if="commande.instructions_speciales" class="text-sm text-gray-600 mt-2">
-                <span class="font-medium text-gray-700">Instructions:</span>
-                {{ commande.instructions_speciales }}
-              </div>
-
-              <!-- Contact du vendeur : utile en cas de question sur la livraison -->
-              <div v-if="commande.vendeur?.telephone" class="text-sm text-gray-600 mt-3">
-                <span class="font-medium text-gray-700">Contacter le vendeur :</span>
-                <a :href="`tel:${commande.vendeur.telephone}`" class="text-gold-600 hover:text-gold-700">
-                  {{ commande.vendeur.telephone }}
-                </a>
-              </div>
-            </div>
-
-            <div class="space-y-3">
-              <div class="flex justify-between text-sm text-gray-600">
-                <span>Produits</span>
-                <span>{{ formatPrice(commande.montant_produits) }} FCFA</span>
-              </div>
-              <div class="flex justify-between text-sm text-gray-600">
-                <span>Livraison</span>
-                <span>{{ formatPrice(commande.montant_livraison) }} FCFA</span>
-              </div>
-              <div class="divider-ornament"></div>
-              <div class="flex justify-between font-bold text-lg">
-                <span>Total</span>
-                <span class="price">{{ formatPrice(commande.montant_total) }} FCFA</span>
-              </div>
-
-              <div class="mt-4 text-sm text-gray-600">
-                <div class="font-medium text-gray-700 mb-1">Paiement</div>
-                <div>Moyen: {{ getPaymentMethodLabel(commande.moyen_paiement) }}</div>
-                <div v-if="commande.telephone_paiement">Téléphone: {{ commande.telephone_paiement }}</div>
-                <div v-if="commande.date_paiement">
-                  Payée le {{ formatDateHeure(commande.date_paiement) }}
-                </div>
-                <Button
-                  v-if="peutPayerEnLigne"
-                  variant="primary"
-                  size="sm"
-                  class="mt-3 w-full"
-                  :loading="ouverturePaiement"
-                  @click="payerMaintenant"
-                >
-                  Payer maintenant ({{ formatPrice(commande.montant_total) }} FCFA)
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <!-- Suivi -->
-        <Card v-if="historiqueTrie.length" padding="lg">
-          <h2 class="font-display text-xl font-bold text-gray-800 mb-4">
-            Suivi de la commande
-          </h2>
-          <ol class="border-l-2 border-gold-200 pl-4 space-y-4">
-            <li v-for="etape in historiqueTrie" :key="etape.id">
-              <div class="font-medium text-gray-800">{{ getStatutLabel(etape.nouveau_statut) }}</div>
-              <div class="text-xs text-gray-500">{{ formatDateHeure(etape.created_at) }}</div>
-              <p v-if="etape.commentaire" class="text-sm text-gray-600 mt-1">{{ etape.commentaire }}</p>
-            </li>
-          </ol>
-        </Card>
-
-        <!-- Actions -->
-        <Card v-if="canEdit" padding="lg">
-          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h3 class="font-display text-lg font-bold text-gray-800">
-                Actions
-              </h3>
-              <p class="text-sm text-gray-600">
-                Vous pouvez modifier ou annuler cette commande tant qu'elle est en attente.
-              </p>
-            </div>
-            <div class="flex gap-3">
-              <Button variant="outline" @click="toggleEdit">
-                <Pencil :size="16" class="mr-2" />
-                Modifier
-              </Button>
-              <Button variant="danger" @click="showCancelConfirm = true">
-                <Trash2 :size="16" class="mr-2" />
-                Annuler
-              </Button>
-            </div>
-          </div>
-        </Card>
-
-        <!-- Formulaire de modification -->
-        <Card v-if="editing" padding="lg">
-          <h3 class="font-display text-lg font-bold text-gray-800 mb-4">
-            Modifier la commande
-          </h3>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                Mode de livraison
-              </label>
-              <select v-model="form.type_livraison" class="input">
-                <option value="livraison">Livraison</option>
-                <option value="retrait_boutique">Retrait en boutique</option>
-              </select>
-            </div>
-
-            <div v-if="form.type_livraison === 'livraison'">
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                Adresse de livraison
-              </label>
-              <select v-model="form.adresse_livraison_id" class="input">
-                <option value="">Sélectionner une adresse</option>
-                <option v-for="adresse in adresses" :key="adresse.id" :value="adresse.id">
-                  {{ libelleAdresse(adresse) }}
-                </option>
-              </select>
-            </div>
-
-            <div v-if="form.type_livraison === 'livraison'">
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                Téléphone de livraison
-              </label>
-              <input v-model="form.telephone_livraison" type="tel" class="input" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                Moyen de paiement
-              </label>
-              <select v-model="form.moyen_paiement" class="input">
-                <option value="orange_money">Orange Money</option>
-                <option value="mtn_momo">MTN Mobile Money</option>
-                <option value="especes">Espèces</option>
-              </select>
-            </div>
-
-            <div v-if="form.moyen_paiement !== 'especes'">
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                Téléphone paiement
-              </label>
-              <input v-model="form.telephone_paiement" type="tel" class="input" />
-            </div>
-
-            <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                Instructions spéciales
-              </label>
-              <textarea v-model="form.instructions_speciales" rows="3" class="input resize-none"></textarea>
-            </div>
-          </div>
-
-          <p v-if="form.type_livraison === 'livraison' && livraisonPossible" class="text-sm text-gray-700 mt-3">
-            Frais de livraison : {{ formatPrice(fraisLivraison) }} FCFA
-          </p>
-          <p v-if="shippingError" class="text-sm text-red-600 mt-3">
-            {{ shippingError }}
-          </p>
-
-          <div class="flex justify-end gap-3 mt-4">
-            <Button variant="outline" @click="toggleEdit">
-              Annuler
-            </Button>
-            <Button variant="primary" :loading="updating" @click="submitUpdate">
-              Enregistrer
-            </Button>
-          </div>
-        </Card>
-      </div>
+    <!-- Chargement -->
+    <div v-if="loading" class="space-y-4" aria-busy="true">
+      <div v-for="n in 3" :key="n" class="skeleton h-40 rounded-elegant"></div>
+      <span class="sr-only">Chargement de la commande…</span>
     </div>
 
-    <!-- Modal confirmation annulation -->
-    <Teleport to="body">
-      <div
-        v-if="showCancelConfirm"
-        class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-        @click="showCancelConfirm = false"
-      >
-        <div
-          class="bg-surface rounded-elegant p-6 max-w-sm w-full animate-fadeIn"
-          @click.stop
-        >
-          <div class="text-center mb-4">
-            <div class="text-5xl mb-3">⚠️</div>
-            <h3 class="font-display text-xl font-bold text-gray-800 mb-2">
-              Annuler la commande ?
-            </h3>
-            <p class="text-gray-600">
-              Cette action est définitive.
+    <!-- Introuvable -->
+    <EmptyState
+      v-else-if="!commande"
+      :icone="PackageOpen"
+      niveau="h1"
+      titre="Commande introuvable"
+      :texte="error || 'Impossible de charger la commande.'"
+    >
+      <Button to="/mes-commandes" variant="primary">Retour à mes commandes</Button>
+    </EmptyState>
+
+    <div v-else class="space-y-6">
+      <!-- En-tête -->
+      <section class="card p-5 sm:p-7" aria-labelledby="titre-commande">
+        <div class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <span :class="['badge', getBadgeClass(commande.statut)]">{{ getStatutLabel(commande.statut) }}</span>
+              <span v-if="commande.statut !== 'annulee'" :class="['badge', getPaymentBadgeClass(commande.statut_paiement)]">
+                <span class="sr-only">Paiement :</span>
+                {{ getPaymentLabel(commande.statut_paiement) }}
+              </span>
+            </div>
+            <h1 id="titre-commande" class="mt-3 text-2xl md:text-3xl">Commande {{ commande.numero_commande }}</h1>
+            <p class="mt-1 text-sm text-gray-600">Passée le {{ formatDate(commande.created_at) }}</p>
+            <p v-if="commande.vendeur?.nom_complet" class="mt-1 text-sm text-gray-600">
+              Vendeur :
+              <router-link :to="{ name: 'vendeur-profil', params: { id: commande.vendeur.id } }" class="lien">
+                {{ commande.vendeur.nom_complet }}
+              </router-link>
             </p>
           </div>
 
-          <div class="flex gap-3">
-            <Button variant="outline" full-width @click="showCancelConfirm = false">
-              Retour
+          <div class="flex flex-col gap-3 md:items-end">
+            <p class="md:text-right">
+              <span class="block text-xs font-semibold uppercase tracking-wider text-gray-500">Montant total</span>
+              <span class="price text-3xl">{{ formatPrice(commande.montant_total) }} FCFA</span>
+            </p>
+            <Button
+              v-if="peutPayerEnLigne"
+              variant="primary"
+              :icon="Lock"
+              :loading="ouverturePaiement"
+              @click="payerMaintenant"
+            >
+              Payer maintenant
             </Button>
-            <Button variant="danger" full-width :loading="canceling" @click="cancelOrder">
-              Annuler
+            <!-- Facture générée quand le vendeur confirme la commande -->
+            <Button
+              v-if="commande.facture"
+              variant="outline"
+              size="sm"
+              :icon="FileDown"
+              :icon-size="16"
+              :loading="telechargementFacture"
+              @click="telechargerFacture"
+            >
+              Facture {{ commande.facture.numero_facture }} (PDF)
             </Button>
           </div>
         </div>
+      </section>
+
+      <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+        <div class="space-y-6 lg:col-span-2">
+          <!-- Articles -->
+          <section class="card p-5 sm:p-7" aria-labelledby="titre-articles">
+            <h2 id="titre-articles" class="text-xl">Articles</h2>
+            <ul class="mt-4 divide-y divide-gray-200">
+              <li v-for="ligne in commande.ligne_commandes || []" :key="ligne.id" class="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
+                <img
+                  loading="lazy"
+                  :src="resolveImageUrl(ligne.produit?.image_principale)"
+                  alt=""
+                  class="h-16 w-16 flex-shrink-0 rounded-xl bg-gray-100 object-cover sm:h-20 sm:w-20"
+                  @error="onImageError"
+                />
+                <div class="min-w-0 flex-1">
+                  <p class="font-semibold text-gray-900">{{ ligne.nom_produit }}</p>
+                  <p class="text-sm text-gray-600">{{ ligne.quantite }} × {{ formatPrice(ligne.prix_unitaire) }} FCFA</p>
+                </div>
+                <p class="price text-lg">{{ formatPrice(ligne.sous_total) }} FCFA</p>
+              </li>
+            </ul>
+          </section>
+
+          <!-- Suivi -->
+          <section v-if="historiqueTrie.length" class="card p-5 sm:p-7" aria-labelledby="titre-suivi">
+            <h2 id="titre-suivi" class="text-xl">Suivi de la commande</h2>
+            <ol class="mt-5">
+              <li v-for="(etape, index) in historiqueTrie" :key="etape.id" class="relative flex gap-4 pb-6 last:pb-0">
+                <span
+                  v-if="index < historiqueTrie.length - 1"
+                  class="absolute left-[0.6875rem] top-6 h-[calc(100%-1.5rem)] w-0.5 bg-gold-200"
+                  aria-hidden="true"
+                ></span>
+                <span
+                  class="relative mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full"
+                  :class="index === historiqueTrie.length - 1 ? 'bg-gold-500 text-on-gold' : 'bg-gold-100 text-gold-700'"
+                  aria-hidden="true"
+                >
+                  <Check :size="13" :stroke-width="3" />
+                </span>
+                <div class="min-w-0">
+                  <p class="font-semibold text-gray-900">
+                    {{ getStatutLabel(etape.nouveau_statut) }}
+                    <span v-if="index === historiqueTrie.length - 1" class="sr-only">(étape actuelle)</span>
+                  </p>
+                  <p class="text-sm text-gray-600"><time :datetime="etape.created_at">{{ formatDateHeure(etape.created_at) }}</time></p>
+                  <p v-if="etape.commentaire" class="mt-1 text-sm text-gray-700">{{ etape.commentaire }}</p>
+                </div>
+              </li>
+            </ol>
+          </section>
+        </div>
+
+        <div class="space-y-6">
+          <!-- Livraison -->
+          <section class="card p-5 sm:p-6" aria-labelledby="titre-livraison">
+            <h2 id="titre-livraison" class="flex items-center gap-2 text-lg">
+              <component :is="commande.type_livraison === 'livraison' ? Truck : Store" :size="20" class="text-gold-600" aria-hidden="true" />
+              {{ commande.type_livraison === 'livraison' ? 'Livraison à domicile' : 'Retrait en boutique' }}
+            </h2>
+            <dl class="mt-4 space-y-3 text-sm">
+              <div v-if="commande.type_livraison === 'livraison'">
+                <dt class="font-semibold text-gray-900">Adresse</dt>
+                <dd class="text-gray-700">{{ libelleAdresse(commande.adresse_livraison) || 'Adresse supprimée' }}</dd>
+              </div>
+              <div v-if="commande.type_livraison === 'livraison'">
+                <dt class="font-semibold text-gray-900">Téléphone</dt>
+                <dd class="text-gray-700">{{ commande.telephone_livraison || '—' }}</dd>
+              </div>
+              <div v-if="commande.instructions_speciales">
+                <dt class="font-semibold text-gray-900">Instructions</dt>
+                <dd class="text-gray-700">{{ commande.instructions_speciales }}</dd>
+              </div>
+            </dl>
+            <!-- Contact du vendeur : utile en cas de question sur la livraison -->
+            <a
+              v-if="commande.vendeur?.telephone"
+              :href="`tel:${commande.vendeur.telephone}`"
+              class="btn-secondary btn-sm mt-5 w-full"
+            >
+              <Phone :size="16" aria-hidden="true" />
+              Appeler le vendeur
+              <span class="sr-only">au {{ commande.vendeur.telephone }}</span>
+            </a>
+          </section>
+
+          <!-- Paiement -->
+          <section class="card p-5 sm:p-6" aria-labelledby="titre-paiement">
+            <h2 id="titre-paiement" class="text-lg">Paiement</h2>
+            <dl class="mt-4 space-y-2 text-sm">
+              <div class="flex justify-between gap-3">
+                <dt class="text-gray-600">Produits</dt>
+                <dd class="tabular-nums text-gray-900">{{ formatPrice(commande.montant_produits) }} FCFA</dd>
+              </div>
+              <div class="flex justify-between gap-3">
+                <dt class="text-gray-600">Livraison</dt>
+                <dd class="tabular-nums text-gray-900">{{ formatPrice(commande.montant_livraison) }} FCFA</dd>
+              </div>
+              <div class="flex items-baseline justify-between gap-3 border-t border-gray-200 pt-3">
+                <dt class="font-semibold text-gray-900">Total</dt>
+                <dd class="price text-xl">{{ formatPrice(commande.montant_total) }} FCFA</dd>
+              </div>
+              <div class="flex justify-between gap-3 pt-2">
+                <dt class="text-gray-600">Moyen</dt>
+                <dd class="text-gray-900">{{ getPaymentMethodLabel(commande.moyen_paiement) }}</dd>
+              </div>
+              <div v-if="commande.telephone_paiement" class="flex justify-between gap-3">
+                <dt class="text-gray-600">Numéro</dt>
+                <dd class="text-gray-900">{{ commande.telephone_paiement }}</dd>
+              </div>
+              <div v-if="commande.date_paiement" class="flex justify-between gap-3">
+                <dt class="text-gray-600">Payée le</dt>
+                <dd class="text-gray-900">{{ formatDateHeure(commande.date_paiement) }}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <!-- Actions (commande en attente) -->
+          <section v-if="canEdit && !editing" class="card p-5 sm:p-6" aria-labelledby="titre-actions">
+            <h2 id="titre-actions" class="text-lg">Modifier ou annuler</h2>
+            <p class="mt-1 text-sm text-gray-600">Possible tant que le vendeur n'a pas confirmé la commande.</p>
+            <div class="mt-4 flex flex-col gap-2">
+              <Button variant="outline" :icon="Pencil" @click="toggleEdit">Modifier la commande</Button>
+              <Button variant="ghost" class="text-red-700 hover:bg-red-50" :icon="XCircle" :loading="canceling" @click="confirmerAnnulation">
+                Annuler la commande
+              </Button>
+            </div>
+          </section>
+        </div>
       </div>
-    </Teleport>
+
+      <!-- Modification -->
+      <section v-if="editing" ref="formulaireModif" class="card p-5 sm:p-7" aria-labelledby="titre-modification">
+        <h2 id="titre-modification" ref="titreModif" tabindex="-1" class="text-xl">Modifier la commande</h2>
+
+        <form class="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2" novalidate @submit.prevent="submitUpdate">
+          <FormField v-slot="{ attrs }" label="Mode de réception">
+            <select v-model="form.type_livraison" v-bind="attrs" class="input">
+              <option value="livraison">Livraison à domicile</option>
+              <option value="retrait_boutique">Retrait en boutique</option>
+            </select>
+          </FormField>
+
+          <FormField v-if="form.type_livraison === 'livraison'" v-slot="{ attrs }" label="Adresse de livraison" requis>
+            <select v-model="form.adresse_livraison_id" v-bind="attrs" class="input">
+              <option value="" disabled>Sélectionner une adresse</option>
+              <option v-for="adresse in adresses" :key="adresse.id" :value="adresse.id">
+                {{ libelleAdresse(adresse) }}
+              </option>
+            </select>
+          </FormField>
+
+          <FormField v-if="form.type_livraison === 'livraison'" v-slot="{ attrs }" label="Téléphone pour la livraison" requis>
+            <input v-model="form.telephone_livraison" v-bind="attrs" type="tel" autocomplete="tel" class="input" />
+          </FormField>
+
+          <FormField v-slot="{ attrs }" label="Moyen de paiement">
+            <select v-model="form.moyen_paiement" v-bind="attrs" class="input">
+              <option value="orange_money">Orange Money</option>
+              <option value="mtn_momo">MTN Mobile Money</option>
+              <option value="especes">Espèces</option>
+            </select>
+          </FormField>
+
+          <FormField v-if="form.moyen_paiement !== 'especes'" v-slot="{ attrs }" label="Numéro Mobile Money" requis>
+            <input v-model="form.telephone_paiement" v-bind="attrs" type="tel" autocomplete="tel" class="input" />
+          </FormField>
+
+          <FormField v-slot="{ attrs }" label="Instructions pour le vendeur" facultatif class="md:col-span-2">
+            <textarea v-model="form.instructions_speciales" v-bind="attrs" rows="3" class="input resize-y"></textarea>
+          </FormField>
+
+          <p v-if="form.type_livraison === 'livraison' && livraisonPossible" class="flex items-center gap-2 text-sm text-gray-700 md:col-span-2">
+            <Truck :size="16" aria-hidden="true" />
+            Frais de livraison : {{ formatPrice(fraisLivraison) }} FCFA
+          </p>
+          <AlertMessage v-if="shippingError" type="warning" class="md:col-span-2">{{ shippingError }}</AlertMessage>
+
+          <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end md:col-span-2">
+            <Button type="button" variant="outline" @click="toggleEdit">Abandonner</Button>
+            <Button type="submit" variant="primary" :loading="updating">Enregistrer les modifications</Button>
+          </div>
+        </form>
+      </section>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import api, { messageErreur, lireErreurBlob } from '@/services/api'
 import { useToastStore } from '@/stores/toast'
 import { telechargerBlob } from '@/utils/telechargement'
@@ -358,16 +288,19 @@ import {
   classePaiement as getPaymentBadgeClass,
   libelleMoyenPaiement as getPaymentMethodLabel,
 } from '@/utils/format'
-import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import FormField from '@/components/common/FormField.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import { useConfirm } from '@/composables/useConfirm'
 import { useLivraisonVendeurs } from '@/composables/useLivraisonVendeurs'
 import { formatVille, libelleAdresse, villeAdresse } from '@/utils/villes'
-import { ArrowLeft, MapPin, Phone, Pencil, Trash2, Truck, Store, FileDown } from 'lucide-vue-next'
+import { ArrowLeft, Phone, Pencil, Truck, Store, FileDown, Lock, Check, XCircle, PackageOpen } from 'lucide-vue-next'
 import { resolveImageUrl, onImageError } from '@/utils/images'
 
 const route = useRoute()
-const router = useRouter()
 const toastStore = useToastStore()
+const { confirmer } = useConfirm()
 
 const loading = ref(true)
 const error = ref('')
@@ -376,7 +309,7 @@ const commande = ref(null)
 const editing = ref(false)
 const updating = ref(false)
 const canceling = ref(false)
-const showCancelConfirm = ref(false)
+const titreModif = ref(null)
 
 const adresses = ref([])
 const fraisLivraison = ref(0)
@@ -438,10 +371,6 @@ const historiqueTrie = computed(() => {
   return [...(commande.value?.historiques || [])]
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 })
-
-const getDeliveryIcon = (type) => {
-  return type === 'livraison' ? Truck : Store
-}
 
 const initFormFromCommande = () => {
   if (!commande.value) return
@@ -536,11 +465,15 @@ const refreshShipping = async () => {
   livraisonPossible.value = true
 }
 
-const toggleEdit = () => {
+const toggleEdit = async () => {
   editing.value = !editing.value
   if (editing.value) {
     initFormFromCommande()
     refreshShipping()
+    // Le formulaire apparaît sous le contenu : on y amène la vue et le focus
+    await nextTick()
+    titreModif.value?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    titreModif.value?.focus({ preventScroll: true })
   }
 }
 
@@ -573,12 +506,22 @@ const submitUpdate = async () => {
   }
 }
 
+const confirmerAnnulation = async () => {
+  const ok = await confirmer({
+    titre: 'Annuler la commande ?',
+    message: `La commande ${commande.value.numero_commande} sera annulée. Cette action est définitive.`,
+    libelleConfirmer: 'Annuler la commande',
+    libelleAnnuler: 'Garder la commande',
+    danger: true,
+  })
+  if (ok) cancelOrder()
+}
+
 const cancelOrder = async () => {
   canceling.value = true
   try {
     const response = await api.commandes.cancel(route.params.id)
     if (response.data.success) {
-      showCancelConfirm.value = false
       toastStore.succes('Commande annulée.')
       await fetchCommande()
     }

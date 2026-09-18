@@ -2,89 +2,74 @@
 COMPOSANT COMMANDE CARD
 File: src/components/commande/CommandeCard.vue
 =================================== -->
-
+<!--
+  Carte-lien : le numéro de commande est un lien étiré sur toute la carte (clavier, clic milieu).
+  Suivi : barre de progression ARIA avec l'étape en texte.
+-->
 <template>
-  <Card padding="md" hoverable clickable @click="$emit('click', commande)">
-    <div class="flex flex-col md:flex-row md:items-center gap-4">
-      <!-- Info principale -->
-      <div class="flex-1">
-        <!-- En-tête -->
-        <div class="flex items-start justify-between mb-3">
-          <div>
-            <div class="flex items-center gap-2 mb-1">
-              <h3 class="font-display font-semibold text-lg">
-                {{ commande.numero_commande }}
-              </h3>
-              <span :class="['badge', getBadgeClass(commande.statut)]">
-                {{ getStatutLabel(commande.statut) }}
-              </span>
-            </div>
-            <p class="text-sm text-gray-600">
-              {{ formatDate(commande.created_at) }}
-            </p>
-          </div>
-        </div>
-
-        <!-- Produits -->
-        <div class="flex items-center gap-2 mb-3 text-sm text-gray-600">
-          <Package :size="16" />
-          <span>{{ commande.ligne_commandes_count || commande.ligne_commandes?.length || 0 }} article(s)</span>
-        </div>
-
-        <!-- Vendeur (une commande par vendeur) -->
-        <div v-if="commande.vendeur?.nom_complet" class="flex items-center gap-2 mb-3 text-sm text-gray-600">
-          <Store :size="16" />
-          <span>Vendeur : {{ commande.vendeur.nom_complet }}</span>
-        </div>
-
-        <!-- Livraison -->
-        <div class="flex items-center gap-2 text-sm text-gray-600">
-          <component :is="getDeliveryIcon(commande.type_livraison)" :size="16" />
-          <span>
-            {{ commande.type_livraison === 'livraison' ? 'Livraison' : 'Retrait en boutique' }}
-          </span>
-        </div>
+  <Card
+    hoverable
+    padding="none"
+    tag="article"
+    class="p-4 has-[.lien-etire:focus-visible]:outline has-[.lien-etire:focus-visible]:outline-2 has-[.lien-etire:focus-visible]:outline-offset-2 has-[.lien-etire:focus-visible]:outline-gold-600 sm:p-5"
+  >
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <h3 class="font-body text-base font-bold text-gray-900">
+          <router-link
+            :to="`/mes-commandes/${commande.id}`"
+            class="lien-etire after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
+          >
+            {{ commande.numero_commande }}
+          </router-link>
+        </h3>
+        <p class="text-sm text-gray-600">{{ formatDate(commande.created_at) }}</p>
       </div>
-
-      <!-- Prix et action -->
-      <div class="flex items-center justify-between md:flex-col md:items-end gap-3">
-        <div class="text-right">
-          <div class="text-sm text-gray-600 mb-1">Montant total</div>
-          <div class="price text-xl">{{ formatPrice(commande.montant_total) }} FCFA</div>
-        </div>
-
-        <div class="flex gap-2">
-          <!-- Badge paiement -->
-          <div
-            v-if="commande.statut !== 'annulee'"
-            :class="['badge', getPaymentBadgeClass(commande.statut_paiement)]"
-          >
-            {{ getPaymentLabel(commande.statut_paiement) }}
-          </div>
-
-          <!-- Bouton voir détail -->
-          <button
-            class="text-gold-600 hover:text-gold-700"
-            @click.stop="$emit('click', commande)"
-          >
-            <ChevronRight :size="20" />
-          </button>
-        </div>
+      <div class="flex flex-shrink-0 items-center gap-1">
+        <span :class="['badge', getBadgeClass(commande.statut)]">{{ getStatutLabel(commande.statut) }}</span>
+        <ChevronRight :size="20" class="text-gray-500" aria-hidden="true" />
       </div>
     </div>
 
-    <!-- Barre de progression (si en cours) -->
-    <div
-      v-if="!['livree', 'annulee'].includes(commande.statut)"
-      class="mt-4 pt-4 border-t border-gray-100"
-    >
-      <div class="flex items-center justify-between text-xs text-gray-600 mb-2">
-        <span>{{ getProgressLabel(commande.statut) }}</span>
-        <span>{{ getProgressPercent(commande.statut) }}%</span>
-      </div>
-      <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+    <ul class="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-gray-700">
+      <li class="flex items-center gap-1.5">
+        <Package :size="16" class="text-gray-500" aria-hidden="true" />
+        {{ nombreArticles }} article{{ nombreArticles > 1 ? 's' : '' }}
+      </li>
+      <li v-if="commande.vendeur?.nom_complet" class="flex items-center gap-1.5">
+        <Store :size="16" class="text-gray-500" aria-hidden="true" />
+        {{ commande.vendeur.nom_complet }}
+      </li>
+      <li class="flex items-center gap-1.5">
+        <component :is="commande.type_livraison === 'livraison' ? Truck : Store" :size="16" class="text-gray-500" aria-hidden="true" />
+        {{ commande.type_livraison === 'livraison' ? 'Livraison' : 'Retrait en boutique' }}
+      </li>
+    </ul>
+
+    <div class="mt-4 flex flex-wrap items-end justify-between gap-3">
+      <p>
+        <span class="block text-xs font-semibold uppercase tracking-wider text-gray-500">Montant total</span>
+        <span class="price text-xl">{{ formatPrice(commande.montant_total) }} FCFA</span>
+      </p>
+      <span v-if="commande.statut !== 'annulee'" :class="['badge', getPaymentBadgeClass(commande.statut_paiement)]">
+        <span class="sr-only">Paiement :</span>
+        {{ getPaymentLabel(commande.statut_paiement) }}
+      </span>
+    </div>
+
+    <!-- Suivi (commande en cours) -->
+    <div v-if="!['livree', 'annulee'].includes(commande.statut)" class="mt-4 border-t border-gray-200 pt-4">
+      <p :id="`suivi-${commande.id}`" class="mb-2 text-sm font-medium text-gray-700">{{ getProgressLabel(commande.statut) }}</p>
+      <div
+        class="h-2 overflow-hidden rounded-full bg-gray-200"
+        role="progressbar"
+        :aria-labelledby="`suivi-${commande.id}`"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        :aria-valuenow="getProgressPercent(commande.statut)"
+      >
         <div
-          class="h-full bg-gold-600 transition-[width] duration-500"
+          class="h-full rounded-full bg-gold-600 transition-[width] duration-500"
           :style="{ width: `${getProgressPercent(commande.statut)}%` }"
         ></div>
       </div>
@@ -93,6 +78,7 @@ File: src/components/commande/CommandeCard.vue
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import Card from '@/components/common/Card.vue'
 import {
   formatPrice,
@@ -104,18 +90,14 @@ import {
 } from '@/utils/format'
 import { Package, Truck, Store, ChevronRight } from 'lucide-vue-next'
 
-defineProps({
+const props = defineProps({
   commande: {
     type: Object,
     required: true
   }
 })
 
-defineEmits(['click'])
-
-const getDeliveryIcon = (type) => {
-  return type === 'livraison' ? Truck : Store
-}
+const nombreArticles = computed(() => props.commande.ligne_commandes_count || props.commande.ligne_commandes?.length || 0)
 
 const getProgressLabel = (statut) => {
   const labels = {

@@ -1,176 +1,147 @@
+<!-- ===================================
+PAGE NOTIFICATIONS
+File: src/views/Notifications.vue
+=================================== -->
+<!--
+  Non lue : point or + titre en gras + mention « Non lue » lue par les lecteurs d'écran.
+  Actions secondaires discrètes (icône « Supprimer ») pour ne pas aligner un bouton rouge par ligne.
+-->
 <template>
-  <div class="notifications-page pb-6">
-    <div class="container mx-auto px-4 py-6">
-      <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between mb-6">
-        <div>
-          <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
-            Notifications
-          </h1>
-          <p class="text-sm text-gray-600 mt-1">
-            {{ unreadCount }} non lue{{ unreadCount > 1 ? 's' : '' }}
-          </p>
-        </div>
-
-        <div class="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            :disabled="!notificationsStore.hasUnread || actionLoading"
-            @click="markAllAsRead"
-          >
-            Tout marquer lu
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            :disabled="!hasReadNotifications || actionLoading"
-            @click="clearReadNotifications"
-          >
-            Supprimer les lues
-          </Button>
-        </div>
-      </div>
-
-      <div class="bg-surface rounded-elegant shadow-card p-4 mb-4">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-              Type
-            </label>
-            <select v-model="typeFilter" class="input py-2">
-              <option value="">Tous les types</option>
-              <option value="commande">Commande</option>
-            </select>
-          </div>
-
-          <div class="md:col-span-2">
-            <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-              Statut
-            </label>
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="option in readFilterOptions"
-                :key="option.value"
-                class="px-4 py-2 rounded-full text-sm transition-colors"
-                :class="readFilter === option.value ? 'bg-gold-500 text-on-gold' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-                @click="setReadFilter(option.value)"
-              >
-                {{ option.label }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="notificationsStore.loading" class="space-y-3">
-        <div v-for="n in 4" :key="n" class="skeleton h-28 rounded-elegant"></div>
-      </div>
-
-      <div v-else-if="notifications.length > 0" class="space-y-3">
-        <article
-          v-for="notification in notifications"
-          :key="notification.id"
-          class="bg-surface rounded-elegant shadow-card p-4 border transition-colors"
-          :class="notification.est_lu ? 'border-transparent' : 'border-gold-200'"
-        >
-          <div class="flex items-start gap-3">
-            <div class="h-10 w-10 rounded-full bg-gold-50 text-gold-700 flex items-center justify-center flex-shrink-0">
-              <Package v-if="notification.type === 'commande'" :size="18" />
-              <Bell v-else :size="18" />
-            </div>
-
-            <div class="flex-1 min-w-0">
-              <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <h2 class="font-semibold text-gray-800 truncate">
-                    {{ notification.titre || 'Notification' }}
-                  </h2>
-                  <p class="text-sm text-gray-600 mt-1 whitespace-pre-line break-words">
-                    {{ notification.message }}
-                  </p>
-                </div>
-                <span
-                  v-if="!notification.est_lu"
-                  class="mt-1 h-2.5 w-2.5 rounded-full bg-gold-500 flex-shrink-0"
-                  aria-label="Notification non lue"
-                ></span>
-              </div>
-
-              <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                <span class="badge badge-primary">{{ labelType(notification.type) }}</span>
-                <span>{{ formatDate(notification.date_envoi || notification.created_at) }}</span>
-              </div>
-
-              <div class="mt-4 flex flex-wrap gap-2">
-                <Button
-                  v-if="notification.url_action"
-                  variant="secondary"
-                  size="sm"
-                  @click="openAction(notification)"
-                >
-                  Ouvrir
-                </Button>
-                <Button
-                  v-if="!notification.est_lu"
-                  variant="outline"
-                  size="sm"
-                  @click="markAsRead(notification.id)"
-                >
-                  Marquer lue
-                </Button>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  @click="removeNotification(notification)"
-                >
-                  Supprimer
-                </Button>
-              </div>
-            </div>
-          </div>
-        </article>
-      </div>
-
-      <div v-else class="text-center py-14">
-        <Bell :size="42" class="mx-auto text-gray-300 mb-3" />
-        <h2 class="font-display text-xl font-bold text-gray-800 mb-1">
-          Aucune notification
-        </h2>
-        <p class="text-gray-600">
-          Vos notifications apparaîtront ici.
+  <div class="container mx-auto max-w-3xl pb-6 pt-6 md:pt-8">
+    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h1>Notifications</h1>
+        <p class="mt-1 text-sm text-gray-600" aria-live="polite">
+          {{ unreadCount === 0 ? 'Tout est lu' : `${unreadCount} non lue${unreadCount > 1 ? 's' : ''}` }}
         </p>
       </div>
 
-      <div v-if="hasPagination" class="mt-6 flex items-center justify-center gap-3">
+      <div class="flex flex-wrap gap-2">
         <Button
           variant="outline"
           size="sm"
-          :disabled="currentPage <= 1 || notificationsStore.loading"
-          @click="changePage(currentPage - 1)"
+          :icon="CheckCheck"
+          :disabled="!notificationsStore.hasUnread || actionLoading"
+          @click="markAllAsRead"
         >
-          Précédent
+          Tout marquer comme lu
         </Button>
-        <span class="text-sm text-gray-600">
-          Page {{ currentPage }} / {{ lastPage }}
-        </span>
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
-          :disabled="currentPage >= lastPage || notificationsStore.loading"
-          @click="changePage(currentPage + 1)"
+          :icon="Trash2"
+          :disabled="!hasReadNotifications || actionLoading"
+          @click="clearReadNotifications"
         >
-          Suivant
+          Supprimer les lues
         </Button>
       </div>
     </div>
+
+    <div class="mb-5 flex flex-wrap items-center gap-2" role="group" aria-label="Afficher">
+      <button
+        v-for="option in readFilterOptions"
+        :key="option.value"
+        type="button"
+        class="puce"
+        :aria-pressed="readFilter === option.value"
+        @click="setReadFilter(option.value)"
+      >
+        {{ option.label }}
+      </button>
+      <label for="filtre-type-notif" class="sr-only">Type de notification</label>
+      <select id="filtre-type-notif" v-model="typeFilter" class="input ml-auto min-h-10 w-auto rounded-full py-1.5 text-sm">
+        <option value="">Tous les types</option>
+        <option value="commande">Commandes</option>
+      </select>
+    </div>
+
+    <div v-if="notificationsStore.loading" class="space-y-3" aria-hidden="true">
+      <div v-for="n in 4" :key="n" class="skeleton h-28 rounded-elegant"></div>
+    </div>
+
+    <ul v-else-if="notifications.length > 0" class="space-y-3">
+      <li
+        v-for="notification in notifications"
+        :key="notification.id"
+        class="card relative flex items-start gap-3 p-4 sm:gap-4 sm:p-5"
+        :class="{ 'border-gold-300 bg-gold-50/60': !notification.est_lu }"
+      >
+        <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gold-100 text-gold-700">
+          <Package v-if="notification.type === 'commande'" :size="18" aria-hidden="true" />
+          <Bell v-else :size="18" aria-hidden="true" />
+        </span>
+
+        <div class="min-w-0 flex-1">
+          <h2 class="flex items-center gap-2 font-body text-base leading-snug" :class="notification.est_lu ? 'font-semibold text-gray-800' : 'font-bold text-gray-900'">
+            <span v-if="!notification.est_lu" class="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-gold-500" aria-hidden="true"></span>
+            <span v-if="!notification.est_lu" class="sr-only">Non lue :</span>
+            <span class="min-w-0 break-words">{{ notification.titre || 'Notification' }}</span>
+          </h2>
+          <p class="mt-1 whitespace-pre-line break-words text-sm text-gray-700">{{ notification.message }}</p>
+          <p class="mt-2 text-xs text-gray-600">
+            {{ labelType(notification.type) }} ·
+            <time :datetime="notification.date_envoi || notification.created_at">{{ formatDate(notification.date_envoi || notification.created_at) }}</time>
+          </p>
+
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <Button v-if="notification.url_action" variant="secondary" size="sm" @click="openAction(notification)">
+              Voir
+            </Button>
+            <Button v-if="!notification.est_lu" variant="ghost" size="sm" @click="markAsRead(notification.id)">
+              Marquer comme lue
+            </Button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="btn-icone -mr-2 -mt-2 text-gray-600 hover:bg-red-50 hover:text-red-700"
+          :aria-label="`Supprimer la notification « ${notification.titre || 'Notification'} »`"
+          @click="removeNotification(notification)"
+        >
+          <Trash2 :size="18" aria-hidden="true" />
+        </button>
+      </li>
+    </ul>
+
+    <EmptyState
+      v-else
+      :icone="BellOff"
+      :titre="readFilter === 'unread' ? 'Aucune notification non lue' : 'Aucune notification'"
+      texte="Vous serez prévenu ici de chaque étape de vos commandes."
+    />
+
+    <nav v-if="hasPagination" class="mt-6 flex items-center justify-center gap-3" aria-label="Pagination">
+      <Button
+        variant="outline"
+        size="sm"
+        :icon="ChevronLeft"
+        :disabled="currentPage <= 1 || notificationsStore.loading"
+        @click="changePage(currentPage - 1)"
+      >
+        Précédentes
+      </Button>
+      <span class="text-sm tabular-nums text-gray-600">Page {{ currentPage }} sur {{ lastPage }}</span>
+      <Button
+        variant="outline"
+        size="sm"
+        :disabled="currentPage >= lastPage || notificationsStore.loading"
+        @click="changePage(currentPage + 1)"
+      >
+        Suivantes
+        <ChevronRight :size="16" aria-hidden="true" />
+      </Button>
+    </nav>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Bell, Package } from 'lucide-vue-next'
+import { Bell, BellOff, Package, Trash2, CheckCheck, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import Button from '@/components/common/Button.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
@@ -263,7 +234,7 @@ const markAllAsRead = async () => {
 
 const removeNotification = async (notification) => {
   const confirmed = await confirmer({
-    titre: 'Supprimer la notification',
+    titre: 'Supprimer la notification ?',
     message: 'Cette notification sera définitivement supprimée.',
     libelleConfirmer: 'Supprimer',
     danger: true,
@@ -285,7 +256,7 @@ const removeNotification = async (notification) => {
 
 const clearReadNotifications = async () => {
   const confirmed = await confirmer({
-    titre: 'Supprimer les notifications lues',
+    titre: 'Supprimer les notifications lues ?',
     message: 'Toutes les notifications déjà lues seront supprimées.',
     libelleConfirmer: 'Supprimer',
     danger: true,

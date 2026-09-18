@@ -2,99 +2,63 @@
 2. PAGE DE CONNEXION (Mobile-First)
 File: src/views/Login.vue
 =================================== -->
-
+<!--
+  Deux champs, erreurs sous le champ concerné (le focus y va), message serveur en alerte.
+  Arrivée depuis un ajout au panier : un bandeau explique pourquoi se connecter.
+-->
 <template>
-  <div class="min-h-screen flex items-center justify-center p-4 bg-gradient-peach">
-    <div class="w-full max-w-md">
-      <!-- Logo -->
-      <div class="text-center mb-8">
-        <img src="/logo.png" alt="Choukrane" class="h-16 mx-auto mb-4" />
-        <h1 class="font-display text-3xl font-bold text-gold-700">Connexion</h1>
-        <p class="text-gray-600 mt-2">Bienvenue chez Choukrane</p>
-      </div>
-
-      <!-- Formulaire -->
-      <Card padding="lg">
-        <form @submit.prevent="handleLogin">
-          <!-- Téléphone -->
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Numéro de téléphone
-            </label>
-            <div class="flex">
-              <span
-                class="inline-flex items-center px-4 py-3 rounded-l-xl border border-gray-200 border-r-0 bg-gray-100 text-gray-500"
-              >
-                +237
-              </span>
-              <input
-                v-model="telephoneInput"
-                type="tel"
-                inputmode="numeric"
-                autocomplete="tel-national"
-                placeholder="699123456"
-                class="input rounded-l-none border-l-0"
-                required
-              />
-            </div>
-            <p class="text-xs text-gray-500 mt-1">Indicatif non modifiable</p>
-          </div>
-
-          <!-- Mot de passe -->
-          <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Mot de passe
-            </label>
-            <PasswordInput
-              v-model="form.mot_de_passe"
-              placeholder="••••••••"
-              autocomplete="current-password"
-              required
-            />
-          </div>
-
-          <!-- Erreur -->
-          <div v-if="error" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600">{{ error }}</p>
-          </div>
-
-          <!-- Bouton -->
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            :loading="loading"
-            full-width
-          >
-            Se connecter
-          </Button>
-        </form>
-
-        <!-- Lien inscription -->
-        <div class="mt-6 text-center">
-          <p class="text-sm text-gray-600">
-            Pas encore de compte ?
-            <router-link
-              :to="{ name: 'register', query: route.query }"
-              class="text-gold-600 hover:text-gold-700 font-medium"
-            >
-              S'inscrire
-            </router-link>
-          </p>
+  <div class="bg-gradient-peach">
+    <div class="container mx-auto flex justify-center py-10 md:py-16">
+      <div class="w-full max-w-md">
+        <div class="mb-7 text-center">
+          <h1>Bon retour parmi nous</h1>
+          <p class="mt-2 text-gray-700">Connectez-vous pour commander et suivre vos livraisons.</p>
         </div>
-      </Card>
+
+        <div class="card p-6 sm:p-8">
+          <AlertMessage v-if="route.query.redirect" type="info" class="mb-6">
+            Connectez-vous pour continuer : vous reviendrez ensuite à la page que vous consultiez.
+          </AlertMessage>
+
+          <form class="space-y-5" novalidate @submit.prevent="handleLogin">
+            <FormField v-slot="{ attrs }" label="Numéro de téléphone" requis :erreur="erreurs.telephone">
+              <TelephoneInput v-model="form.telephone" v-bind="attrs" />
+            </FormField>
+
+            <FormField v-slot="{ attrs }" label="Mot de passe" requis :erreur="erreurs.mot_de_passe">
+              <PasswordInput v-model="form.mot_de_passe" v-bind="attrs" autocomplete="current-password" />
+            </FormField>
+
+            <AlertMessage v-if="error" type="error">{{ error }}</AlertMessage>
+
+            <Button type="submit" variant="primary" size="lg" :loading="loading" full-width>
+              Se connecter
+            </Button>
+          </form>
+
+          <div class="mt-7 border-t border-gray-200 pt-6 text-center">
+            <p class="text-sm text-gray-600">Nouveau chez Choukrane ?</p>
+            <Button :to="{ name: 'register', query: route.query }" variant="secondary" full-width class="mt-3">
+              Créer un compte
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import Button from '@/components/common/Button.vue'
-import Card from '@/components/common/Card.vue'
+import FormField from '@/components/common/FormField.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
 import PasswordInput from '@/components/common/PasswordInput.vue'
+import TelephoneInput from '@/components/common/TelephoneInput.vue'
 import { destinationApresConnexion } from '@/utils/redirection'
+import { estTelephoneComplet, telephoneComplet } from '@/utils/telephone'
 
 const route = useRoute()
 const router = useRouter()
@@ -107,31 +71,32 @@ const form = ref({
 
 const loading = ref(false)
 const error = ref(null)
+const erreurs = ref({})
 
-const sanitizeLocalTelephone = (value) => {
-  const digits = (value || '').replace(/\D/g, '')
-  const withoutPrefix = digits.startsWith('237') ? digits.slice(3) : digits
-  return withoutPrefix.slice(0, 9)
-}
-
-const buildTelephone = (value) => {
-  const local = sanitizeLocalTelephone(value)
-  return local ? `+237${local}` : ''
-}
-
-const telephoneInput = computed({
-  get: () => form.value.telephone,
-  set: (value) => {
-    form.value.telephone = sanitizeLocalTelephone(value)
+const valider = () => {
+  const manquants = {}
+  if (!estTelephoneComplet(form.value.telephone)) {
+    manquants.telephone = 'Saisissez les 9 chiffres de votre numéro (ex. 699 12 34 56).'
   }
-})
+  if (!form.value.mot_de_passe) {
+    manquants.mot_de_passe = 'Saisissez votre mot de passe.'
+  }
+  erreurs.value = manquants
+  return Object.keys(manquants).length === 0
+}
 
 const handleLogin = async () => {
-  loading.value = true
   error.value = null
+  if (!valider()) {
+    await nextTick()
+    document.querySelector('[aria-invalid="true"]')?.focus()
+    return
+  }
+
+  loading.value = true
 
   const result = await authStore.login({
-    telephone: buildTelephone(form.value.telephone),
+    telephone: telephoneComplet(form.value.telephone),
     mot_de_passe: form.value.mot_de_passe
   })
 
