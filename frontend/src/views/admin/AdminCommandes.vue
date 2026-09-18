@@ -8,7 +8,7 @@ File: src/views/admin/AdminCommandes.vue
     <div class="container mx-auto px-4 py-6 max-w-6xl">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
+          <h1>
             {{ isAdmin ? 'Gestion des commandes' : 'Mes commandes à traiter' }}
           </h1>
           <p class="text-gray-600 text-sm">
@@ -91,7 +91,7 @@ File: src/views/admin/AdminCommandes.vue
         </div>
       </Card>
 
-      <Card v-if="error" padding="md" class="mb-6 border border-red-200 bg-red-50">
+      <Card v-if="error" padding="md" class="mb-6 border border-red-200 bg-red-50" role="alert">
         <p class="text-red-600 text-sm">{{ error }}</p>
       </Card>
 
@@ -107,7 +107,7 @@ File: src/views/admin/AdminCommandes.vue
 
         <div v-if="loading" class="p-6 text-center text-gray-500">Chargement...</div>
         <div v-else-if="commandes.length === 0" class="p-6 text-center text-gray-500">
-          {{ isHistoriqueMode ? 'Aucune commande archivée.' : 'Aucune commande à traiter. 🎉' }}
+          {{ isHistoriqueMode ? 'Aucune commande archivée.' : 'Aucune commande à traiter : tout est à jour.' }}
         </div>
 
         <template v-else>
@@ -168,17 +168,17 @@ File: src/views/admin/AdminCommandes.vue
           </div>
 
           <!-- Desktop : tableau -->
-          <div class="hidden md:block overflow-x-auto">
+          <div class="hidden md:block overflow-x-auto" role="region" aria-label="Commandes" tabindex="0">
             <table class="min-w-full text-sm">
               <thead class="bg-gray-50 text-gray-600">
                 <tr>
-                  <th class="text-left font-semibold px-4 py-3">Commande</th>
-                  <th class="text-left font-semibold px-4 py-3">Client</th>
-                  <th v-if="isAdmin" class="text-left font-semibold px-4 py-3">Vendeur</th>
-                  <th class="text-left font-semibold px-4 py-3">Statut</th>
-                  <th class="text-left font-semibold px-4 py-3">Paiement</th>
-                  <th class="text-left font-semibold px-4 py-3">Total</th>
-                  <th class="text-right font-semibold px-4 py-3">Actions</th>
+                  <th scope="col" class="text-left font-semibold px-4 py-3">Commande</th>
+                  <th scope="col" class="text-left font-semibold px-4 py-3">Client</th>
+                  <th v-if="isAdmin" scope="col" class="text-left font-semibold px-4 py-3">Vendeur</th>
+                  <th scope="col" class="text-left font-semibold px-4 py-3">Statut</th>
+                  <th scope="col" class="text-left font-semibold px-4 py-3">Paiement</th>
+                  <th scope="col" class="text-left font-semibold px-4 py-3">Total</th>
+                  <th scope="col" class="text-right font-semibold px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -265,193 +265,182 @@ File: src/views/admin/AdminCommandes.vue
       </Card>
 
       <!-- Détail commande -->
-      <div
-        v-if="showDetail"
-        class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6"
-        @click.self="closeDetail"
+      <BaseModal
+        :ouvert="showDetail"
+        :titre="selectedCommande?.numero_commande ? `Commande ${selectedCommande.numero_commande}` : 'Détail de la commande'"
+        variante="feuille"
+        taille="xl"
+        @fermer="closeDetail"
       >
-        <div class="bg-surface w-full max-w-4xl rounded-elegant shadow-card overflow-hidden flex flex-col max-h-full">
-          <div class="p-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 class="font-display text-xl font-bold text-gray-800">
-              {{ selectedCommande?.numero_commande || 'Détails commande' }}
-            </h2>
-            <button class="text-sm text-gray-500 hover:text-gray-700" @click="closeDetail">
-              Fermer
-            </button>
-          </div>
+        <div v-if="detailLoading" class="space-y-4" aria-busy="true">
+          <div class="skeleton h-6 w-1/2"></div>
+          <div class="skeleton h-24"></div>
+          <div class="skeleton h-32"></div>
+        </div>
 
-          <div v-if="detailLoading" class="p-6 space-y-4">
-            <div class="skeleton h-6 w-1/2"></div>
-            <div class="skeleton h-24"></div>
-            <div class="skeleton h-32"></div>
-          </div>
+        <AlertMessage v-else-if="detailError" type="error">{{ detailError }}</AlertMessage>
 
-          <div v-else-if="detailError" class="p-6 text-sm text-red-600">
-            {{ detailError }}
-          </div>
-
-          <div v-else-if="selectedCommande" class="p-6 space-y-6 overflow-y-auto">
-            <!-- En-tête -->
-            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <div class="text-sm text-gray-600">
-                Passée le {{ formatDateHeure(selectedCommande.created_at) }}
-                <span v-if="isAdmin && selectedCommande.vendeur"> · Vendeur : {{ selectedCommande.vendeur.nom_complet }}</span>
-              </div>
-              <div class="flex flex-wrap gap-2">
-                <span class="badge" :class="classeStatut(selectedCommande.statut)">
-                  {{ libelleStatut(selectedCommande.statut) }}
-                </span>
-                <!-- Une commande annulée n'affiche plus son statut de paiement -->
-                <span
-                  v-if="selectedCommande.statut !== 'annulee'"
-                  class="badge"
-                  :class="classePaiement(selectedCommande.statut_paiement)"
-                >
-                  {{ libellePaiement(selectedCommande.statut_paiement) }}
-                </span>
-              </div>
+        <div v-else-if="selectedCommande" class="space-y-6">
+          <!-- En-tête -->
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div class="text-sm text-gray-600">
+              Passée le {{ formatDateHeure(selectedCommande.created_at) }}
+              <span v-if="isAdmin && selectedCommande.vendeur"> · Vendeur : {{ selectedCommande.vendeur.nom_complet }}</span>
             </div>
-
-            <!-- Facture générée automatiquement à la confirmation -->
-            <div
-              v-if="selectedCommande.facture"
-              class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg border border-gold-200 bg-gold-50"
-            >
-              <div class="text-sm text-gray-700">
-                Facture <span class="font-semibold">{{ selectedCommande.facture.numero_facture }}</span>
-                <span v-if="selectedCommande.facture.envoyee_le" class="text-gray-500">
-                  · envoyée au client le {{ formatDateHeure(selectedCommande.facture.envoyee_le) }}
-                </span>
-                <span v-else class="text-gray-500">· non envoyée (client sans e-mail)</span>
-              </div>
-              <Button variant="outline" size="sm" :icon="FileDown" :icon-size="16" :loading="telechargementFacture" @click="telechargerFacture">
-                Télécharger
-              </Button>
+            <div class="flex flex-wrap gap-2">
+              <span class="badge" :class="classeStatut(selectedCommande.statut)">
+                {{ libelleStatut(selectedCommande.statut) }}
+              </span>
+              <!-- Une commande annulée n'affiche plus son statut de paiement -->
+              <span
+                v-if="selectedCommande.statut !== 'annulee'"
+                class="badge"
+                :class="classePaiement(selectedCommande.statut_paiement)"
+              >
+                {{ libellePaiement(selectedCommande.statut_paiement) }}
+              </span>
             </div>
+          </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <!-- Client & livraison -->
-              <Card padding="md">
-                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Client</div>
-                <div class="text-sm text-gray-800 font-semibold">{{ selectedCommande.user?.nom_complet || 'Client' }}</div>
+          <!-- Facture générée automatiquement à la confirmation -->
+          <div
+            v-if="selectedCommande.facture"
+            class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg border border-gold-200 bg-gold-50"
+          >
+            <div class="text-sm text-gray-700">
+              Facture <span class="font-semibold">{{ selectedCommande.facture.numero_facture }}</span>
+              <span v-if="selectedCommande.facture.envoyee_le" class="text-gray-500">
+                · envoyée au client le {{ formatDateHeure(selectedCommande.facture.envoyee_le) }}
+              </span>
+              <span v-else class="text-gray-500">· non envoyée (client sans e-mail)</span>
+            </div>
+            <Button variant="outline" size="sm" :icon="FileDown" :icon-size="16" :loading="telechargementFacture" @click="telechargerFacture">
+              Télécharger
+            </Button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Client & livraison -->
+            <Card padding="md">
+              <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Client</div>
+              <div class="text-sm text-gray-800 font-semibold">{{ selectedCommande.user?.nom_complet || 'Client' }}</div>
+              <a
+                v-if="selectedCommande.user?.telephone"
+                :href="`tel:${selectedCommande.user.telephone}`"
+                class="text-sm text-gold-600"
+              >
+                {{ selectedCommande.user.telephone }}
+              </a>
+
+              <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mt-4 mb-2">
+                {{ selectedCommande.type_livraison === 'livraison' ? 'Livraison' : 'Retrait en boutique' }}
+              </div>
+              <template v-if="selectedCommande.type_livraison === 'livraison'">
+                <div v-if="selectedCommande.adresse_livraison" class="text-sm text-gray-700 space-y-1">
+                  <div>
+                    <span v-if="selectedCommande.adresse_livraison.libelle" class="font-medium">
+                      {{ selectedCommande.adresse_livraison.libelle }} —
+                    </span>
+                    <template v-if="selectedCommande.adresse_livraison.zone">{{ selectedCommande.adresse_livraison.zone }}, </template>
+                    {{ selectedCommande.adresse_livraison.quartier }},
+                    {{ formatVille(selectedCommande.adresse_livraison.ville) }}
+                  </div>
+                  <div v-if="selectedCommande.adresse_livraison.point_repere">
+                    Repère : {{ selectedCommande.adresse_livraison.point_repere }}
+                  </div>
+                  <div v-if="selectedCommande.adresse_livraison.complement_adresse">
+                    {{ selectedCommande.adresse_livraison.complement_adresse }}
+                  </div>
+                </div>
+                <div v-else class="text-sm text-gray-500">Adresse supprimée par le client.</div>
                 <a
-                  v-if="selectedCommande.user?.telephone"
-                  :href="`tel:${selectedCommande.user.telephone}`"
-                  class="text-sm text-gold-600"
+                  v-if="selectedCommande.telephone_livraison"
+                  :href="`tel:${selectedCommande.telephone_livraison}`"
+                  class="text-sm text-gold-600 block mt-1"
                 >
-                  {{ selectedCommande.user.telephone }}
+                  <Phone :size="14" class="mr-1 inline" aria-hidden="true" />{{ selectedCommande.telephone_livraison }}
                 </a>
-
-                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mt-4 mb-2">
-                  {{ selectedCommande.type_livraison === 'livraison' ? 'Livraison' : 'Retrait en boutique' }}
-                </div>
-                <template v-if="selectedCommande.type_livraison === 'livraison'">
-                  <div v-if="selectedCommande.adresse_livraison" class="text-sm text-gray-700 space-y-1">
-                    <div>
-                      <span v-if="selectedCommande.adresse_livraison.libelle" class="font-medium">
-                        {{ selectedCommande.adresse_livraison.libelle }} —
-                      </span>
-                      <template v-if="selectedCommande.adresse_livraison.zone">{{ selectedCommande.adresse_livraison.zone }}, </template>
-                      {{ selectedCommande.adresse_livraison.quartier }},
-                      {{ formatVille(selectedCommande.adresse_livraison.ville) }}
-                    </div>
-                    <div v-if="selectedCommande.adresse_livraison.point_repere">
-                      Repère : {{ selectedCommande.adresse_livraison.point_repere }}
-                    </div>
-                    <div v-if="selectedCommande.adresse_livraison.complement_adresse">
-                      {{ selectedCommande.adresse_livraison.complement_adresse }}
-                    </div>
-                  </div>
-                  <div v-else class="text-sm text-gray-500">Adresse supprimée par le client.</div>
-                  <a
-                    v-if="selectedCommande.telephone_livraison"
-                    :href="`tel:${selectedCommande.telephone_livraison}`"
-                    class="text-sm text-gold-600 block mt-1"
-                  >
-                    📞 {{ selectedCommande.telephone_livraison }}
-                  </a>
-                </template>
-                <div v-if="selectedCommande.instructions_speciales" class="text-sm text-gray-700 mt-2 p-2 rounded-lg bg-gold-50">
-                  {{ selectedCommande.instructions_speciales }}
-                </div>
-              </Card>
-
-              <!-- Paiement & montants -->
-              <Card padding="md">
-                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Paiement</div>
-                <div class="text-sm text-gray-700">{{ libelleMoyenPaiement(selectedCommande.moyen_paiement) }}</div>
-                <div v-if="selectedCommande.telephone_paiement" class="text-sm text-gray-700">
-                  Numéro : {{ selectedCommande.telephone_paiement }}
-                </div>
-                <div v-if="selectedCommande.reference_paiement" class="text-sm text-gray-700">
-                  Référence : {{ selectedCommande.reference_paiement }}
-                </div>
-                <div v-if="selectedCommande.date_paiement" class="text-sm text-gray-700">
-                  Reçu le {{ formatDateHeure(selectedCommande.date_paiement) }}
-                </div>
-
-                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mt-4 mb-2">Montants</div>
-                <div class="text-sm text-gray-700 flex justify-between">
-                  <span>Produits</span><span>{{ formatPrice(selectedCommande.montant_produits) }} FCFA</span>
-                </div>
-                <div class="text-sm text-gray-700 flex justify-between">
-                  <span>Livraison</span><span>{{ formatPrice(selectedCommande.montant_livraison) }} FCFA</span>
-                </div>
-                <div class="text-sm font-semibold text-gray-800 flex justify-between mt-1">
-                  <span>Total</span><span>{{ formatPrice(selectedCommande.montant_total) }} FCFA</span>
-                </div>
-              </Card>
-            </div>
-
-            <!-- Articles -->
-            <div class="space-y-3">
-              <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Articles</div>
-              <div v-if="!selectedCommande.ligne_commandes?.length" class="text-sm text-gray-500">
-                Aucun article.
+              </template>
+              <div v-if="selectedCommande.instructions_speciales" class="text-sm text-gray-700 mt-2 p-2 rounded-lg bg-gold-50">
+                {{ selectedCommande.instructions_speciales }}
               </div>
-              <div v-else class="space-y-2">
-                <div
-                  v-for="ligne in selectedCommande.ligne_commandes"
-                  :key="ligne.id"
-                  class="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-100 bg-surface"
-                >
-                  <div class="flex items-center gap-3">
-                    <img
-                      loading="lazy"
-                      :src="resolveImageUrl(ligne.produit?.image_principale)"
-                      :alt="ligne.nom_produit"
-                      class="h-12 w-12 rounded-lg object-cover border"
-                      @error="onImageError"
-                    />
-                    <div>
-                      <div class="font-semibold text-gray-800">{{ ligne.nom_produit }}</div>
-                      <div class="text-xs text-gray-500">
-                        {{ ligne.quantite }} × {{ formatPrice(ligne.prix_unitaire) }} FCFA
-                      </div>
+            </Card>
+
+            <!-- Paiement & montants -->
+            <Card padding="md">
+              <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Paiement</div>
+              <div class="text-sm text-gray-700">{{ libelleMoyenPaiement(selectedCommande.moyen_paiement) }}</div>
+              <div v-if="selectedCommande.telephone_paiement" class="text-sm text-gray-700">
+                Numéro : {{ selectedCommande.telephone_paiement }}
+              </div>
+              <div v-if="selectedCommande.reference_paiement" class="text-sm text-gray-700">
+                Référence : {{ selectedCommande.reference_paiement }}
+              </div>
+              <div v-if="selectedCommande.date_paiement" class="text-sm text-gray-700">
+                Reçu le {{ formatDateHeure(selectedCommande.date_paiement) }}
+              </div>
+
+              <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mt-4 mb-2">Montants</div>
+              <div class="text-sm text-gray-700 flex justify-between">
+                <span>Produits</span><span>{{ formatPrice(selectedCommande.montant_produits) }} FCFA</span>
+              </div>
+              <div class="text-sm text-gray-700 flex justify-between">
+                <span>Livraison</span><span>{{ formatPrice(selectedCommande.montant_livraison) }} FCFA</span>
+              </div>
+              <div class="text-sm font-semibold text-gray-800 flex justify-between mt-1">
+                <span>Total</span><span>{{ formatPrice(selectedCommande.montant_total) }} FCFA</span>
+              </div>
+            </Card>
+          </div>
+
+          <!-- Articles -->
+          <div class="space-y-3">
+            <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Articles</div>
+            <div v-if="!selectedCommande.ligne_commandes?.length" class="text-sm text-gray-500">
+              Aucun article.
+            </div>
+            <div v-else class="space-y-2">
+              <div
+                v-for="ligne in selectedCommande.ligne_commandes"
+                :key="ligne.id"
+                class="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-100 bg-surface"
+              >
+                <div class="flex items-center gap-3">
+                  <img
+                    loading="lazy"
+                    :src="resolveImageUrl(ligne.produit?.image_principale)"
+                    :alt="ligne.nom_produit"
+                    class="h-12 w-12 rounded-lg object-cover border"
+                    @error="onImageError"
+                  />
+                  <div>
+                    <div class="font-semibold text-gray-800">{{ ligne.nom_produit }}</div>
+                    <div class="text-xs text-gray-500">
+                      {{ ligne.quantite }} × {{ formatPrice(ligne.prix_unitaire) }} FCFA
                     </div>
                   </div>
-                  <div class="price text-base">{{ formatPrice(ligne.sous_total) }} FCFA</div>
                 </div>
+                <div class="price text-base">{{ formatPrice(ligne.sous_total) }} FCFA</div>
               </div>
             </div>
+          </div>
 
-            <!-- Historique -->
-            <div v-if="selectedCommande.historiques?.length" class="space-y-2">
-              <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Historique</div>
-              <ol class="border-l-2 border-gold-200 pl-4 space-y-3">
-                <li v-for="etape in historiqueTrie" :key="etape.id" class="text-sm">
-                  <div class="font-medium text-gray-800">{{ libelleStatut(etape.nouveau_statut) }}</div>
-                  <div class="text-xs text-gray-500">
-                    {{ formatDateHeure(etape.created_at) }}
-                    <span v-if="etape.modifie_par"> · {{ etape.modifie_par.nom_complet }}</span>
-                  </div>
-                  <div v-if="etape.commentaire" class="text-xs text-gray-600 mt-0.5">{{ etape.commentaire }}</div>
-                </li>
-              </ol>
-            </div>
+          <!-- Historique -->
+          <div v-if="selectedCommande.historiques?.length" class="space-y-2">
+            <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Historique</div>
+            <ol class="border-l-2 border-gold-200 pl-4 space-y-3">
+              <li v-for="etape in historiqueTrie" :key="etape.id" class="text-sm">
+                <div class="font-medium text-gray-800">{{ libelleStatut(etape.nouveau_statut) }}</div>
+                <div class="text-xs text-gray-500">
+                  {{ formatDateHeure(etape.created_at) }}
+                  <span v-if="etape.modifie_par"> · {{ etape.modifie_par.nom_complet }}</span>
+                </div>
+                <div v-if="etape.commentaire" class="text-xs text-gray-600 mt-0.5">{{ etape.commentaire }}</div>
+              </li>
+            </ol>
           </div>
         </div>
-      </div>
+      </BaseModal>
     </div>
   </div>
 </template>
@@ -465,9 +454,11 @@ import { formatVille } from '@/utils/villes'
 import api, { messageErreur, lireErreurBlob } from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import BaseModal from '@/components/common/BaseModal.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
 import { resolveImageUrl, onImageError } from '@/utils/images'
 import { telechargerBlob } from '@/utils/telechargement'
-import { FileDown } from 'lucide-vue-next'
+import { FileDown, Phone } from 'lucide-vue-next'
 import {
   STATUTS_COMMANDE,
   STATUTS_PAIEMENT,

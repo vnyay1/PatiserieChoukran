@@ -8,8 +8,8 @@ File: src/views/admin/AdminProduits.vue
     <div class="container mx-auto px-4 py-6 max-w-6xl">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
-            Administration Produits
+          <h1>
+            Produits
           </h1>
           <p class="text-gray-600 text-sm">
             Ajouter, modifier et supprimer les produits du catalogue.
@@ -23,22 +23,23 @@ File: src/views/admin/AdminProduits.vue
       <Card padding="md" class="mb-6">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Recherche</label>
+            <label for="admin-produits-1" class="block text-sm font-medium text-gray-700 mb-2">Recherche</label>
             <div class="relative">
-              <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" :size="18" />
+              <Search class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" :size="18" aria-hidden="true" />
               <input
+                id="admin-produits-1"
                 v-model="filters.search"
                 type="search"
                 placeholder="Nom ou description..."
-                class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-gold-600 focus:ring-2 focus:ring-gold-200 outline-none"
+                class="input pl-10"
                 @input="handleSearch"
               />
             </div>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Catégorie</label>
-            <select v-model="filters.categorie_id" class="input">
+            <label for="admin-produits-2" class="block text-sm font-medium text-gray-700 mb-2">Catégorie</label>
+            <select id="admin-produits-2" v-model="filters.categorie_id" class="input">
               <option value="">Toutes</option>
               <option v-for="cat in categories" :key="cat.id" :value="cat.id">
                 {{ cat.nom }}
@@ -47,8 +48,8 @@ File: src/views/admin/AdminProduits.vue
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Disponibilité</label>
-            <select v-model="filters.est_disponible" class="input">
+            <label for="admin-produits-3" class="block text-sm font-medium text-gray-700 mb-2">Disponibilité</label>
+            <select id="admin-produits-3" v-model="filters.est_disponible" class="input">
               <option value="">Toutes</option>
               <option value="1">Disponibles</option>
               <option value="0">Indisponibles</option>
@@ -78,13 +79,13 @@ File: src/views/admin/AdminProduits.vue
 
         <form class="grid grid-cols-1 md:grid-cols-2 gap-4" @submit.prevent="submitForm">
           <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
-            <input v-model="form.nom" type="text" class="input" required />
+            <label for="admin-produits-4" class="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
+            <input id="admin-produits-4" v-model="form.nom" type="text" class="input" required />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Catégorie *</label>
-            <select v-model="form.categorie_id" class="input" required>
+            <label for="admin-produits-5" class="block text-sm font-medium text-gray-700 mb-2">Catégorie *</label>
+            <select id="admin-produits-5" v-model="form.categorie_id" class="input" required>
               <option value="">Sélectionner...</option>
               <option v-for="cat in categories" :key="cat.id" :value="cat.id">
                 {{ cat.nom }}
@@ -93,18 +94,19 @@ File: src/views/admin/AdminProduits.vue
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Stock *</label>
-            <input v-model.number="form.stock_disponible" type="number" min="0" class="input" required />
+            <label for="admin-produits-6" class="block text-sm font-medium text-gray-700 mb-2">Stock *</label>
+            <input id="admin-produits-6" v-model.number="form.stock_disponible" type="number" min="0" class="input" required />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Prix (FCFA) *</label>
-            <input v-model.number="form.prix_unitaire" type="number" min="0" step="0.01" class="input" required />
+            <label for="admin-produits-7" class="block text-sm font-medium text-gray-700 mb-2">Prix (FCFA) *</label>
+            <input id="admin-produits-7" v-model.number="form.prix_unitaire" type="number" min="0" step="0.01" class="input" required />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Prix promo (FCFA)</label>
+            <label for="admin-produits-8" class="block text-sm font-medium text-gray-700 mb-2">Prix promo (FCFA)</label>
             <input
+              id="admin-produits-8"
               v-model="form.prix_promo"
               type="number"
               min="0"
@@ -121,19 +123,19 @@ File: src/views/admin/AdminProduits.vue
               <input
                 v-model="form.promo_active"
                 type="checkbox"
-                class="rounded border-gray-300 text-gold-600 focus:ring-gold-500"
+                class="h-5 w-5 flex-shrink-0 rounded"
               />
               <span class="text-sm text-gray-700">Activer le prix promotionnel</span>
             </label>
           </div>
 
           <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-            <textarea v-model="form.description" rows="4" class="input resize-none"></textarea>
+            <label for="admin-produits-9" class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <textarea id="admin-produits-9" v-model="form.description" rows="4" class="input resize-none"></textarea>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Image principale</label>
+            <label for="admin-produits-10" class="block text-sm font-medium text-gray-700 mb-2">Image principale</label>
             <div class="flex items-center gap-3">
               <img
                 v-if="apercuPrincipale"
@@ -144,6 +146,7 @@ File: src/views/admin/AdminProduits.vue
                 @error="onImageError"
               />
               <input
+                id="admin-produits-10"
                 :key="fileInputKey"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -154,8 +157,9 @@ File: src/views/admin/AdminProduits.vue
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Images secondaires (4 max.)</label>
+            <label for="admin-produits-11" class="block text-sm font-medium text-gray-700 mb-2">Images secondaires (4 max.)</label>
             <input
+              id="admin-produits-11"
               :key="fileInputKey + 1"
               type="file"
               accept="image/jpeg,image/png,image/webp"
@@ -180,7 +184,7 @@ File: src/views/admin/AdminProduits.vue
               <input
                 v-model="form.est_disponible"
                 type="checkbox"
-                class="rounded border-gray-300 text-gold-600 focus:ring-gold-500"
+                class="h-5 w-5 flex-shrink-0 rounded"
               />
               <span class="text-sm text-gray-700">Produit disponible</span>
             </label>
@@ -195,7 +199,7 @@ File: src/views/admin/AdminProduits.vue
             </Button>
           </div>
 
-          <p v-if="formError" class="text-sm text-red-600 md:col-span-2">
+          <p v-if="formError" role="alert" class="text-sm font-medium text-red-700 md:col-span-2">
             {{ formError }}
           </p>
         </form>
@@ -211,15 +215,15 @@ File: src/views/admin/AdminProduits.vue
           </Button>
         </div>
 
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto" role="region" aria-label="Liste des produits" tabindex="0">
           <table class="min-w-full text-sm">
             <thead class="bg-gray-50 text-gray-600">
               <tr>
-                <th class="text-left font-semibold px-4 py-3">Produit</th>
-                <th class="text-left font-semibold px-4 py-3">Prix</th>
-                <th class="text-left font-semibold px-4 py-3">Stock</th>
-                <th class="text-left font-semibold px-4 py-3">Statut</th>
-                <th class="text-right font-semibold px-4 py-3">Actions</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Produit</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Prix</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Stock</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Statut</th>
+                <th scope="col" class="text-right font-semibold px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody v-if="loading">

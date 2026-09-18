@@ -8,43 +8,33 @@ File: src/views/admin/AdminDashboard.vue
     <div class="container mx-auto px-4 py-6 max-w-6xl">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
-            Dashboard Admin
+          <h1>
+            Tableau de bord
           </h1>
           <p class="text-gray-600 text-sm">
             {{ dashboardSubtitle }}
           </p>
         </div>
+        <!-- Les autres pages de gestion sont dans le menu « Administration » -->
         <div class="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" :loading="loading" @click="fetchStats">
+          <Button variant="outline" size="sm" :icon="RefreshCw" :icon-size="16" :loading="loading" @click="fetchStats">
             Actualiser
           </Button>
-          <Button variant="secondary" size="sm" @click="$router.push('/admin/commandes')">
+          <Button to="/admin/commandes" variant="primary" size="sm">
             Gérer les commandes
-          </Button>
-          <Button variant="secondary" size="sm" @click="$router.push('/admin/categories')">
-            Gérer les catégories
-          </Button>
-          <Button variant="secondary" size="sm" @click="$router.push('/admin/parametres')">
-            Paramètres du site
-          </Button>
-          <Button variant="primary" size="sm" @click="$router.push('/admin/produits')">
-            Gérer les produits
-          </Button>
-          <Button variant="secondary" size="sm" @click="$router.push('/admin/users')">
-            Gérer les utilisateurs
           </Button>
         </div>
       </div>
 
       <!-- Filtres -->
       <div class="flex flex-col xl:flex-row xl:items-end gap-4 mb-6">
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2" role="group" aria-label="Période">
           <button
             v-for="option in periodes"
             :key="option.value"
-            class="px-4 py-2 rounded-full text-sm font-medium transition-colors"
-            :class="periode === option.value ? 'bg-gold-500 text-on-gold' : 'bg-surface text-gray-700 hover:bg-gray-50'"
+            type="button"
+            class="puce"
+            :aria-pressed="periode === option.value"
             @click="setPeriode(option.value)"
           >
             {{ option.label }}
@@ -52,10 +42,11 @@ File: src/views/admin/AdminDashboard.vue
         </div>
 
         <div class="w-full xl:w-80">
-          <label class="block text-sm font-medium text-gray-700 mb-2">
+          <label for="admin-dashboard-1" class="block text-sm font-medium text-gray-700 mb-2">
             Filtrer par vendeur
           </label>
           <select
+            id="admin-dashboard-1"
             class="input"
             :value="selectedVendeurId"
             @change="setVendeur($event.target.value)"
@@ -85,29 +76,31 @@ File: src/views/admin/AdminDashboard.vue
       </div>
 
       <!-- Error -->
-      <Card v-else-if="error" padding="md" class="border border-red-200 bg-red-50">
-        <p class="text-red-600 text-sm">{{ error }}</p>
-      </Card>
+      <AlertMessage v-else-if="error" type="error">
+        {{ error }}
+        <button type="button" class="lien ml-1" @click="fetchStats">Réessayer</button>
+      </AlertMessage>
 
       <!-- Contenu -->
       <div v-else class="space-y-6">
-        <!-- Statistiques -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-          <Card v-for="card in statCards" :key="card.key" padding="md">
-            <div class="text-xs text-gray-500 mb-2">{{ card.label }}</div>
-            <div class="text-2xl font-bold text-gray-800">
-              <span v-if="card.format === 'currency'">
-                {{ formatPrice(card.value) }} FCFA
-              </span>
-              <span v-else>
-                {{ formatNumber(card.value) }}
-              </span>
-            </div>
-            <div v-if="card.helper" class="text-xs text-gray-400 mt-1">
-              {{ card.helper }}
-            </div>
-          </Card>
-        </div>
+        <!-- Statistiques : un point d'attention (en attente, stock faible) est signalé -->
+        <dl class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+          <div
+            v-for="card in statCards"
+            :key="card.key"
+            class="card flex flex-col p-4"
+            :class="{ 'border-yellow-300 bg-yellow-50': card.alerte && card.value > 0 }"
+          >
+            <dt class="flex items-center gap-1.5 text-xs font-semibold text-gray-600">
+              <AlertTriangle v-if="card.alerte && card.value > 0" :size="14" class="text-yellow-700" aria-hidden="true" />
+              {{ card.label }}
+            </dt>
+            <dd class="mt-1 font-display text-xl font-bold tabular-nums text-gray-900 sm:text-2xl">
+              {{ card.format === 'currency' ? `${formatPrice(card.value)} FCFA` : formatNumber(card.value) }}
+            </dd>
+            <dd v-if="card.helper" class="mt-0.5 text-xs text-gray-600">{{ card.helper }}</dd>
+          </div>
+        </dl>
 
         <!-- Ventes + Top produits -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -123,15 +116,31 @@ File: src/views/admin/AdminDashboard.vue
               Aucune donnée disponible.
             </div>
 
-            <div v-else class="h-56 flex items-end gap-2">
+            <!-- Données du graphique pour les lecteurs d'écran -->
+            <table v-if="chartData.length" class="sr-only">
+              <caption>Ventes payées des 7 derniers jours</caption>
+              <thead>
+                <tr><th scope="col">Jour</th><th scope="col">Montant</th><th scope="col">Commandes</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="day in chartData" :key="day.date">
+                  <th scope="row">{{ day.label }}</th>
+                  <td>{{ formatPrice(day.montant) }} FCFA</td>
+                  <td>{{ formatNumber(day.nombre) }}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div v-if="chartData.length" class="h-56 flex items-end gap-2" aria-hidden="true">
               <div
                 v-for="day in chartData"
                 :key="day.date"
                 class="flex-1 flex flex-col items-center gap-2"
+                :title="`${day.label} : ${formatPrice(day.montant)} FCFA`"
               >
                 <div class="w-full h-40 bg-gold-50 rounded-lg flex items-end overflow-hidden">
                   <div
-                    class="w-full bg-gold-500 rounded-lg transition-all duration-300"
+                    class="w-full bg-gold-600 rounded-lg transition-[height] duration-300"
                     :style="{ height: `${getBarHeight(day.montant)}%` }"
                   ></div>
                 </div>
@@ -161,7 +170,7 @@ File: src/views/admin/AdminDashboard.vue
               <div v-for="produit in topProduits" :key="produit.id" class="flex items-center gap-3">
                 <img
                   loading="lazy"
-                  :src="resolveImageUrl(produit.image_principale)" :alt="produit.nom"
+                  :src="resolveImageUrl(produit.image_principale)" alt=""
                   class="h-12 w-12 rounded-lg object-cover border"
                   @error="onImageError"
                 />
@@ -229,6 +238,8 @@ import { ref, computed, onMounted } from 'vue'
 import api from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
+import { AlertTriangle, RefreshCw } from 'lucide-vue-next'
 import { resolveImageUrl, onImageError } from '@/utils/images'
 import {
   dateIso,
@@ -284,7 +295,7 @@ const dashboardSubtitle = computed(() => {
 
 const statCards = computed(() => [
   { key: 'total_commandes', label: 'Commandes (période)', value: stats.value.total_commandes },
-  { key: 'commandes_en_attente', label: 'En attente', value: stats.value.commandes_en_attente },
+  { key: 'commandes_en_attente', label: 'En attente', value: stats.value.commandes_en_attente, alerte: true },
   { key: 'commandes_en_preparation', label: 'En préparation', value: stats.value.commandes_en_preparation },
   { key: 'commandes_livrees', label: 'Livrées (période)', value: stats.value.commandes_livrees },
   { key: 'revenus_total', label: 'Revenus (période)', value: stats.value.revenus_total, format: 'currency' },
@@ -292,7 +303,7 @@ const statCards = computed(() => [
   { key: 'total_clients', label: hasVendeurFilter.value ? 'Clients du vendeur' : 'Clients actifs', value: stats.value.total_clients },
   { key: 'nouveaux_clients', label: hasVendeurFilter.value ? 'Clients (période)' : 'Nouveaux clients', value: stats.value.nouveaux_clients },
   { key: 'total_produits', label: 'Produits disponibles', value: stats.value.total_produits },
-  { key: 'produits_stock_faible', label: 'Stock faible', value: stats.value.produits_stock_faible, helper: '≤ 5 unités' },
+  { key: 'produits_stock_faible', label: 'Stock faible', value: stats.value.produits_stock_faible, helper: '5 unités ou moins', alerte: true },
 ])
 
 const chartData = computed(() => {

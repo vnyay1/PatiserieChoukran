@@ -8,8 +8,8 @@ File: src/views/admin/AdminUsers.vue
     <div class="container mx-auto px-4 py-6 max-w-6xl">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
-            Administration Utilisateurs
+          <h1>
+            Utilisateurs
           </h1>
           <p class="text-gray-600 text-sm">
             Gérer les rôles, statuts et consulter les informations clients.
@@ -25,22 +25,23 @@ File: src/views/admin/AdminUsers.vue
       <Card padding="md" class="mb-6">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Recherche</label>
+            <label for="admin-users-1" class="block text-sm font-medium text-gray-700 mb-2">Recherche</label>
             <div class="relative">
-              <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" :size="18" />
+              <Search class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" :size="18" aria-hidden="true" />
               <input
+                id="admin-users-1"
                 v-model="filters.search"
                 type="search"
                 placeholder="Nom, email ou téléphone..."
-                class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-gold-600 focus:ring-2 focus:ring-gold-200 outline-none"
+                class="input pl-10"
                 @input="handleSearch"
               />
             </div>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Rôle</label>
-            <select v-model="filters.role" class="input">
+            <label for="admin-users-2" class="block text-sm font-medium text-gray-700 mb-2">Rôle</label>
+            <select id="admin-users-2" v-model="filters.role" class="input">
               <option value="">Tous</option>
               <option value="client">Client</option>
               <option value="admin">Admin</option>
@@ -49,8 +50,8 @@ File: src/views/admin/AdminUsers.vue
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Statut</label>
-            <select v-model="filters.statut" class="input">
+            <label for="admin-users-3" class="block text-sm font-medium text-gray-700 mb-2">Statut</label>
+            <select id="admin-users-3" v-model="filters.statut" class="input">
               <option value="">Tous</option>
               <option value="actif">Actif</option>
               <option value="inactif">Inactif</option>
@@ -63,7 +64,7 @@ File: src/views/admin/AdminUsers.vue
               <input
                 v-model="filters.vedette"
                 type="checkbox"
-                class="rounded border-gray-300 text-gold-600 focus:ring-gold-500"
+                class="h-5 w-5 flex-shrink-0 rounded"
                 @change="applyFilters"
               />
               <span class="text-sm text-gray-700">Vendeurs en vedette uniquement</span>
@@ -78,7 +79,7 @@ File: src/views/admin/AdminUsers.vue
         </div>
       </Card>
 
-      <Card v-if="error" padding="md" class="mb-6 border border-red-200 bg-red-50">
+      <Card v-if="error" padding="md" class="mb-6 border border-red-200 bg-red-50" role="alert">
         <p class="text-red-600 text-sm">{{ error }}</p>
       </Card>
 
@@ -92,16 +93,16 @@ File: src/views/admin/AdminUsers.vue
           </div>
         </div>
 
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto" role="region" aria-label="Liste des utilisateurs" tabindex="0">
           <table class="min-w-full text-sm">
             <thead class="bg-gray-50 text-gray-600">
               <tr>
-                <th class="text-left font-semibold px-4 py-3">Utilisateur</th>
-                <th class="text-left font-semibold px-4 py-3">Rôle</th>
-                <th class="text-left font-semibold px-4 py-3">Statut</th>
-                <th class="text-left font-semibold px-4 py-3">Commandes</th>
-                <th class="text-left font-semibold px-4 py-3">Inscription</th>
-                <th class="text-right font-semibold px-4 py-3">Actions</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Utilisateur</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Rôle</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Statut</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Commandes</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Inscription</th>
+                <th scope="col" class="text-right font-semibold px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody v-if="loading">
@@ -127,7 +128,8 @@ File: src/views/admin/AdminUsers.vue
                       {{ getRoleLabel(user.role) }}
                     </span>
                     <select
-                      class="text-xs border border-gray-200 rounded-lg px-2 py-1"
+                      class="input min-h-9 w-auto py-1 pl-3 pr-8 text-sm"
+                      :aria-label="`Rôle de ${user.nom_complet}`"
                       :disabled="updatingRoleId === user.id || user.id === authStore.user?.id"
                       :value="user.role"
                       @change="onRoleChange(user, $event)"
@@ -140,14 +142,15 @@ File: src/views/admin/AdminUsers.vue
                     <button
                       v-if="user.role === 'vendeur'"
                       type="button"
-                      class="p-1 rounded-full hover:bg-gold-50 disabled:opacity-50"
-                      :class="user.est_vendeur_vedette ? 'text-gold-500' : 'text-gray-300 hover:text-gold-400'"
+                      class="btn-icone h-9 w-9"
+                      :class="user.est_vendeur_vedette ? 'text-gold-600' : 'text-gray-500 hover:text-gold-600'"
+                      :aria-pressed="user.est_vendeur_vedette"
                       :title="user.est_vendeur_vedette ? 'En vedette : cliquer pour retirer' : 'Mettre en vedette'"
-                      :aria-label="user.est_vendeur_vedette ? 'Retirer de la vedette' : 'Mettre en vedette'"
+                      :aria-label="`Vendeur vedette : ${user.nom_complet}`"
                       :disabled="updatingVedetteId === user.id"
                       @click="toggleVedette(user)"
                     >
-                      <Star :size="18" :fill="user.est_vendeur_vedette ? 'currentColor' : 'none'" />
+                      <Star :size="18" :fill="user.est_vendeur_vedette ? 'currentColor' : 'none'" aria-hidden="true" />
                     </button>
                   </div>
                   <div v-if="user.role === 'vendeur' && !user.profil_vendeur_complet" class="text-xs text-orange-600 mt-1">
@@ -160,7 +163,8 @@ File: src/views/admin/AdminUsers.vue
                       {{ getStatutLabel(user.statut) }}
                     </span>
                     <select
-                      class="text-xs border border-gray-200 rounded-lg px-2 py-1"
+                      class="input min-h-9 w-auto py-1 pl-3 pr-8 text-sm"
+                      :aria-label="`Statut de ${user.nom_complet}`"
                       :disabled="updatingStatusId === user.id || user.id === authStore.user?.id"
                       :title="user.id === authStore.user?.id ? 'Vous ne pouvez pas modifier votre propre statut' : undefined"
                       :value="user.statut"
@@ -204,170 +208,160 @@ File: src/views/admin/AdminUsers.vue
       </Card>
 
       <!-- Détail utilisateur -->
-      <div
-        v-if="showDetail"
-        class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6 overflow-y-auto"
+      <BaseModal
+        :ouvert="showDetail"
+        :titre="selectedUser?.nom_complet || 'Détail de l\'utilisateur'"
+        variante="feuille"
+        taille="lg"
+        @fermer="closeDetail"
       >
-        <div class="bg-surface w-full max-w-3xl rounded-elegant shadow-card overflow-hidden max-h-[calc(90vh-80px)] md:max-h-[90vh] flex flex-col">
-          <div class="p-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 class="font-display text-xl font-bold text-gray-800">
-              Détails utilisateur
-            </h2>
-            <button class="text-sm text-gray-500 hover:text-gray-700" @click="closeDetail">
-              Fermer
-            </button>
-          </div>
+        <div v-if="detailLoading" class="space-y-4" aria-busy="true">
+          <div class="skeleton h-6 w-1/2"></div>
+          <div class="skeleton h-24"></div>
+          <div class="skeleton h-32"></div>
+        </div>
 
-          <div v-if="detailLoading" class="p-6 space-y-4">
-            <div class="skeleton h-6 w-1/2"></div>
-            <div class="skeleton h-24"></div>
-            <div class="skeleton h-32"></div>
-          </div>
+        <AlertMessage v-else-if="detailError" type="error">{{ detailError }}</AlertMessage>
 
-          <div v-else-if="detailError" class="p-6 text-sm text-red-600">
-            {{ detailError }}
-          </div>
-
-          <div v-else-if="selectedUser" class="p-6 space-y-6 overflow-y-auto">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card padding="md">
-                <div class="text-xs text-gray-500 mb-2">Informations</div>
-                <div class="text-lg font-semibold text-gray-800">{{ selectedUser.nom_complet }}</div>
-                <div class="text-sm text-gray-600">{{ selectedUser.email }}</div>
-                <div v-if="selectedUser.telephone" class="text-sm text-gray-600">
-                  {{ selectedUser.telephone }}
-                </div>
-                <div class="mt-3 flex flex-wrap gap-2">
-                  <span class="badge bg-gray-100 text-gray-700">
-                    {{ getRoleLabel(selectedUser.role) }}
-                  </span>
-                  <span class="badge" :class="getStatutClass(selectedUser.statut)">
-                    {{ getStatutLabel(selectedUser.statut) }}
-                  </span>
-                  <span v-if="selectedUser.role === 'vendeur' && selectedUser.est_vendeur_vedette" class="badge badge-primary">
-                    Vedette
-                  </span>
-                  <span v-if="selectedUser.role === 'vendeur' && !selectedUser.profil_vendeur_complet" class="badge bg-orange-100 text-orange-700">
-                    Profil boutique incomplet
-                  </span>
-                </div>
-                <div class="text-xs text-gray-400 mt-3">
-                  Inscrit le {{ formatDate(selectedUser.created_at) }}
-                </div>
-                <div v-if="selectedUser.role === 'vendeur'" class="mt-4 flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    :icon="Star"
-                    :icon-size="16"
-                    :loading="updatingVedetteId === selectedUser.id"
-                    @click="toggleVedette(selectedUser)"
-                  >
-                    {{ selectedUser.est_vendeur_vedette ? 'Retirer de la vedette' : 'Mettre en vedette' }}
-                  </Button>
-                  <router-link
-                    v-if="selectedUser.profil_vendeur_complet"
-                    :to="{ name: 'vendeur-profil', params: { id: selectedUser.id } }"
-                    class="btn-outline py-1.5 px-3 text-sm"
-                  >
-                    Page publique
-                  </router-link>
-                </div>
-              </Card>
-
-              <Card v-if="selectedUser.stats && selectedUser.role === 'client'" padding="md">
-                <div class="text-xs text-gray-500 mb-2">Statistiques client</div>
-                <div class="space-y-2 text-sm text-gray-700">
-                  <div class="flex items-center justify-between">
-                    <span>Total dépensé</span>
-                    <span class="font-semibold">{{ formatPrice(selectedUser.stats.total_depense) }} FCFA</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span>Commandes livrées</span>
-                    <span class="font-semibold">{{ formatNumber(selectedUser.stats.commandes_livrees) }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span>Commande moyenne</span>
-                    <span class="font-semibold">{{ formatPrice(selectedUser.stats.commande_moyenne) }} FCFA</span>
-                  </div>
-                </div>
-              </Card>
-
-              <Card v-if="selectedUser.stats && selectedUser.role === 'vendeur'" padding="md">
-                <div class="text-xs text-gray-500 mb-2">Statistiques vendeur</div>
-                <div class="space-y-2 text-sm text-gray-700">
-                  <div class="flex items-center justify-between">
-                    <span>Produits au catalogue</span>
-                    <span class="font-semibold">{{ formatNumber(selectedUser.stats.produits) }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span>Commandes reçues</span>
-                    <span class="font-semibold">{{ formatNumber(selectedUser.stats.commandes_recues) }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span>En cours</span>
-                    <span class="font-semibold">{{ formatNumber(selectedUser.stats.commandes_en_cours) }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span>Encaissé</span>
-                    <span class="font-semibold">{{ formatPrice(selectedUser.stats.chiffre_affaires) }} FCFA</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span>Villes livrées</span>
-                    <span class="font-semibold">{{ selectedUser.stats.villes_livraison?.map(formatVille).join(', ') || 'Aucune' }}</span>
-                  </div>
-                </div>
-              </Card>
-            </div>
-
-            <div v-if="selectedUser.adresses?.length" class="space-y-3">
-              <div class="text-xs text-gray-500">Adresses</div>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Card v-for="adresse in selectedUser.adresses" :key="adresse.id" padding="md">
-                  <div class="flex items-center justify-between mb-2">
-                    <div class="font-semibold text-gray-800">{{ adresse.libelle || 'Adresse' }}</div>
-                    <span v-if="adresse.est_principale" class="badge badge-primary">Principale</span>
-                  </div>
-                  <div class="text-sm text-gray-600">
-                    {{ formatAdresse(adresse) }}
-                  </div>
-                  <div v-if="adresse.telephone_contact" class="text-xs text-gray-500 mt-1">
-                    {{ adresse.telephone_contact }}
-                  </div>
-                  <div v-if="adresse.point_repere" class="text-xs text-gray-500 mt-1">
-                    Repère: {{ adresse.point_repere }}
-                  </div>
-                </Card>
+        <div v-else-if="selectedUser" class="space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card padding="md">
+              <div class="text-xs text-gray-500 mb-2">Informations</div>
+              <div class="text-lg font-semibold text-gray-800">{{ selectedUser.nom_complet }}</div>
+              <div class="text-sm text-gray-600">{{ selectedUser.email }}</div>
+              <div v-if="selectedUser.telephone" class="text-sm text-gray-600">
+                {{ selectedUser.telephone }}
               </div>
-            </div>
-
-            <div class="space-y-3">
-              <div class="text-xs text-gray-500">Dernières commandes</div>
-              <div v-if="lastCommandes.length === 0" class="text-sm text-gray-500">
-                Aucune commande.
+              <div class="mt-3 flex flex-wrap gap-2">
+                <span class="badge bg-gray-100 text-gray-700">
+                  {{ getRoleLabel(selectedUser.role) }}
+                </span>
+                <span class="badge" :class="getStatutClass(selectedUser.statut)">
+                  {{ getStatutLabel(selectedUser.statut) }}
+                </span>
+                <span v-if="selectedUser.role === 'vendeur' && selectedUser.est_vendeur_vedette" class="badge badge-primary">
+                  Vedette
+                </span>
+                <span v-if="selectedUser.role === 'vendeur' && !selectedUser.profil_vendeur_complet" class="badge bg-orange-100 text-orange-700">
+                  Profil boutique incomplet
+                </span>
               </div>
-              <div v-else class="space-y-2">
-                <div
-                  v-for="commande in lastCommandes"
-                  :key="commande.id"
-                  class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-3 rounded-lg border border-gray-100 bg-surface"
+              <div class="text-xs text-gray-400 mt-3">
+                Inscrit le {{ formatDate(selectedUser.created_at) }}
+              </div>
+              <div v-if="selectedUser.role === 'vendeur'" class="mt-4 flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  :icon="Star"
+                  :icon-size="16"
+                  :loading="updatingVedetteId === selectedUser.id"
+                  @click="toggleVedette(selectedUser)"
                 >
-                  <div>
-                    <div class="font-semibold text-gray-800">{{ commande.numero_commande }}</div>
-                    <div class="text-xs text-gray-500">{{ formatDate(commande.created_at) }}</div>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <span class="badge" :class="getStatutClass(commande.statut)">
-                      {{ getStatutLabel(commande.statut) }}
-                    </span>
-                    <span class="price text-base">{{ formatPrice(commande.montant_total) }} FCFA</span>
-                  </div>
+                  {{ selectedUser.est_vendeur_vedette ? 'Retirer de la vedette' : 'Mettre en vedette' }}
+                </Button>
+                <router-link
+                  v-if="selectedUser.profil_vendeur_complet"
+                  :to="{ name: 'vendeur-profil', params: { id: selectedUser.id } }"
+                  class="btn-outline btn-sm"
+                >
+                  Page publique
+                </router-link>
+              </div>
+            </Card>
+
+            <Card v-if="selectedUser.stats && selectedUser.role === 'client'" padding="md">
+              <div class="text-xs text-gray-500 mb-2">Statistiques client</div>
+              <div class="space-y-2 text-sm text-gray-700">
+                <div class="flex items-center justify-between">
+                  <span>Total dépensé</span>
+                  <span class="font-semibold">{{ formatPrice(selectedUser.stats.total_depense) }} FCFA</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span>Commandes livrées</span>
+                  <span class="font-semibold">{{ formatNumber(selectedUser.stats.commandes_livrees) }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span>Commande moyenne</span>
+                  <span class="font-semibold">{{ formatPrice(selectedUser.stats.commande_moyenne) }} FCFA</span>
+                </div>
+              </div>
+            </Card>
+
+            <Card v-if="selectedUser.stats && selectedUser.role === 'vendeur'" padding="md">
+              <div class="text-xs text-gray-500 mb-2">Statistiques vendeur</div>
+              <div class="space-y-2 text-sm text-gray-700">
+                <div class="flex items-center justify-between">
+                  <span>Produits au catalogue</span>
+                  <span class="font-semibold">{{ formatNumber(selectedUser.stats.produits) }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span>Commandes reçues</span>
+                  <span class="font-semibold">{{ formatNumber(selectedUser.stats.commandes_recues) }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span>En cours</span>
+                  <span class="font-semibold">{{ formatNumber(selectedUser.stats.commandes_en_cours) }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span>Encaissé</span>
+                  <span class="font-semibold">{{ formatPrice(selectedUser.stats.chiffre_affaires) }} FCFA</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span>Villes livrées</span>
+                  <span class="font-semibold">{{ selectedUser.stats.villes_livraison?.map(formatVille).join(', ') || 'Aucune' }}</span>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          <div v-if="selectedUser.adresses?.length" class="space-y-3">
+            <div class="text-xs text-gray-500">Adresses</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Card v-for="adresse in selectedUser.adresses" :key="adresse.id" padding="md">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="font-semibold text-gray-800">{{ adresse.libelle || 'Adresse' }}</div>
+                  <span v-if="adresse.est_principale" class="badge badge-primary">Principale</span>
+                </div>
+                <div class="text-sm text-gray-600">
+                  {{ formatAdresse(adresse) }}
+                </div>
+                <div v-if="adresse.telephone_contact" class="text-xs text-gray-500 mt-1">
+                  {{ adresse.telephone_contact }}
+                </div>
+                <div v-if="adresse.point_repere" class="text-xs text-gray-500 mt-1">
+                  Repère: {{ adresse.point_repere }}
+                </div>
+              </Card>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div class="text-xs text-gray-500">Dernières commandes</div>
+            <div v-if="lastCommandes.length === 0" class="text-sm text-gray-500">
+              Aucune commande.
+            </div>
+            <div v-else class="space-y-2">
+              <div
+                v-for="commande in lastCommandes"
+                :key="commande.id"
+                class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-3 rounded-lg border border-gray-100 bg-surface"
+              >
+                <div>
+                  <div class="font-semibold text-gray-800">{{ commande.numero_commande }}</div>
+                  <div class="text-xs text-gray-500">{{ formatDate(commande.created_at) }}</div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="badge" :class="getStatutClass(commande.statut)">
+                    {{ getStatutLabel(commande.statut) }}
+                  </span>
+                  <span class="price text-base">{{ formatPrice(commande.montant_total) }} FCFA</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </BaseModal>
     </div>
   </div>
 </template>
@@ -381,6 +375,8 @@ import { useConfirm } from '@/composables/useConfirm'
 import { formatPrice, formatPrice as formatNumber, formatDate } from '@/utils/format'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import BaseModal from '@/components/common/BaseModal.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
 import { Search, Star } from 'lucide-vue-next'
 import { formatVille } from '@/utils/villes'
 

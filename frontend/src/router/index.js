@@ -47,19 +47,19 @@ const routes = [
     path: '/produits',
     name: 'produits',
     component: Produits,
-    meta: { title: 'Nos Produits' }
+    meta: { title: 'Nos produits' }
   },
   {
     path: '/infos-pratiques',
     name: 'infos-pratiques',
     component: InfosPratiques,
-    meta: { title: 'Nous Contacter & Horaires', mobileOnly: true }
+    meta: { title: 'Contact et horaires', mobileOnly: true }
   },
   {
     path: '/produits/:slug',
     name: 'produit-detail',
     component: ProduitDetail,
-    meta: { title: 'Détail Produit' }
+    meta: { title: 'Produit' }
   },
   {
     path: '/vendeurs/:id',
@@ -71,7 +71,7 @@ const routes = [
     path: '/panier',
     name: 'panier',
     component: Panier,
-    meta: { title: 'Mon Panier', requiresAuth: true }
+    meta: { title: 'Mon panier', requiresAuth: true }
   },
   {
     path: '/commander',
@@ -83,13 +83,13 @@ const routes = [
     path: '/mes-commandes',
     name: 'mes-commandes',
     component: MesCommandes,
-    meta: { title: 'Mes Commandes', requiresAuth: true }
+    meta: { title: 'Mes commandes', requiresAuth: true }
   },
   {
     path: '/mes-commandes/:id',
     name: 'commande-detail',
     component: CommandeDetail,
-    meta: { title: 'Détail Commande', requiresAuth: true }
+    meta: { title: 'Commande', requiresAuth: true }
   },
   {
     // Page de retour configurée comme callback NotchPay (NOTCHPAY_CALLBACK_URL)
@@ -113,7 +113,7 @@ const routes = [
     path: '/profil',
     name: 'profil',
     component: Profil,
-    meta: { title: 'Mon Profil', requiresAuth: true }
+    meta: { title: 'Mon compte', requiresAuth: true }
   },
   {
     path: '/connexion',
@@ -136,13 +136,13 @@ const routes = [
     path: '/admin/dashboard',
     name: 'admin-dashboard',
     component: AdminDashboard,
-    meta: { title: 'Dashboard Admin', requiresAuth: true, requiresAdmin: true }
+    meta: { title: 'Tableau de bord', requiresAuth: true, requiresAdmin: true }
   },
   {
     path: '/admin/categories',
     name: 'admin-categories',
     component: AdminCategories,
-    meta: { title: 'Administration Catégories', requiresAuth: true, requiresCatalogueManager: true }
+    meta: { title: 'Catégories', requiresAuth: true, requiresCatalogueManager: true }
   },
   {
     path: '/admin/parametres',
@@ -154,19 +154,19 @@ const routes = [
     path: '/admin/commandes',
     name: 'admin-commandes',
     component: AdminCommandes,
-    meta: { title: 'Gestion Commandes', requiresAuth: true, requiresCommandesManager: true }
+    meta: { title: 'Commandes', requiresAuth: true, requiresCommandesManager: true }
   },
   {
     path: '/admin/produits',
     name: 'admin-produits',
     component: AdminProduits,
-    meta: { title: 'Administration Produits', requiresAuth: true, requiresCatalogueManager: true }
+    meta: { title: 'Produits', requiresAuth: true, requiresCatalogueManager: true }
   },
   {
     path: '/admin/users',
     name: 'admin-users',
     component: AdminUsers,
-    meta: { title: 'Administration Utilisateurs', requiresAuth: true, requiresAdmin: true }
+    meta: { title: 'Utilisateurs', requiresAuth: true, requiresAdmin: true }
   },
   {
     path: '/admin/quartiers',

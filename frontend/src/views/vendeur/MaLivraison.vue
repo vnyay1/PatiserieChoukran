@@ -7,7 +7,7 @@ File: src/views/vendeur/MaLivraison.vue
   <div class="ma-livraison-page pb-6">
     <div class="container mx-auto px-4 py-6 max-w-3xl">
       <div class="mb-6">
-        <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
+        <h1>
           Ma livraison
         </h1>
         <p class="text-gray-600 text-sm">
@@ -16,7 +16,7 @@ File: src/views/vendeur/MaLivraison.vue
         </p>
       </div>
 
-      <p v-if="erreur" class="text-sm text-red-600 mb-4">{{ erreur }}</p>
+      <p v-if="erreur" role="alert" class="text-sm font-medium text-red-700 mb-4">{{ erreur }}</p>
 
       <div v-if="loading" class="space-y-4">
         <div v-for="n in 2" :key="n" class="skeleton h-40 rounded-elegant"></div>
@@ -38,7 +38,7 @@ File: src/views/vendeur/MaLivraison.vue
                 v-model="form.villes"
                 type="checkbox"
                 :value="ville.valeur"
-                class="rounded border-gray-300 text-gold-600 focus:ring-gold-500"
+                class="h-5 w-5 flex-shrink-0 rounded"
               />
               <MapPin :size="20" class="text-gold-600" />
               <span class="font-semibold text-gray-800">{{ ville.libelle }}</span>
@@ -53,20 +53,23 @@ File: src/views/vendeur/MaLivraison.vue
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card padding="lg">
-            <h2 class="font-display text-lg font-bold text-gray-800 mb-1">Montant minimum</h2>
-            <p class="text-sm text-gray-600 mb-4">
+            <h2 id="titre-minimum" class="font-display text-lg font-bold text-gray-800 mb-1">Montant minimum</h2>
+            <p id="aide-minimum" class="text-sm text-gray-600 mb-4">
               En dessous de ce montant de produits, seul le retrait en boutique est proposé. 0 : aucun minimum.
             </p>
             <div class="relative">
               <input
                 v-model.number="form.montant_minimum_livraison"
+                aria-labelledby="titre-minimum"
+                aria-describedby="aide-minimum"
+                inputmode="numeric"
                 type="number"
                 min="0"
                 step="500"
                 class="input pr-16"
                 required
               />
-              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">FCFA</span>
+              <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-600" aria-hidden="true">FCFA</span>
             </div>
           </Card>
 

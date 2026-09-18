@@ -8,7 +8,7 @@ File: src/views/admin/AdminQuartiers.vue
     <div class="container mx-auto px-4 py-6 max-w-5xl">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
+          <h1>
             Quartiers
           </h1>
           <p class="text-gray-600 text-sm">
@@ -24,20 +24,20 @@ File: src/views/admin/AdminQuartiers.vue
       <Card v-if="formulaireOuvert" padding="lg" class="mb-6">
         <form class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end" @submit.prevent="enregistrer">
           <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
-            <input v-model="form.nom" type="text" maxlength="150" class="input" required />
+            <label for="admin-quartiers-1" class="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
+            <input id="admin-quartiers-1" v-model="form.nom" type="text" maxlength="150" class="input" required />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Ville *</label>
-            <select v-model="form.ville" class="input" required>
+            <label for="admin-quartiers-2" class="block text-sm font-medium text-gray-700 mb-2">Ville *</label>
+            <select id="admin-quartiers-2" v-model="form.ville" class="input" required>
               <option v-for="ville in VILLES" :key="ville.valeur" :value="ville.valeur">{{ ville.libelle }}</option>
             </select>
           </div>
           <label class="inline-flex items-center gap-2 md:col-span-3">
-            <input v-model="form.actif" type="checkbox" class="rounded border-gray-300 text-gold-600 focus:ring-gold-500" />
+            <input v-model="form.actif" type="checkbox" class="h-5 w-5 flex-shrink-0 rounded" />
             <span class="text-sm text-gray-700">Proposé aux clients</span>
           </label>
-          <p v-if="erreurFormulaire" class="text-sm text-red-600 md:col-span-3">{{ erreurFormulaire }}</p>
+          <p v-if="erreurFormulaire" role="alert" class="text-sm font-medium text-red-700 md:col-span-3">{{ erreurFormulaire }}</p>
           <div class="md:col-span-3 flex gap-3">
             <Button type="submit" variant="primary" :loading="saving">
               {{ form.id ? 'Enregistrer' : 'Ajouter le quartier' }}
@@ -50,30 +50,31 @@ File: src/views/admin/AdminQuartiers.vue
       <Card padding="none">
         <div class="p-4 border-b border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-3">
           <div class="relative md:col-span-2">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" :size="18" />
+            <Search class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" :size="18" aria-hidden="true" />
             <input
               v-model="filtres.search"
               type="search"
-              placeholder="Rechercher un quartier..."
-              class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-gold-600 focus:ring-2 focus:ring-gold-200 outline-none"
+              aria-label="Rechercher un quartier"
+              placeholder="Rechercher un quartier…"
+              class="input pl-10"
               @input="rechercherPlusTard"
             />
           </div>
-          <select v-model="filtres.ville" class="input" @change="charger(1)">
+          <select v-model="filtres.ville" class="input" aria-label="Filtrer par ville" @change="charger(1)">
             <option value="">Toutes les villes</option>
             <option v-for="ville in VILLES" :key="ville.valeur" :value="ville.valeur">{{ ville.libelle }}</option>
           </select>
         </div>
 
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto" role="region" aria-label="Liste des quartiers" tabindex="0">
           <table class="min-w-full text-sm">
             <thead class="bg-gray-50 text-gray-600">
               <tr>
-                <th class="text-left font-semibold px-4 py-3">Quartier</th>
-                <th class="text-left font-semibold px-4 py-3">Ville</th>
-                <th class="text-left font-semibold px-4 py-3">Adresses</th>
-                <th class="text-left font-semibold px-4 py-3">Statut</th>
-                <th class="text-right font-semibold px-4 py-3">Actions</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Quartier</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Ville</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Adresses</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Statut</th>
+                <th scope="col" class="text-right font-semibold px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody v-if="loading">

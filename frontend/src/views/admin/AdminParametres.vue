@@ -8,7 +8,7 @@ File: src/views/admin/AdminParametres.vue
     <div class="container mx-auto px-4 py-6 max-w-6xl">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
+          <h1>
             Paramètres du site
           </h1>
           <p class="text-gray-600 text-sm">
@@ -26,22 +26,23 @@ File: src/views/admin/AdminParametres.vue
       <Card padding="md" class="mb-6">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Recherche</label>
+            <label for="admin-parametres-1" class="block text-sm font-medium text-gray-700 mb-2">Recherche</label>
             <div class="relative">
-              <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" :size="18" />
+              <Search class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" :size="18" aria-hidden="true" />
               <input
+                id="admin-parametres-1"
                 v-model="filters.search"
                 type="search"
                 placeholder="Clé, description, groupe..."
-                class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-gold-600 focus:ring-2 focus:ring-gold-200 outline-none"
+                class="input pl-10"
                 @input="handleSearch"
               />
             </div>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
-            <select v-model="filters.type" class="input">
+            <label for="admin-parametres-2" class="block text-sm font-medium text-gray-700 mb-2">Type</label>
+            <select id="admin-parametres-2" v-model="filters.type" class="input">
               <option value="">Tous</option>
               <option value="string">Texte</option>
               <option value="integer">Nombre</option>
@@ -73,18 +74,18 @@ File: src/views/admin/AdminParametres.vue
 
         <form class="grid grid-cols-1 md:grid-cols-2 gap-4" @submit.prevent="submitForm">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Clé *</label>
-            <input v-model="form.cle" type="text" class="input" required />
+            <label for="admin-parametres-3" class="block text-sm font-medium text-gray-700 mb-2">Clé *</label>
+            <input id="admin-parametres-3" v-model="form.cle" type="text" class="input" required />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Groupe</label>
-            <input v-model="form.groupe" type="text" class="input" placeholder="general, contact..." />
+            <label for="admin-parametres-4" class="block text-sm font-medium text-gray-700 mb-2">Groupe</label>
+            <input id="admin-parametres-4" v-model="form.groupe" type="text" class="input" placeholder="general, contact..." />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Type *</label>
-            <select v-model="form.type" class="input" required>
+            <label for="admin-parametres-5" class="block text-sm font-medium text-gray-700 mb-2">Type *</label>
+            <select id="admin-parametres-5" v-model="form.type" class="input" required>
               <option value="string">Texte</option>
               <option value="integer">Nombre</option>
               <option value="boolean">Booléen</option>
@@ -93,16 +94,18 @@ File: src/views/admin/AdminParametres.vue
           </div>
 
           <div :class="form.type === 'string' ? 'md:col-span-2' : ''">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Valeur</label>
+            <label for="admin-parametres-6" class="block text-sm font-medium text-gray-700 mb-2">Valeur</label>
             <!-- Zone de texte : certains paramètres sont longs et sur plusieurs lignes (conditions_vendeur) -->
             <textarea
               v-if="form.type === 'string'"
+              id="admin-parametres-6"
               v-model="form.valeur"
               :rows="String(form.valeur || '').length > 120 || String(form.valeur || '').includes('\n') ? 10 : 2"
               class="input resize-y"
             ></textarea>
             <input
               v-else-if="form.type === 'integer'"
+              id="admin-parametres-6"
               v-model="form.valeur"
               type="number"
               class="input"
@@ -111,12 +114,13 @@ File: src/views/admin/AdminParametres.vue
               <input
                 v-model="form.valeur"
                 type="checkbox"
-                class="rounded border-gray-300 text-gold-600 focus:ring-gold-500"
+                class="h-5 w-5 rounded"
               />
               <span class="text-sm text-gray-700">Activer</span>
             </label>
             <textarea
               v-else
+              id="admin-parametres-6"
               v-model="form.valeur"
               rows="3"
               class="input resize-none"
@@ -125,8 +129,8 @@ File: src/views/admin/AdminParametres.vue
           </div>
 
           <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-            <textarea v-model="form.description" rows="3" class="input resize-none"></textarea>
+            <label for="admin-parametres-7" class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <textarea id="admin-parametres-7" v-model="form.description" rows="3" class="input resize-none"></textarea>
           </div>
 
           <div class="md:col-span-2 flex gap-3">
@@ -138,7 +142,7 @@ File: src/views/admin/AdminParametres.vue
             </Button>
           </div>
 
-          <p v-if="formError" class="text-sm text-red-600 md:col-span-2">
+          <p v-if="formError" role="alert" class="text-sm font-medium text-red-700 md:col-span-2">
             {{ formError }}
           </p>
         </form>
@@ -154,15 +158,15 @@ File: src/views/admin/AdminParametres.vue
           </Button>
         </div>
 
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto" role="region" aria-label="Liste des paramètres" tabindex="0">
           <table class="min-w-full text-sm">
             <thead class="bg-gray-50 text-gray-600">
               <tr>
-                <th class="text-left font-semibold px-4 py-3">Clé</th>
-                <th class="text-left font-semibold px-4 py-3">Groupe</th>
-                <th class="text-left font-semibold px-4 py-3">Type</th>
-                <th class="text-left font-semibold px-4 py-3">Valeur</th>
-                <th class="text-right font-semibold px-4 py-3">Actions</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Clé</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Groupe</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Type</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Valeur</th>
+                <th scope="col" class="text-right font-semibold px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody v-if="loading">

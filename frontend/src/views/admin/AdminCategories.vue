@@ -8,8 +8,8 @@ File: src/views/admin/AdminCategories.vue
     <div class="container mx-auto px-4 py-6 max-w-6xl">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
-            Administration Catégories
+          <h1>
+            Catégories
           </h1>
           <p class="text-gray-600 text-sm">
             Voir toutes les catégories disponibles et en ajouter de nouvelles.
@@ -23,22 +23,23 @@ File: src/views/admin/AdminCategories.vue
       <Card padding="md" class="mb-6">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Recherche</label>
+            <label for="admin-categories-1" class="block text-sm font-medium text-gray-700 mb-2">Recherche</label>
             <div class="relative">
-              <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" :size="18" />
+              <Search class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" :size="18" aria-hidden="true" />
               <input
+                id="admin-categories-1"
                 v-model="filters.search"
                 type="search"
                 placeholder="Nom de catégorie..."
-                class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-gold-600 focus:ring-2 focus:ring-gold-200 outline-none"
+                class="input pl-10"
                 @input="handleSearch"
               />
             </div>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Statut</label>
-            <select v-model="filters.est_actif" class="input">
+            <label for="admin-categories-2" class="block text-sm font-medium text-gray-700 mb-2">Statut</label>
+            <select id="admin-categories-2" v-model="filters.est_actif" class="input">
               <option value="">Toutes</option>
               <option value="1">Actives</option>
               <option value="0">Inactives</option>
@@ -68,22 +69,22 @@ File: src/views/admin/AdminCategories.vue
 
         <form class="grid grid-cols-1 md:grid-cols-2 gap-4" @submit.prevent="submitForm">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
-            <input v-model="form.nom" type="text" class="input" required />
+            <label for="admin-categories-3" class="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
+            <input id="admin-categories-3" v-model="form.nom" type="text" class="input" required />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Ordre d'affichage</label>
-            <input v-model.number="form.ordre_affichage" type="number" min="0" class="input" />
+            <label for="admin-categories-4" class="block text-sm font-medium text-gray-700 mb-2">Ordre d'affichage</label>
+            <input id="admin-categories-4" v-model.number="form.ordre_affichage" type="number" min="0" class="input" />
           </div>
 
           <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-            <textarea v-model="form.description" rows="3" class="input resize-none"></textarea>
+            <label for="admin-categories-5" class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <textarea id="admin-categories-5" v-model="form.description" rows="3" class="input resize-none"></textarea>
           </div>
 
           <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Image</label>
+            <label for="admin-categories-6" class="block text-sm font-medium text-gray-700 mb-2">Image</label>
             <div class="flex items-center gap-4">
               <img
                 v-if="apercuImage"
@@ -94,6 +95,7 @@ File: src/views/admin/AdminCategories.vue
                 @error="onImageError"
               />
               <input
+                id="admin-categories-6"
                 :key="fileInputKey"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -111,7 +113,7 @@ File: src/views/admin/AdminCategories.vue
               <input
                 v-model="form.est_actif"
                 type="checkbox"
-                class="rounded border-gray-300 text-gold-600 focus:ring-gold-500"
+                class="h-5 w-5 flex-shrink-0 rounded"
               />
               <span class="text-sm text-gray-700">Catégorie active</span>
             </label>
@@ -126,7 +128,7 @@ File: src/views/admin/AdminCategories.vue
             </Button>
           </div>
 
-          <p v-if="formError" class="text-sm text-red-600 md:col-span-2">
+          <p v-if="formError" role="alert" class="text-sm font-medium text-red-700 md:col-span-2">
             {{ formError }}
           </p>
         </form>
@@ -142,14 +144,14 @@ File: src/views/admin/AdminCategories.vue
           </Button>
         </div>
 
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto" role="region" aria-label="Liste des catégories" tabindex="0">
           <table class="min-w-full text-sm">
             <thead class="bg-gray-50 text-gray-600">
               <tr>
-                <th class="text-left font-semibold px-4 py-3">Catégorie</th>
-                <th class="text-left font-semibold px-4 py-3">Ordre</th>
-                <th class="text-left font-semibold px-4 py-3">Statut</th>
-                <th class="text-right font-semibold px-4 py-3">Actions</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Catégorie</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Ordre</th>
+                <th scope="col" class="text-left font-semibold px-4 py-3">Statut</th>
+                <th scope="col" class="text-right font-semibold px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody v-if="loading">

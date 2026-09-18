@@ -8,7 +8,7 @@ File: src/views/admin/AdminRapports.vue
     <div class="container mx-auto px-4 py-6 max-w-7xl">
       <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
         <div>
-          <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
+          <h1>
             Rapports mensuels
           </h1>
           <p class="text-gray-600 text-sm">
@@ -19,8 +19,8 @@ File: src/views/admin/AdminRapports.vue
 
         <div class="flex flex-col sm:flex-row gap-3 sm:items-end">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Mois</label>
-            <select v-model="moisChoisi" class="input min-w-48" :disabled="loadingMois">
+            <label for="admin-rapports-1" class="block text-sm font-medium text-gray-700 mb-1">Mois</label>
+            <select id="admin-rapports-1" v-model="moisChoisi" class="input min-w-48" :disabled="loadingMois">
               <option v-for="mois in listeMois" :key="mois.mois" :value="mois.mois">
                 {{ capitaliser(mois.libelle) }}{{ mois.clos ? '' : ' (en cours)' }}
               </option>
@@ -35,7 +35,7 @@ File: src/views/admin/AdminRapports.vue
         </div>
       </div>
 
-      <p v-if="erreur" class="text-sm text-red-600 mb-4">{{ erreur }}</p>
+      <p v-if="erreur" role="alert" class="text-sm font-medium text-red-700 mb-4">{{ erreur }}</p>
 
       <div v-if="loading" class="space-y-4">
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -57,20 +57,20 @@ File: src/views/admin/AdminRapports.vue
         </div>
 
         <Card padding="none">
-          <div class="overflow-x-auto">
+          <div class="overflow-x-auto" role="region" aria-label="Rapport par vendeur" tabindex="0">
             <table class="min-w-full text-sm">
               <thead class="bg-gray-50 text-gray-600">
                 <tr>
-                  <th class="text-left font-semibold px-4 py-3">Vendeur</th>
-                  <th class="text-right font-semibold px-3 py-3">Commandes</th>
-                  <th class="text-right font-semibold px-3 py-3">Livrées</th>
-                  <th class="text-right font-semibold px-3 py-3">Annulées</th>
-                  <th class="text-right font-semibold px-3 py-3">En cours</th>
-                  <th class="text-right font-semibold px-3 py-3">Articles</th>
-                  <th class="text-right font-semibold px-3 py-3">Chiffre d'affaires</th>
-                  <th class="text-right font-semibold px-3 py-3">Encaissé</th>
-                  <th class="text-right font-semibold px-3 py-3">Livraison</th>
-                  <th class="text-right font-semibold px-4 py-3">Panier moyen</th>
+                  <th scope="col" class="text-left font-semibold px-4 py-3">Vendeur</th>
+                  <th scope="col" class="text-right font-semibold px-3 py-3">Commandes</th>
+                  <th scope="col" class="text-right font-semibold px-3 py-3">Livrées</th>
+                  <th scope="col" class="text-right font-semibold px-3 py-3">Annulées</th>
+                  <th scope="col" class="text-right font-semibold px-3 py-3">En cours</th>
+                  <th scope="col" class="text-right font-semibold px-3 py-3">Articles</th>
+                  <th scope="col" class="text-right font-semibold px-3 py-3">Chiffre d'affaires</th>
+                  <th scope="col" class="text-right font-semibold px-3 py-3">Encaissé</th>
+                  <th scope="col" class="text-right font-semibold px-3 py-3">Livraison</th>
+                  <th scope="col" class="text-right font-semibold px-4 py-3">Panier moyen</th>
                 </tr>
               </thead>
               <tbody>

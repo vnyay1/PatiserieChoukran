@@ -59,7 +59,7 @@ File: src/components/admin/ReglagesBoutique.vue
         <p class="text-xs text-gray-500 mt-1">Texte que chaque vendeur accepte en complétant son profil boutique.</p>
       </div>
 
-      <p v-if="erreur" class="text-sm text-red-600 md:col-span-2">{{ erreur }}</p>
+      <p v-if="erreur" role="alert" class="text-sm font-medium text-red-700 md:col-span-2">{{ erreur }}</p>
 
       <div class="md:col-span-2">
         <Button type="submit" variant="primary" :loading="saving">Enregistrer les réglages</Button>

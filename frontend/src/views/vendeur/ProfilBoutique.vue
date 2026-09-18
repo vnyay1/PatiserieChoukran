@@ -8,7 +8,7 @@ File: src/views/vendeur/ProfilBoutique.vue
     <div class="container mx-auto px-4 py-6 max-w-3xl">
       <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
-          <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
+          <h1>
             Ma boutique
           </h1>
           <p class="text-gray-600 text-sm">
@@ -45,14 +45,15 @@ File: src/views/vendeur/ProfilBoutique.vue
       <Card v-else padding="lg">
         <form class="space-y-6" @submit.prevent="enregistrer">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Nom affiché</label>
-            <input :value="authStore.user?.nom_complet" type="text" class="input bg-gray-100 text-gray-500" disabled />
+            <label for="profil-boutique-1" class="block text-sm font-medium text-gray-700 mb-2">Nom affiché</label>
+            <input id="profil-boutique-1" :value="authStore.user?.nom_complet" type="text" class="input bg-gray-100 text-gray-500" disabled />
             <p class="text-xs text-gray-500 mt-1">Modifiable depuis « Mon profil » une fois la boutique complétée.</p>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Adresse e-mail de l'entreprise *</label>
+            <label for="profil-boutique-2" class="block text-sm font-medium text-gray-700 mb-2">Adresse e-mail de l'entreprise *</label>
             <input
+              id="profil-boutique-2"
               v-model="form.email"
               type="email"
               class="input"
@@ -64,7 +65,7 @@ File: src/views/vendeur/ProfilBoutique.vue
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Logo de l'entreprise *</label>
+            <label for="profil-boutique-3" class="block text-sm font-medium text-gray-700 mb-2">Logo de l'entreprise *</label>
             <div class="flex items-center gap-4">
               <div class="h-24 w-24 flex-shrink-0 rounded-elegant border bg-surface overflow-hidden flex items-center justify-center">
                 <img
@@ -78,6 +79,7 @@ File: src/views/vendeur/ProfilBoutique.vue
               </div>
               <div class="flex-1 min-w-0">
                 <input
+                  id="profil-boutique-3"
                   :key="cleChampLogo"
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
@@ -93,8 +95,9 @@ File: src/views/vendeur/ProfilBoutique.vue
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Description de l'entreprise *</label>
+            <label for="profil-boutique-4" class="block text-sm font-medium text-gray-700 mb-2">Description de l'entreprise *</label>
             <textarea
+              id="profil-boutique-4"
               v-model="form.description_boutique"
               rows="5"
               maxlength="2000"
@@ -116,7 +119,7 @@ File: src/views/vendeur/ProfilBoutique.vue
               <input
                 v-model="form.conditions_acceptees"
                 type="checkbox"
-                class="mt-0.5 rounded border-gray-300 text-gold-600 focus:ring-gold-500"
+                class="mt-0.5 h-5 w-5 flex-shrink-0 rounded"
                 required
               />
               <span class="text-sm text-gray-700">
@@ -126,7 +129,7 @@ File: src/views/vendeur/ProfilBoutique.vue
             </label>
           </div>
 
-          <p v-if="erreur" class="text-sm text-red-600">{{ erreur }}</p>
+          <p v-if="erreur" role="alert" class="text-sm font-medium text-red-700">{{ erreur }}</p>
 
           <div class="flex flex-wrap items-center justify-between gap-3">
             <Button type="submit" variant="primary" :loading="enregistrement">
