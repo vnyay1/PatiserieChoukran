@@ -2,376 +2,350 @@
 1. PAGE CHECKOUT - Processus de commande
 File: src/views/Checkout.vue
 =================================== -->
-
+<!--
+  Trois étapes (Livraison, Paiement, Confirmation) annoncées par une liste ordonnée
+  avec aria-current="step". À chaque étape, le focus va au titre de l'étape.
+  Adresses et moyens de paiement en cartes radio (fieldset/legend) plutôt qu'en liste
+  déroulante : tout est visible, un seul geste pour choisir. Récapitulatif collant sur desktop.
+-->
 <template>
-  <div class="checkout-page pb-6">
-    <div class="container mx-auto px-4 py-6 max-w-4xl">
-      <!-- Header -->
-      <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600 mb-6">
-        Finaliser la commande
-      </h1>
+  <div class="container mx-auto max-w-6xl pb-6 pt-6 md:pt-8">
+    <h1>Finaliser la commande</h1>
 
-      <!-- Étapes -->
-      <div class="flex items-center justify-between mb-8">
-        <div
-          v-for="(etape, index) in etapes"
-          :key="index"
-          class="flex items-center flex-1"
-        >
-          <div class="flex flex-col items-center">
-            <div
-              class="w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors"
-              :class="currentStep >= index + 1 ? 'bg-gold-500 text-on-gold' : 'bg-gray-200 text-gray-500'"
-            >
-              {{ index + 1 }}
-            </div>
-            <span class="text-xs mt-2 text-center hidden md:block">{{ etape }}</span>
-          </div>
-          <div
-            v-if="index < etapes.length - 1"
-            class="flex-1 h-1 mx-2"
-            :class="currentStep > index + 1 ? 'bg-gold-500' : 'bg-gray-200'"
-          ></div>
-        </div>
-      </div>
+    <!-- Étapes -->
+    <ol class="mb-8 mt-6 grid grid-cols-3 gap-2" aria-label="Étapes de la commande">
+      <li
+        v-for="(etape, index) in ETAPES"
+        :key="etape"
+        class="flex flex-col gap-2"
+        :aria-current="currentStep === index + 1 ? 'step' : undefined"
+      >
+        <span
+          class="h-1.5 rounded-full transition-colors duration-300"
+          :class="currentStep > index ? 'bg-gold-500' : 'bg-gray-200'"
+          aria-hidden="true"
+        ></span>
+        <span class="flex items-center gap-2 text-sm font-semibold" :class="currentStep >= index + 1 ? 'text-gray-900' : 'text-gray-500'">
+          <span
+            class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs"
+            :class="currentStep > index + 1 ? 'bg-green-100 text-green-800' : currentStep === index + 1 ? 'bg-gold-500 text-on-gold' : 'bg-gray-200 text-gray-600'"
+            aria-hidden="true"
+          >
+            <Check v-if="currentStep > index + 1" :size="14" />
+            <template v-else>{{ index + 1 }}</template>
+          </span>
+          {{ etape }}
+          <span v-if="currentStep > index + 1" class="sr-only">(terminée)</span>
+        </span>
+      </li>
+    </ol>
 
-      <!-- Étape 1: Livraison -->
-      <Card v-if="currentStep === 1" padding="lg" class="mb-6">
-        <h2 class="font-display text-xl font-bold text-gray-800 mb-6">
-          Informations de livraison
-        </h2>
+    <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-8">
+      <div class="min-w-0">
+        <!-- Étape 1 : livraison -->
+        <section v-if="currentStep === 1" class="card p-5 sm:p-7" aria-labelledby="titre-etape">
+          <h2 id="titre-etape" ref="titreEtape" tabindex="-1" class="text-xl sm:text-2xl">Livraison</h2>
 
-        <form @submit.prevent="goToStep2">
-          <!-- Type de livraison -->
-          <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-3">
-              Mode de livraison
-            </label>
-            <div class="grid grid-cols-2 gap-3">
-              <label
-                class="relative flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors"
-                :class="formData.type_livraison === 'livraison' ? 'border-gold-600 bg-gold-50' : 'border-gray-200'"
-              >
-                <input
-                  v-model="formData.type_livraison"
-                  type="radio"
-                  value="livraison"
-                  class="sr-only"
-                />
-                <Truck :size="24" class="mr-3 text-gold-600" />
-                <div>
-                  <div class="font-semibold">Livraison</div>
-                  <div class="text-xs text-gray-600">À domicile</div>
-                </div>
-              </label>
+          <form class="mt-6 space-y-7" novalidate @submit.prevent="goToStep2">
+            <!-- Mode de réception -->
+            <fieldset>
+              <legend class="label mb-3">Mode de réception</legend>
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label v-for="mode in MODES" :key="mode.valeur" class="carte-radio">
+                  <input v-model="formData.type_livraison" type="radio" name="type_livraison" :value="mode.valeur" class="sr-only" />
+                  <span class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gold-100 text-gold-700">
+                    <component :is="mode.icone" :size="22" aria-hidden="true" />
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block font-semibold text-gray-900">{{ mode.libelle }}</span>
+                    <span class="block text-sm text-gray-600">{{ mode.description }}</span>
+                  </span>
+                  <span class="coche" aria-hidden="true"><Check :size="14" /></span>
+                </label>
+              </div>
+            </fieldset>
 
-              <label
-                class="relative flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors"
-                :class="formData.type_livraison === 'retrait_boutique' ? 'border-gold-600 bg-gold-50' : 'border-gray-200'"
-              >
-                <input
-                  v-model="formData.type_livraison"
-                  type="radio"
-                  value="retrait_boutique"
-                  class="sr-only"
-                />
-                <Store :size="24" class="mr-3 text-gold-600" />
-                <div>
-                  <div class="font-semibold">Retrait</div>
-                  <div class="text-xs text-gray-600">En boutique</div>
-                </div>
-              </label>
-            </div>
-          </div>
+            <!-- Adresse -->
+            <fieldset v-if="estLivraison">
+              <legend class="label mb-3">Adresse de livraison</legend>
 
-          <!-- Adresse (si livraison) -->
-          <div v-if="estLivraison">
-            <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                Adresse de livraison
-              </label>
-              <select
-                v-model="formData.adresse_livraison_id"
-                class="input"
-                required
-              >
-                <option value="">Sélectionner une adresse</option>
-                <option
-                  v-for="adresse in adresses"
-                  :key="adresse.id"
-                  :value="adresse.id"
-                >
-                  {{ libelleOption(adresse) }}
-                </option>
-              </select>
-              <p v-if="adresses.length === 0" class="text-xs text-gray-500 mt-1">
+              <AlertMessage v-if="adresses.length === 0 && !chargementAdresses" type="info" class="mb-3">
                 Ajoutez une adresse de livraison pour continuer.
-              </p>
-              <p v-else-if="selectedAdresse && !selectedAdresse.quartier_id" class="text-xs text-orange-600 mt-1">
-                Cette adresse n'a pas de quartier reconnu : modifiez-la pour calculer la livraison.
-              </p>
-            </div>
+              </AlertMessage>
 
-            <div class="flex flex-wrap items-center gap-4 mb-6">
-              <button
-                type="button"
-                class="text-gold-600 hover:text-gold-700 text-sm font-medium"
-                @click="openAddAddress"
-              >
-                + Ajouter une nouvelle adresse
-              </button>
-              <button
-                type="button"
-                class="text-gray-600 hover:text-gray-800 text-sm font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
-                :disabled="!selectedAdresse"
-                @click="openEditAddress(selectedAdresse)"
-              >
-                Modifier l'adresse sélectionnée
-              </button>
-            </div>
+              <div class="space-y-3">
+                <div v-for="adresse in adresses" :key="adresse.id" class="relative">
+                  <label class="carte-radio items-start pr-16">
+                    <input
+                      v-model="formData.adresse_livraison_id"
+                      type="radio"
+                      name="adresse_livraison_id"
+                      :value="adresse.id"
+                      class="sr-only"
+                    />
+                    <MapPin :size="20" class="mt-0.5 flex-shrink-0 text-gold-600" aria-hidden="true" />
+                    <span class="min-w-0 flex-1">
+                      <span class="flex flex-wrap items-center gap-2 font-semibold text-gray-900">
+                        {{ adresse.libelle || adresse.quartier || 'Adresse' }}
+                        <span v-if="adresse.est_principale" class="badge badge-neutral">Principale</span>
+                      </span>
+                      <span class="block text-sm text-gray-600">{{ lieuAdresse(adresse) }}</span>
+                      <span v-if="adresse.telephone_contact" class="block text-sm text-gray-600">{{ adresse.telephone_contact }}</span>
+                      <span v-if="!adresse.quartier_id" class="mt-1 flex items-center gap-1.5 text-sm font-medium text-orange-700">
+                        <AlertTriangle :size="14" aria-hidden="true" />
+                        Quartier à préciser pour être livré
+                      </span>
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    class="btn-ghost btn-sm absolute right-2 top-2 px-3"
+                    :aria-label="`Modifier l'adresse ${adresse.libelle || lieuAdresse(adresse)}`"
+                    @click="openEditAddress(adresse)"
+                  >
+                    <Pencil :size="15" aria-hidden="true" />
+                    <span class="hidden sm:inline">Modifier</span>
+                  </button>
+                </div>
 
-            <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                Téléphone de contact
-              </label>
+                <button
+                  type="button"
+                  class="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 px-4 font-semibold text-gray-700 transition-colors hover:border-gold-500 hover:bg-gold-50 hover:text-gray-900"
+                  @click="openAddAddress"
+                >
+                  <Plus :size="18" aria-hidden="true" />
+                  Ajouter une adresse
+                </button>
+              </div>
+            </fieldset>
+
+            <FormField
+              v-if="estLivraison"
+              v-slot="{ attrs }"
+              label="Téléphone pour la livraison"
+              requis
+              aide="Le vendeur vous appelle à ce numéro pour convenir du passage."
+              :erreur="erreurs.telephone_livraison"
+            >
               <input
                 v-model="formData.telephone_livraison"
+                v-bind="attrs"
                 type="tel"
-                placeholder="+237699123456"
+                inputmode="tel"
+                autocomplete="tel"
+                placeholder="+237 6XX XX XX XX"
                 class="input"
-                required
               />
-            </div>
-          </div>
+            </FormField>
 
-          <!-- Instructions spéciales -->
-          <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Instructions spéciales (optionnel)
-            </label>
-            <textarea
-              v-model="formData.instructions_speciales"
-              rows="3"
-              placeholder="Ex: Sonner à l'interphone, Appeler en arrivant..."
-              class="input resize-none"
-            ></textarea>
-          </div>
+            <FormField v-slot="{ attrs }" label="Instructions pour le vendeur" facultatif>
+              <textarea
+                v-model="formData.instructions_speciales"
+                v-bind="attrs"
+                rows="3"
+                placeholder="Ex. Sonner à l'interphone, appeler en arrivant, message à écrire sur le gâteau…"
+                class="input resize-y"
+              ></textarea>
+            </FormField>
 
-          <p v-if="blocageEtape1" class="text-sm text-red-600 mb-4">
-            {{ blocageEtape1 }}
-          </p>
+            <AlertMessage v-if="blocageEtape1" type="warning">{{ blocageEtape1 }}</AlertMessage>
 
-          <Button type="submit" variant="primary" size="lg" full-width :disabled="isStep1Blocked">
-            Continuer vers le paiement
-          </Button>
-        </form>
-      </Card>
+            <Button type="submit" variant="primary" size="lg" full-width :disabled="isStep1Blocked">
+              Continuer vers le paiement
+              <ArrowRight :size="18" aria-hidden="true" />
+            </Button>
+          </form>
+        </section>
 
-      <!-- Étape 2: Paiement -->
-      <Card v-if="currentStep === 2" padding="lg" class="mb-6">
-        <h2 class="font-display text-xl font-bold text-gray-800 mb-6">
-          Mode de paiement
-        </h2>
+        <!-- Étape 2 : paiement -->
+        <section v-if="currentStep === 2" class="card p-5 sm:p-7" aria-labelledby="titre-etape">
+          <h2 id="titre-etape" ref="titreEtape" tabindex="-1" class="text-xl sm:text-2xl">Paiement</h2>
 
-        <form @submit.prevent="submitOrder">
-          <!-- Choix du paiement -->
-          <div class="space-y-3 mb-6">
-            <label
-              v-for="method in paymentMethods"
-              :key="method.value"
-              class="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors"
-              :class="formData.moyen_paiement === method.value ? 'border-gold-600 bg-gold-50' : 'border-gray-200'"
+          <form class="mt-6 space-y-7" novalidate @submit.prevent="submitOrder">
+            <fieldset>
+              <legend class="label mb-3">Moyen de paiement</legend>
+              <div class="space-y-3">
+                <label v-for="method in paymentMethods" :key="method.value" class="carte-radio">
+                  <input v-model="formData.moyen_paiement" type="radio" name="moyen_paiement" :value="method.value" class="sr-only" />
+                  <span class="flex h-11 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-white p-1 ring-1 ring-gray-200">
+                    <img :src="method.logo" alt="" class="max-h-full w-auto object-contain" />
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block font-semibold text-gray-900">{{ method.label }}</span>
+                    <span class="block text-sm text-gray-600">{{ method.description }}</span>
+                  </span>
+                  <span class="coche" aria-hidden="true"><Check :size="14" /></span>
+                </label>
+              </div>
+            </fieldset>
+
+            <FormField
+              v-if="formData.moyen_paiement !== 'especes'"
+              v-slot="{ attrs }"
+              label="Numéro Mobile Money"
+              requis
+              aide="Vous serez redirigé vers la page de paiement sécurisée NotchPay pour valider sur votre téléphone."
+              :erreur="erreurs.telephone_paiement"
             >
               <input
-                v-model="formData.moyen_paiement"
-                type="radio"
-                :value="method.value"
-                class="sr-only"
+                v-model="formData.telephone_paiement"
+                v-bind="attrs"
+                type="tel"
+                inputmode="tel"
+                autocomplete="tel"
+                placeholder="+237 6XX XX XX XX"
+                class="input"
               />
-              <component :is="method.icon" :size="24" class="mr-3" :class="method.color" />
-              <div class="flex-1">
-                <div class="font-semibold">{{ method.label }}</div>
-                <div class="text-xs text-gray-600">{{ method.description }}</div>
-              </div>
-            </label>
-          </div>
+            </FormField>
 
-          <!-- Téléphone pour mobile money -->
-          <div v-if="formData.moyen_paiement !== 'especes'" class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Numéro de téléphone Mobile Money *
-            </label>
-            <input
-              v-model="formData.telephone_paiement"
-              type="tel"
-              placeholder="+237699123456"
-              class="input"
-              required
-            />
-            <p class="text-xs text-gray-500 mt-1">
-              Après confirmation, vous serez redirigé vers la page de paiement sécurisée NotchPay
-            </p>
-          </div>
+            <AlertMessage v-if="orderError" type="error">{{ orderError }}</AlertMessage>
 
-          <p v-if="orderError" class="text-sm text-red-600 mb-4">
-            {{ orderError }}
-          </p>
+            <div class="flex flex-col-reverse gap-3 sm:flex-row">
+              <Button type="button" variant="outline" :icon="ArrowLeft" @click="allerEtape(1)">
+                Retour
+              </Button>
+              <Button type="submit" variant="primary" size="lg" :loading="submitting" class="flex-1">
+                <Lock :size="17" aria-hidden="true" />
+                {{ formData.moyen_paiement === 'especes' ? 'Confirmer la commande' : `Payer ${formatPrice(totalGeneral)} FCFA` }}
+              </Button>
+            </div>
+          </form>
+        </section>
 
-          <div class="flex gap-3">
-            <Button type="button" variant="outline" @click="currentStep = 1">
-              Retour
-            </Button>
-            <Button type="submit" variant="primary" :loading="submitting" class="flex-1">
-              Confirmer la commande
-            </Button>
-          </div>
-        </form>
-      </Card>
-
-      <!-- Étape 3: Confirmation (une commande par vendeur) -->
-      <Card v-if="currentStep === 3" padding="lg" class="mb-6">
-        <div class="text-center mb-6">
-          <div class="text-5xl mb-3">🎉</div>
-          <h2 class="font-display text-xl font-bold text-gray-800 mb-2">
+        <!-- Étape 3 : confirmation (une commande par vendeur) -->
+        <section v-if="currentStep === 3" class="card p-5 text-center sm:p-8" aria-labelledby="titre-etape">
+          <span class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-700">
+            <CheckCircle2 :size="34" aria-hidden="true" />
+          </span>
+          <h2 id="titre-etape" ref="titreEtape" tabindex="-1" class="text-2xl">
             {{ commandesCreees.length > 1 ? `${commandesCreees.length} commandes confirmées` : 'Commande confirmée' }}
           </h2>
-          <p class="text-sm text-gray-600">
-            <template v-if="commandesCreees.length > 1">
-              Votre panier a été réparti en une commande par vendeur.
-            </template>
-            Vous pouvez suivre leur avancement dans « Mes commandes ».
+          <p class="mx-auto mt-2 max-w-md text-gray-600">
+            <template v-if="commandesCreees.length > 1">Votre panier a été réparti en une commande par vendeur. </template>
+            Suivez leur avancement dans « Mes commandes ».
           </p>
+
+          <AlertMessage v-if="erreurPaiement" type="warning" class="mt-6 text-left">{{ erreurPaiement }}</AlertMessage>
+
+          <ul class="mt-6 space-y-3 text-left">
+            <li
+              v-for="commande in commandesCreees"
+              :key="commande.id"
+              class="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 p-4"
+            >
+              <div class="min-w-0">
+                <p class="font-semibold text-gray-900">{{ commande.numero_commande }}</p>
+                <p class="text-sm text-gray-600">{{ commande.vendeur?.nom_complet || 'Vendeur' }}</p>
+              </div>
+              <div class="text-right">
+                <p class="price">{{ formatPrice(commande.montant_total) }} FCFA</p>
+                <router-link :to="`/mes-commandes/${commande.id}`" class="lien text-sm">
+                  Voir le détail<span class="sr-only"> de la commande {{ commande.numero_commande }}</span>
+                </router-link>
+              </div>
+            </li>
+          </ul>
+
+          <div class="mt-6 flex flex-col gap-3 sm:flex-row">
+            <Button to="/mes-commandes" variant="primary" class="flex-1">Voir mes commandes</Button>
+            <Button to="/produits" variant="outline" class="flex-1">Continuer mes achats</Button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Récapitulatif -->
+      <aside v-if="currentStep < 3" class="lg:sticky lg:top-24" aria-labelledby="titre-recap">
+        <div class="card p-5 sm:p-6">
+          <h2 id="titre-recap" class="text-lg">Récapitulatif</h2>
+
+          <p v-if="groupes.length > 1" class="mt-2 text-sm text-gray-600">
+            {{ groupes.length }} commandes, une par vendeur.
+          </p>
+
+          <ul class="mt-4 space-y-3">
+            <li
+              v-for="groupe in livraisonParGroupe"
+              :key="groupe.vendeurId ?? 'sans-vendeur'"
+              class="rounded-xl bg-gray-50 p-3 text-sm"
+            >
+              <p class="flex justify-between gap-3 font-semibold text-gray-900">
+                <span class="truncate">{{ groupe.vendeurNom }}</span>
+                <span class="flex-shrink-0 font-normal text-gray-600">
+                  {{ groupe.items.length }} article{{ groupe.items.length > 1 ? 's' : '' }}
+                </span>
+              </p>
+              <dl class="mt-1.5 space-y-1">
+                <div class="flex justify-between gap-3">
+                  <dt class="text-gray-600">Produits</dt>
+                  <dd class="tabular-nums">{{ formatPrice(groupe.sousTotal) }} FCFA</dd>
+                </div>
+                <div v-if="estLivraison && groupe.vendeurId" class="flex justify-between gap-3">
+                  <dt class="text-gray-600">Livraison</dt>
+                  <dd v-if="groupe.statut === 'ok'" class="tabular-nums">{{ formatPrice(groupe.frais) }} FCFA</dd>
+                  <dd v-else-if="groupe.statut === 'non_couvert'" class="text-right font-medium text-red-700">
+                    Non livré à {{ formatVille(villeLivraison) }}
+                  </dd>
+                  <dd v-else-if="groupe.statut === 'minimum_non_atteint'" class="text-right font-medium text-red-700">
+                    Il manque {{ formatPrice(groupe.manque) }} FCFA
+                  </dd>
+                  <dd v-else-if="groupe.statut === 'chargement'" class="text-gray-600">Calcul…</dd>
+                  <dd v-else class="text-gray-600">À calculer</dd>
+                </div>
+              </dl>
+              <p v-if="groupe.statut === 'sans_vendeur'" class="mt-1 text-xs font-medium text-red-700">
+                Ces produits ne sont rattachés à aucun vendeur et ne peuvent pas être commandés.
+              </p>
+            </li>
+          </ul>
+
+          <dl class="mt-4 space-y-2 border-t border-gray-200 pt-4 text-[0.9375rem]">
+            <div class="flex justify-between gap-3">
+              <dt class="text-gray-700">Produits</dt>
+              <dd class="tabular-nums">{{ formatPrice(panierStore.total) }} FCFA</dd>
+            </div>
+            <div v-if="estLivraison" class="flex justify-between gap-3">
+              <dt class="text-gray-700">Livraison</dt>
+              <dd v-if="livraisonCalculee" class="tabular-nums">{{ formatPrice(fraisLivraison) }} FCFA</dd>
+              <dd v-else class="text-sm text-gray-600">À calculer</dd>
+            </div>
+            <div class="flex items-baseline justify-between gap-3 pt-2">
+              <dt class="font-semibold text-gray-900">Total</dt>
+              <dd class="price text-2xl">{{ formatPrice(totalGeneral) }} FCFA</dd>
+            </div>
+          </dl>
         </div>
-
-        <p v-if="erreurPaiement" class="mb-6 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
-          {{ erreurPaiement }}
-        </p>
-
-        <div class="space-y-3 mb-6">
-          <div
-            v-for="commande in commandesCreees"
-            :key="commande.id"
-            class="flex items-center justify-between gap-3 p-4 border border-gray-200 rounded-lg"
-          >
-            <div class="min-w-0">
-              <div class="font-semibold text-gray-800">{{ commande.numero_commande }}</div>
-              <div class="text-sm text-gray-600">{{ commande.vendeur?.nom_complet || 'Vendeur' }}</div>
-            </div>
-            <div class="text-right">
-              <div class="price">{{ formatPrice(commande.montant_total) }} FCFA</div>
-              <router-link
-                :to="`/mes-commandes/${commande.id}`"
-                class="text-sm text-gold-600 hover:text-gold-700"
-              >
-                Voir le détail
-              </router-link>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex flex-col sm:flex-row gap-3">
-          <Button variant="primary" class="flex-1" @click="router.push('/mes-commandes')">
-            Voir mes commandes
-          </Button>
-          <Button variant="outline" class="flex-1" @click="router.push('/produits')">
-            Continuer mes achats
-          </Button>
-        </div>
-      </Card>
-
-      <!-- Résumé de la commande -->
-      <Card v-if="currentStep < 3" padding="lg">
-        <h3 class="font-display text-lg font-bold text-gray-800 mb-4">
-          Récapitulatif
-        </h3>
-
-        <p v-if="groupes.length > 1" class="text-sm text-gray-600 mb-4">
-          Votre panier sera réparti en {{ groupes.length }} commandes, une par vendeur.
-        </p>
-
-        <div class="space-y-3 mb-4">
-          <div
-            v-for="groupe in livraisonParGroupe"
-            :key="groupe.vendeurId ?? 'sans-vendeur'"
-            class="p-3 border border-gray-100 rounded-lg space-y-1"
-          >
-            <div class="flex justify-between gap-3 text-sm font-semibold text-gray-800">
-              <span>{{ groupe.vendeurNom }}</span>
-              <span class="text-gray-500 font-normal">
-                {{ groupe.items.length }} article{{ groupe.items.length > 1 ? 's' : '' }}
-              </span>
-            </div>
-            <div class="flex justify-between text-sm">
-              <span>Sous-total</span>
-              <span>{{ formatPrice(groupe.sousTotal) }} FCFA</span>
-            </div>
-            <div v-if="estLivraison && groupe.vendeurId" class="flex justify-between gap-3 text-sm">
-              <span>Livraison</span>
-              <span v-if="groupe.statut === 'ok'" class="text-right">
-                {{ formatPrice(groupe.frais) }} FCFA
-              </span>
-              <span v-else-if="groupe.statut === 'non_couvert'" class="text-right text-red-600">
-                Ce vendeur ne livre pas à {{ formatVille(villeLivraison) }}
-              </span>
-              <span v-else-if="groupe.statut === 'minimum_non_atteint'" class="text-right text-red-600">
-                Dès {{ formatPrice(groupe.minimum) }} FCFA d'achat
-                <span class="block text-xs">Il manque {{ formatPrice(groupe.manque) }} FCFA</span>
-              </span>
-              <span v-else-if="groupe.statut === 'chargement'" class="text-gray-500">Calcul...</span>
-              <span v-else class="text-gray-500">À calculer</span>
-            </div>
-            <p v-if="groupe.statut === 'sans_vendeur'" class="text-xs text-red-600">
-              Ces produits ne sont rattachés à aucun vendeur et ne peuvent pas être commandés.
-            </p>
-          </div>
-
-          <div class="divider-ornament"></div>
-
-          <div class="flex justify-between text-sm">
-            <span>Sous-total</span>
-            <span>{{ formatPrice(panierStore.total) }} FCFA</span>
-          </div>
-          <div v-if="estLivraison" class="flex justify-between text-sm">
-            <span>Livraison</span>
-            <span v-if="livraisonCalculee">
-              {{ formatPrice(fraisLivraison) }} FCFA
-            </span>
-            <span v-else class="text-gray-500">À calculer</span>
-          </div>
-          <div class="divider-ornament"></div>
-          <div class="flex justify-between font-bold text-lg">
-            <span>Total</span>
-            <span class="price">{{ formatPrice(totalGeneral) }} FCFA</span>
-          </div>
-        </div>
-      </Card>
-
-      <!-- Modal ajout / modification adresse -->
-      <AdresseFormModal
-        v-if="showAddAddress"
-        :adresse="adresseEnEdition"
-        :telephone-par-defaut="authStore.user?.telephone || ''"
-        @close="closeAddAddress"
-        @saved="onAdresseSaved"
-      />
+      </aside>
     </div>
+
+    <!-- Ajout / modification d'adresse -->
+    <AdresseFormModal
+      v-if="showAddAddress"
+      :adresse="adresseEnEdition"
+      :telephone-par-defaut="authStore.user?.telephone || ''"
+      @close="closeAddAddress"
+      @saved="onAdresseSaved"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePanierStore } from '@/stores/panier'
 import { useAuthStore } from '@/stores/auth'
 import api, { messageErreur } from '@/services/api'
-import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import FormField from '@/components/common/FormField.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
 import AdresseFormModal from '@/components/adresse/AdresseFormModal.vue'
 import { useLivraisonVendeurs, grouperParVendeur } from '@/composables/useLivraisonVendeurs'
 import { useVilleStore } from '@/stores/ville'
-import { formatVille, libelleAdresse, villeAdresse } from '@/utils/villes'
+import { formatVille, villeAdresse } from '@/utils/villes'
 import { memoriserReferencePaiement } from '@/utils/paiement'
-import { Truck, Store, Smartphone, Banknote } from 'lucide-vue-next'
+import { formatPrice } from '@/utils/format'
+import {
+  Truck, Store, Check, MapPin, Pencil, Plus, AlertTriangle, ArrowRight, ArrowLeft, Lock, CheckCircle2,
+} from 'lucide-vue-next'
 
 const router = useRouter()
 const panierStore = usePanierStore()
@@ -383,13 +357,22 @@ const {
   livraisonDesGroupes,
 } = useLivraisonVendeurs()
 
-const etapes = ['Livraison', 'Paiement', 'Confirmation']
+const ETAPES = ['Livraison', 'Paiement', 'Confirmation']
+
+const MODES = [
+  { valeur: 'livraison', libelle: 'Livraison à domicile', description: 'Frais fixes par vendeur', icone: Truck },
+  { valeur: 'retrait_boutique', libelle: 'Retrait en boutique', description: 'Gratuit, sans minimum d\'achat', icone: Store },
+]
+
 const currentStep = ref(1)
+const titreEtape = ref(null)
 const submitting = ref(false)
 const showAddAddress = ref(false)
 const adresseEnEdition = ref(null)
 const adresses = ref([])
+const chargementAdresses = ref(true)
 const orderError = ref('')
+const erreurs = ref({})
 const commandesCreees = ref([])
 const erreurPaiement = ref('')
 
@@ -403,9 +386,9 @@ const formData = ref({
 })
 
 const paymentMethods = [
-  { value: 'orange_money', label: 'Orange Money', description: 'Paiement instantané', icon: Smartphone, color: 'text-orange-500' },
-  { value: 'mtn_momo', label: 'MTN Mobile Money', description: 'Paiement instantané', icon: Smartphone, color: 'text-yellow-500' },
-  { value: 'especes', label: 'Espèces à la livraison', description: 'Payer en liquide', icon: Banknote, color: 'text-green-500' },
+  { value: 'orange_money', label: 'Orange Money', description: 'Validation sur votre téléphone', logo: '/Orange-Money-logo.png' },
+  { value: 'mtn_momo', label: 'MTN Mobile Money', description: 'Validation sur votre téléphone', logo: '/Momo-logo.png' },
+  { value: 'especes', label: 'Espèces', description: 'À régler à la livraison ou au retrait', logo: '/argent.png' },
 ]
 const estLivraison = computed(() => formData.value.type_livraison === 'livraison')
 
@@ -413,6 +396,9 @@ const selectedAdresse = computed(() => {
   return adresses.value.find((adresse) => String(adresse.id) === String(formData.value.adresse_livraison_id)) || null
 })
 const villeLivraison = computed(() => villeAdresse(selectedAdresse.value))
+
+// « Carrefour Obili, Obili, Yaoundé »
+const lieuAdresse = (adresse) => [adresse.zone, adresse.quartier, formatVille(villeAdresse(adresse))].filter(Boolean).join(', ')
 
 // Une commande sera créée par groupe (vendeur)
 const groupes = computed(() => grouperParVendeur(panierStore.items))
@@ -439,6 +425,10 @@ const totalGeneral = computed(() => panierStore.total + (estLivraison.value ? fr
 const blocageEtape1 = computed(() => {
   if (livraisonParGroupe.value.some((groupe) => groupe.statut === 'sans_vendeur')) {
     return 'Certains produits ne sont rattachés à aucun vendeur : retirez-les du panier pour continuer.'
+  }
+
+  if (estLivraison.value && selectedAdresse.value && !selectedAdresse.value.quartier_id) {
+    return 'Cette adresse n\'a pas de quartier reconnu : modifiez-la pour calculer la livraison.'
   }
 
   const nonCouverts = livraisonParGroupe.value.filter((groupe) => groupe.statut === 'non_couvert')
@@ -473,13 +463,12 @@ const isStep1Blocked = computed(() => {
   )
 })
 
-const formatPrice = (price) => {
-  return new Intl.NumberFormat('fr-FR').format(price)
-}
-
-const libelleOption = (adresse) => {
-  const libelle = libelleAdresse(adresse)
-  return adresse.quartier_id ? libelle : `${libelle} (quartier à préciser)`
+// Change d'étape, remonte en haut et place le focus sur le titre de l'étape
+const allerEtape = async (etape) => {
+  currentStep.value = etape
+  await nextTick()
+  window.scrollTo({ top: 0 })
+  titreEtape.value?.focus({ preventScroll: true })
 }
 
 const fetchAdresses = async (adresseASelectionner = null) => {
@@ -499,6 +488,8 @@ const fetchAdresses = async (adresseASelectionner = null) => {
     }
   } catch (error) {
     console.error('Erreur chargement adresses:', error)
+  } finally {
+    chargementAdresses.value = false
   }
 }
 
@@ -523,17 +514,35 @@ const onAdresseSaved = async (adresse) => {
   await fetchAdresses(adresse?.id)
 }
 
+const focusPremiereErreur = async () => {
+  await nextTick()
+  document.querySelector('[aria-invalid="true"]')?.focus()
+}
+
 const goToStep2 = () => {
+  erreurs.value = {}
+  if (estLivraison.value && !formData.value.telephone_livraison.trim()) {
+    erreurs.value = { telephone_livraison: 'Indiquez un numéro pour que le vendeur puisse vous joindre.' }
+    focusPremiereErreur()
+    return
+  }
   if (isStep1Blocked.value) {
     return
   }
   orderError.value = ''
-  currentStep.value = 2
+  allerEtape(2)
 }
 
 const submitOrder = async () => {
   if (isStep1Blocked.value) {
-    currentStep.value = 1
+    allerEtape(1)
+    return
+  }
+
+  erreurs.value = {}
+  if (formData.value.moyen_paiement !== 'especes' && !formData.value.telephone_paiement.trim()) {
+    erreurs.value = { telephone_paiement: 'Indiquez le numéro Mobile Money qui va payer.' }
+    focusPremiereErreur()
     return
   }
 
@@ -563,7 +572,7 @@ const submitOrder = async () => {
         return
       }
       erreurPaiement.value = response.data.erreur_paiement || ''
-      currentStep.value = 3
+      allerEtape(3)
     } else {
       orderError.value = response.data?.message || 'Erreur lors de la création de la commande.'
     }
@@ -594,3 +603,26 @@ watch(
   { immediate: true }
 )
 </script>
+
+<style scoped>
+/* Carte radio : bordure bronze + fond or + coche quand choisie, anneau au focus clavier */
+.carte-radio {
+  @apply relative flex min-h-[4.5rem] cursor-pointer items-center gap-3 rounded-2xl border-2 border-gray-200 bg-surface p-4 transition-colors hover:border-gray-300;
+}
+
+.carte-radio:has(:checked) {
+  @apply border-gold-600 bg-gold-50;
+}
+
+.carte-radio:has(:focus-visible) {
+  @apply outline outline-2 outline-offset-2 outline-gold-600;
+}
+
+.coche {
+  @apply flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-gray-300 text-transparent transition-colors;
+}
+
+.carte-radio:has(:checked) .coche {
+  @apply border-gold-600 bg-gold-600 text-on-accent;
+}
+</style>

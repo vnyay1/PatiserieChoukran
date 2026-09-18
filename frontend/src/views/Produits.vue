@@ -2,41 +2,47 @@
 PAGE PRODUITS - Liste complète avec filtres
 File: src/views/Produits.vue
 =================================== -->
-
+<!--
+  Recherche collante sous l'en-tête, filtres en colonne (desktop) ou en tiroir (mobile),
+  nombre de résultats annoncé aux lecteurs d'écran, puces de filtres actifs retirables,
+  pagination en <nav> avec cibles de 44 px. L'URL reflète tous les filtres.
+-->
 <template>
-  <div class="produits-page pb-6">
-    <!-- Header avec recherche -->
+  <div class="pb-6">
+    <!-- Recherche -->
     <div class="sticky top-14 z-30 border-b border-gray-200 bg-surface/95 backdrop-blur-md md:top-[4.5rem]">
-      <div class="container mx-auto px-4 py-4">
-        <div class="flex items-center gap-2">
-          <div class="flex-1 relative">
-            <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" :size="20" />
-            <input
-              v-model="searchQuery"
-              type="search"
-              placeholder="Rechercher un produit..."
-              aria-label="Rechercher un produit"
-              class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-gold-600 focus:ring-2 focus:ring-gold-200 outline-none"
-              @input="handleSearch"
-            />
-          </div>
-          <button
-            class="md:hidden h-12 min-w-12 px-3 rounded-xl bg-gold-500 text-on-gold flex items-center justify-center gap-2 shadow-sm"
-            aria-label="Afficher les filtres"
-            @click="showFilters = true"
-          >
-            <SlidersHorizontal :size="18" />
-            <span v-if="activeFiltersCount > 0" class="text-xs font-bold">{{ activeFiltersCount }}</span>
-          </button>
-        </div>
+      <div class="container mx-auto flex items-center gap-2 py-3">
+        <form class="relative flex-1" role="search" @submit.prevent="mettreAJourUrl(1)">
+          <label for="recherche-produits" class="sr-only">Rechercher un produit</label>
+          <Search class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" :size="20" aria-hidden="true" />
+          <input
+            id="recherche-produits"
+            v-model="searchQuery"
+            type="search"
+            enterkeyhint="search"
+            placeholder="Gâteau, glace, croissant…"
+            class="input rounded-full pl-11"
+            @input="handleSearch"
+          />
+        </form>
+        <button
+          type="button"
+          class="btn-outline relative flex-shrink-0 px-4 md:hidden"
+          :aria-label="libelleBoutonFiltres"
+          @click="showFilters = true"
+        >
+          <SlidersHorizontal :size="18" aria-hidden="true" />
+          <span aria-hidden="true">Filtres</span>
+          <span v-if="activeFiltersCount > 0" class="badge-compteur ring-0" aria-hidden="true">{{ activeFiltersCount }}</span>
+        </button>
       </div>
     </div>
 
-    <div class="container mx-auto px-4 py-6">
-      <div class="flex gap-6">
-        <!-- Filtres Sidebar (Desktop) : appliqués dès qu'ils changent -->
-        <aside class="hidden md:block w-64 flex-shrink-0">
-          <div class="sticky top-32">
+    <div class="container mx-auto py-6">
+      <div class="flex gap-8">
+        <!-- Filtres (desktop) : appliqués dès qu'ils changent -->
+        <aside class="hidden w-64 flex-shrink-0 md:block" aria-label="Filtres">
+          <div class="sticky top-40 max-h-[calc(100dvh-11rem)] overflow-y-auto pb-4 pr-1">
             <FiltersSidebar
               v-model:selected-category="selectedCategory"
               v-model:price-range="priceRange"
@@ -44,201 +50,152 @@ File: src/views/Produits.vue
               v-model:show-vedette="showVedette"
               :categories="categories"
             />
+            <button v-if="hasActiveFilters" type="button" class="btn-ghost btn-sm mt-4 w-full" @click="resetFilters">
+              Effacer tous les filtres
+            </button>
           </div>
         </aside>
 
         <!-- Liste des produits -->
-        <div class="flex-1">
-          <!-- Header avec tri -->
-          <div class="flex items-center justify-between mb-6">
+        <div class="min-w-0 flex-1">
+          <div class="mb-5 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
-                Nos Produits
-              </h1>
-              <p class="text-gray-600 text-sm mt-1">
-                {{ totalProduits }} produit{{ totalProduits > 1 ? 's' : '' }} trouvé{{ totalProduits > 1 ? 's' : '' }}
+              <h1>Nos produits</h1>
+              <p class="mt-1 text-sm text-gray-600" aria-live="polite" aria-atomic="true">
+                <template v-if="loading">Recherche en cours…</template>
+                <template v-else>
+                  {{ totalProduits }} produit{{ totalProduits > 1 ? 's' : '' }}
+                  <template v-if="villeStore.ville"> livrable{{ totalProduits > 1 ? 's' : '' }} à {{ villeStore.libelle }}</template>
+                </template>
               </p>
             </div>
 
-            <!-- Tri -->
-            <select
-              v-model="sortBy"
-              aria-label="Trier les produits"
-              class="hidden md:block px-4 py-2 rounded-lg border border-gray-200 focus:border-gold-600 focus:ring-2 focus:ring-gold-200 outline-none"
-            >
-              <option value="recent">Plus récents</option>
-              <option value="price_asc">Prix croissant</option>
-              <option value="price_desc">Prix décroissant</option>
-              <option value="popular">Populaires</option>
-            </select>
+            <!-- Tri (desktop) -->
+            <div class="hidden items-center gap-2 md:flex">
+              <label for="tri-produits" class="text-sm font-semibold text-gray-700">Trier par</label>
+              <select id="tri-produits" v-model="sortBy" class="input w-auto min-w-[11rem] py-2">
+                <option v-for="(libelle, valeur) in LIBELLES_TRI" :key="valeur" :value="valeur">{{ libelle }}</option>
+              </select>
+            </div>
           </div>
 
-          <!-- Filtres actifs (chips) -->
-          <div v-if="hasActiveFilters" class="flex flex-wrap gap-2 mb-4">
-            <button
-              v-if="searchQuery"
-              class="badge badge-primary flex items-center gap-2"
-              @click="searchQuery = ''; handleSearch()"
-            >
-              « {{ searchQuery }} »
-              <X :size="14" />
-            </button>
-            <button
-              v-if="selectedCategory"
-              class="badge badge-primary flex items-center gap-2"
-              @click="selectedCategory = null"
-            >
-              {{ getCategoryName(selectedCategory) }}
-              <X :size="14" />
-            </button>
-            <button
-              v-if="hasPriceFilter"
-              class="badge badge-primary flex items-center gap-2"
-              @click="priceRange = [null, null]"
-            >
-              {{ libellePrix }}
-              <X :size="14" />
-            </button>
-            <button
-              v-if="showPromo"
-              class="badge badge-danger flex items-center gap-2"
-              @click="showPromo = false"
-            >
-              En promotion
-              <X :size="14" />
-            </button>
-            <button
-              v-if="showVedette"
-              class="badge badge-success flex items-center gap-2"
-              @click="showVedette = false"
-            >
-              Vendeurs vedettes
-              <X :size="14" />
-            </button>
-          </div>
+          <!-- Filtres actifs -->
+          <ul v-if="hasActiveFilters" class="mb-5 flex flex-wrap items-center gap-2" aria-label="Filtres actifs">
+            <li v-for="puce in pucesActives" :key="puce.cle">
+              <button
+                type="button"
+                class="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-gold-200 bg-gold-50 py-1 pl-3 pr-2 text-sm font-semibold text-gold-800 transition-colors hover:border-gold-400 hover:bg-gold-100"
+                :aria-label="`Retirer le filtre : ${puce.libelle}`"
+                @click="puce.retirer()"
+              >
+                {{ puce.libelle }}
+                <X :size="15" aria-hidden="true" />
+              </button>
+            </li>
+            <li>
+              <button type="button" class="lien text-sm" @click="resetFilters">Tout effacer</button>
+            </li>
+          </ul>
 
-          <!-- Loading -->
-          <div v-if="loading" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <div v-for="n in 8" :key="n" class="skeleton h-80 rounded-elegant"></div>
-          </div>
+          <!-- Chargement -->
+          <ul v-if="loading" class="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4" aria-hidden="true">
+            <li v-for="n in 8" :key="n">
+              <div class="skeleton aspect-square rounded-elegant"></div>
+              <div class="skeleton mt-3 h-4 w-3/4"></div>
+              <div class="skeleton mt-2 h-4 w-1/2"></div>
+            </li>
+          </ul>
 
           <!-- Produits -->
-          <div v-else-if="produits.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <ProduitCard
-              v-for="produit in produits"
-              :key="produit.id"
-              :produit="produit"
-            />
-          </div>
+          <ul v-else-if="produits.length > 0" class="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+            <li v-for="produit in produits" :key="produit.id">
+              <ProduitCard :produit="produit" />
+            </li>
+          </ul>
 
-          <!-- Empty state -->
-          <div v-else class="text-center py-16">
-            <div class="text-6xl mb-4">🔍</div>
-            <h3 class="font-display text-xl font-semibold text-gray-800 mb-2">
-              Aucun produit trouvé
-            </h3>
-            <p class="text-gray-600 mb-6">
-              Essayez de modifier vos filtres ou votre recherche
-            </p>
-            <Button variant="outline" @click="resetFilters">
-              Réinitialiser les filtres
-            </Button>
-          </div>
+          <!-- Aucun résultat -->
+          <EmptyState
+            v-else
+            :icone="SearchX"
+            titre="Aucun produit trouvé"
+            :texte="hasActiveFilters ? 'Essayez un autre mot-clé ou retirez un filtre.' : 'Aucun produit n’est disponible pour le moment.'"
+          >
+            <Button v-if="hasActiveFilters" variant="outline" @click="resetFilters">Effacer les filtres</Button>
+          </EmptyState>
 
           <!-- Pagination -->
-          <div v-if="totalPages > 1" class="mt-8 flex justify-center">
-            <div class="flex items-center gap-2">
-              <button
-                :disabled="currentPage === 1"
-                aria-label="Page précédente"
-                class="px-4 py-2 rounded-lg border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                @click="changePage(currentPage - 1)"
-              >
-                <ChevronLeft :size="20" />
-              </button>
-
-              <div class="flex gap-2">
+          <nav v-if="totalPages > 1" class="mt-10 flex justify-center" aria-label="Pagination">
+            <ul class="flex flex-wrap items-center justify-center gap-1.5">
+              <li>
                 <button
-                  v-for="page in displayedPages"
-                  :key="page"
-                  :class="[
-                    'px-4 py-2 rounded-lg',
-                    page === currentPage
-                      ? 'bg-gold-500 text-on-gold'
-                      : 'border border-gray-200 hover:bg-gray-50'
-                  ]"
+                  type="button"
+                  class="page-btn"
+                  :disabled="currentPage === 1"
+                  aria-label="Page précédente"
+                  @click="changePage(currentPage - 1)"
+                >
+                  <ChevronLeft :size="20" aria-hidden="true" />
+                </button>
+              </li>
+              <li v-for="page in displayedPages" :key="page">
+                <button
+                  type="button"
+                  class="page-btn"
                   :aria-current="page === currentPage ? 'page' : undefined"
+                  :aria-label="`Page ${page}`"
                   @click="changePage(page)"
                 >
                   {{ page }}
                 </button>
-              </div>
-
-              <button
-                :disabled="currentPage === totalPages"
-                aria-label="Page suivante"
-                class="px-4 py-2 rounded-lg border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                @click="changePage(currentPage + 1)"
-              >
-                <ChevronRight :size="20" />
-              </button>
-            </div>
-          </div>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  class="page-btn"
+                  :disabled="currentPage === totalPages"
+                  aria-label="Page suivante"
+                  @click="changePage(currentPage + 1)"
+                >
+                  <ChevronRight :size="20" aria-hidden="true" />
+                </button>
+              </li>
+            </ul>
+          </nav>
         </div>
       </div>
     </div>
 
-    <!-- Modal Filtres (Mobile) -->
-    <Teleport to="body">
-      <div
-        v-if="showFilters"
-        class="fixed inset-0 bg-black/50 z-50 md:hidden"
-        @click="showFilters = false"
-      >
-        <div
-          class="absolute bottom-0 left-0 right-0 bg-surface rounded-t-3xl p-6 max-h-[80vh] overflow-y-auto animate-slideUp"
-          @click.stop
-        >
-          <div class="mx-auto mb-4 h-1 w-12 rounded-full bg-gray-300"></div>
-          <div class="flex items-center justify-between mb-6">
-            <h2 class="font-display text-xl font-bold text-gray-800">Filtres</h2>
-            <button aria-label="Fermer les filtres" @click="showFilters = false">
-              <X :size="24" />
-            </button>
-          </div>
-
-          <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Tri</label>
-            <select
-              v-model="sortBy"
-              class="input"
-            >
-              <option value="recent">Plus récents</option>
-              <option value="price_asc">Prix croissant</option>
-              <option value="price_desc">Prix décroissant</option>
-              <option value="popular">Populaires</option>
-            </select>
-          </div>
-
-          <FiltersSidebar
-            v-model:selected-category="selectedCategory"
-            v-model:price-range="priceRange"
-            v-model:show-promo="showPromo"
-            v-model:show-vedette="showVedette"
-            :categories="categories"
-          />
-
-          <div class="flex gap-3 mt-6">
-            <Button variant="outline" full-width @click="resetFilters(); showFilters = false">
-              Réinitialiser
-            </Button>
-            <Button variant="primary" full-width @click="showFilters = false">
-              Voir {{ totalProduits }} résultat{{ totalProduits > 1 ? 's' : '' }}
-            </Button>
-          </div>
-        </div>
+    <!-- Filtres (mobile) -->
+    <BaseModal
+      :ouvert="showFilters"
+      titre="Filtres et tri"
+      variante="feuille"
+      @fermer="showFilters = false"
+    >
+      <div class="mb-7">
+        <label for="tri-produits-mobile" class="titre-tri">Trier par</label>
+        <select id="tri-produits-mobile" v-model="sortBy" class="input">
+          <option v-for="(libelle, valeur) in LIBELLES_TRI" :key="valeur" :value="valeur">{{ libelle }}</option>
+        </select>
       </div>
-    </Teleport>
+
+      <FiltersSidebar
+        v-model:selected-category="selectedCategory"
+        v-model:price-range="priceRange"
+        v-model:show-promo="showPromo"
+        v-model:show-vedette="showVedette"
+        :categories="categories"
+      />
+
+      <template #actions>
+        <Button variant="outline" :disabled="!hasActiveFilters" @click="resetFilters">
+          Effacer
+        </Button>
+        <Button variant="primary" class="sm:min-w-[12rem]" :loading="loading" @click="showFilters = false">
+          Voir {{ totalProduits }} résultat{{ totalProduits > 1 ? 's' : '' }}
+        </Button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -251,7 +208,10 @@ import { useVilleStore } from '@/stores/ville'
 import ProduitCard from '@/components/produits/ProduitCard.vue'
 import FiltersSidebar from '@/components/produits/FiltersSidebar.vue'
 import Button from '@/components/common/Button.vue'
-import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import BaseModal from '@/components/common/BaseModal.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import { formatPrice } from '@/utils/format'
+import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight, SearchX } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -263,6 +223,13 @@ const TRIS = {
   price_asc: { sort_by: 'prix', sort_order: 'asc' },
   price_desc: { sort_by: 'prix', sort_order: 'desc' },
   popular: { sort_by: 'nombre_commandes', sort_order: 'desc' },
+}
+
+const LIBELLES_TRI = {
+  recent: 'Plus récents',
+  price_asc: 'Prix croissant',
+  price_desc: 'Prix décroissant',
+  popular: 'Les plus commandés',
 }
 
 // State
@@ -308,8 +275,6 @@ const hasActiveFilters = computed(() => {
 const activeFiltersCount = computed(() => {
   return [selectedCategory.value, showPromo.value, showVedette.value, hasPriceFilter.value].filter(Boolean).length
 })
-
-const formatPrice = (price) => new Intl.NumberFormat('fr-FR').format(price)
 
 const libellePrix = computed(() => {
   const [min, max] = priceRange.value
@@ -411,6 +376,32 @@ const fetchCategories = async () => {
   }
 }
 
+const libelleBoutonFiltres = computed(() => {
+  const nombre = activeFiltersCount.value
+  return nombre > 0 ? `Filtres et tri, ${nombre} actif${nombre > 1 ? 's' : ''}` : 'Filtres et tri'
+})
+
+// Puces des filtres actifs, chacune retirable d'un clic
+const pucesActives = computed(() => {
+  const puces = []
+  if (searchQuery.value) {
+    puces.push({ cle: 'q', libelle: `« ${searchQuery.value} »`, retirer: () => { searchQuery.value = ''; mettreAJourUrl(1) } })
+  }
+  if (selectedCategory.value) {
+    puces.push({ cle: 'categorie', libelle: getCategoryName(selectedCategory.value) || 'Catégorie', retirer: () => { selectedCategory.value = null } })
+  }
+  if (hasPriceFilter.value) {
+    puces.push({ cle: 'prix', libelle: libellePrix.value, retirer: () => { priceRange.value = [null, null] } })
+  }
+  if (showPromo.value) {
+    puces.push({ cle: 'promo', libelle: 'En promotion', retirer: () => { showPromo.value = false } })
+  }
+  if (showVedette.value) {
+    puces.push({ cle: 'vedette', libelle: 'Vendeurs vedettes', retirer: () => { showVedette.value = false } })
+  }
+  return puces
+})
+
 const getCategoryName = (id) => {
   const cat = categories.value.find(c => c.id === id)
   return cat ? cat.nom : ''
@@ -469,3 +460,18 @@ watch(() => villeStore.ville, () => {
 
 onBeforeUnmount(() => clearTimeout(searchTimeout))
 </script>
+
+<style scoped>
+.titre-tri {
+  @apply mb-3 block font-body text-sm font-bold uppercase tracking-wider text-gray-900;
+}
+
+.page-btn {
+  @apply inline-flex h-11 min-w-11 items-center justify-center rounded-full border border-gray-300 bg-surface px-3 font-semibold tabular-nums text-gray-800
+         transition-colors hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-45;
+}
+
+.page-btn[aria-current='page'] {
+  @apply border-gold-500 bg-gold-500 text-on-gold hover:bg-gold-500;
+}
+</style>

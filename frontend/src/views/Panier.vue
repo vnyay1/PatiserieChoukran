@@ -2,211 +2,181 @@
 PAGE PANIER
 File: src/views/Panier.vue
 =================================== -->
-
+<!--
+  Articles groupés par vendeur (une commande par vendeur), avec l'état de livraison de
+  chaque groupe : icône + texte + couleur, et une jauge « plus que X FCFA » vers le minimum.
+  Récapitulatif collant sur desktop, action « Commander » toujours visible.
+-->
 <template>
-  <div class="panier-page pb-6">
-    <div class="container mx-auto px-4 py-6">
-      <!-- Header -->
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
-          Mon Panier
-        </h1>
-        <button
-          v-if="!panierStore.isEmpty"
-          class="text-red-500 hover:text-red-600 text-sm font-medium"
-          @click="showClearConfirm = true"
-        >
-          Vider le panier
-        </button>
-      </div>
-
-      <!-- Loading -->
-      <div v-if="panierStore.loading" class="space-y-4">
-        <div v-for="n in 3" :key="n" class="skeleton h-32 rounded-elegant"></div>
-      </div>
-
-      <!-- Panier vide -->
-      <div v-else-if="panierStore.isEmpty" class="text-center py-16">
-        <div class="text-6xl mb-4">🛒</div>
-        <h2 class="font-display text-2xl font-bold text-gray-800 mb-2">
-          Votre panier est vide
-        </h2>
-        <p class="text-gray-600 mb-6">
-          Découvrez nos délicieuses créations
+  <div class="container mx-auto pb-6 pt-6 md:pt-8">
+    <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1>Mon panier</h1>
+        <p v-if="!panierStore.isEmpty" class="mt-1 text-sm text-gray-600">
+          {{ panierStore.itemCount }} article{{ panierStore.itemCount > 1 ? 's' : '' }}
+          <template v-if="groupes.length > 1"> chez {{ groupes.length }} vendeurs</template>
         </p>
-        <Button variant="primary" @click="$router.push('/produits')">
-          Découvrir nos produits
-        </Button>
       </div>
-
-      <!-- Contenu du panier -->
-      <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Liste des articles, groupés par vendeur (une commande par vendeur) -->
-        <div class="lg:col-span-2 space-y-6">
-          <p v-if="groupes.length > 1" class="text-sm text-gray-600">
-            Votre panier contient des produits de {{ groupes.length }} vendeurs :
-            une commande sera créée par vendeur.
-          </p>
-
-          <section
-            v-for="groupe in livraisonParGroupe"
-            :key="groupe.vendeurId ?? 'sans-vendeur'"
-            class="space-y-3"
-          >
-            <div class="flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <h2 class="font-display text-lg font-bold text-gray-800">
-                  <router-link
-                    v-if="groupe.vendeurId"
-                    :to="{ name: 'vendeur-profil', params: { id: groupe.vendeurId } }"
-                    class="hover:text-gold-600"
-                  >
-                    {{ groupe.vendeurNom }}
-                  </router-link>
-                  <template v-else>{{ groupe.vendeurNom }}</template>
-                </h2>
-                <p class="text-xs" :class="classeMessageLivraison(groupe)">
-                  {{ messageLivraison(groupe) }}
-                </p>
-              </div>
-              <div class="text-sm text-gray-700">
-                Sous-total : <span class="font-semibold">{{ formatPrice(groupe.sousTotal) }} FCFA</span>
-              </div>
-            </div>
-
-            <div class="space-y-4">
-              <TransitionGroup name="list">
-                <PanierItem
-                  v-for="item in groupe.items"
-                  :key="item.id"
-                  :item="item"
-                  :loading="itemsEnCours.has(item.id)"
-                  @update-quantity="updateQuantity"
-                  @remove="removeItem"
-                />
-              </TransitionGroup>
-            </div>
-          </section>
-        </div>
-
-        <!-- Résumé -->
-        <div class="lg:col-span-1">
-          <div class="lg:sticky lg:top-24">
-            <Card padding="lg">
-              <h2 class="font-display text-xl font-bold text-gray-800 mb-6">
-                Résumé de la commande
-              </h2>
-
-              <!-- Détails -->
-              <div class="space-y-3 mb-6">
-                <div class="flex items-center justify-between text-gray-700">
-                  <span>Sous-total ({{ panierStore.itemCount }} article{{ panierStore.itemCount > 1 ? 's' : '' }})</span>
-                  <span class="font-semibold">{{ formatPrice(panierStore.total) }} FCFA</span>
-                </div>
-
-                <div class="flex items-center justify-between text-gray-700">
-                  <span>Livraison{{ livraisonEstimee ? ' estimée' : '' }}</span>
-                  <span v-if="livraisonEstimee" class="font-semibold">
-                    {{ formatPrice(fraisEstimes) }} FCFA
-                  </span>
-                  <span v-else class="text-sm text-gray-500">À calculer</span>
-                </div>
-                <p v-if="livraisonEstimee" class="text-xs text-gray-500">
-                  {{ adressePrincipale ? `Vers ${adressePrincipale.quartier}, ${formatVille(villeLivraison)} (adresse principale)` : `À ${formatVille(villeLivraison)} (ville choisie)` }},
-                  modifiable à l'étape suivante.
-                </p>
-
-                <div class="divider-ornament"></div>
-
-                <div class="flex items-center justify-between text-lg font-bold">
-                  <span>Total{{ livraisonEstimee ? ' estimé' : '' }}</span>
-                  <span class="price text-2xl">{{ formatPrice(totalEstime) }} FCFA</span>
-                </div>
-
-                <p v-if="groupes.length > 1" class="text-xs text-gray-500">
-                  {{ groupes.length }} commandes seront créées, une par vendeur.
-                </p>
-
-                <!-- Durée réglée par l'admin : sans modification, le panier est vidé -->
-                <p v-if="panierStore.expireLe" class="flex items-start gap-2 text-xs text-gray-500 bg-gray-50 rounded-lg p-2">
-                  <Clock :size="14" class="mt-0.5 flex-shrink-0" />
-                  <span>Sans modification, ce panier sera vidé automatiquement le {{ formatDateHeure(panierStore.expireLe) }}.</span>
-                </p>
-              </div>
-
-              <!-- Bouton commander -->
-              <p v-if="aDesProduitsSansVendeur" class="text-sm text-red-600 mb-3">
-                Retirez les produits sans vendeur pour pouvoir commander.
-              </p>
-              <Button
-                variant="primary"
-                size="lg"
-                full-width
-                :disabled="aDesProduitsSansVendeur"
-                @click="$router.push('/commander')"
-              >
-                Commander
-              </Button>
-
-              <!-- Paiement sécurisé -->
-              <div class="mt-6 flex items-center justify-center gap-2 text-sm text-gray-500">
-                <Shield :size="16" class="text-green-500" />
-                <span>Paiement sécurisé</span>
-              </div>
-            </Card>
-
-            <!-- Moyens de paiement acceptés -->
-            <div class="mt-4 p-4 bg-surface rounded-elegant">
-              <p class="text-xs text-gray-600 text-center mb-2">Moyens de paiement acceptés</p>
-              <div class="flex items-center justify-center gap-3">
-                <div class="px-3 py-2 bg-orange-100 rounded text-xs font-semibold text-orange-700">
-                  <img src="/Orange-Money-logo.png" alt="Orange Money" width="60" height="40" loading="lazy">
-                </div>
-                <div class="px-3 py-2 bg-yellow-100 rounded text-xs font-semibold text-yellow-700">
-                  <img src="/Momo-logo.png" alt="MTN Mobile Money" width="60" height="40" loading="lazy">
-                </div>
-                <div class="px-3 py-2 bg-green-100 rounded text-xs font-semibold text-green-700">
-                  <img src="/argent.png" alt="Espèces" width="42" height="40" loading="lazy">
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <button
+        v-if="!panierStore.isEmpty"
+        type="button"
+        class="btn-ghost btn-sm text-red-700 hover:bg-red-50"
+        @click="confirmerVidage"
+      >
+        <Trash2 :size="16" aria-hidden="true" />
+        Vider le panier
+      </button>
     </div>
 
-    <!-- Modal confirmation vider le panier -->
-    <Teleport to="body">
-      <div
-        v-if="showClearConfirm"
-        class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-        @click="showClearConfirm = false"
-      >
-        <div
-          class="bg-surface rounded-elegant p-6 max-w-sm w-full animate-fadeIn"
-          @click.stop
-        >
-          <div class="text-center mb-4">
-            <div class="text-5xl mb-3">⚠️</div>
-            <h3 class="font-display text-xl font-bold text-gray-800 mb-2">
-              Vider le panier ?
-            </h3>
-            <p class="text-gray-600">
-              Tous les articles seront supprimés
-            </p>
-          </div>
-
-          <div class="flex gap-3">
-            <Button variant="outline" full-width @click="showClearConfirm = false">
-              Annuler
-            </Button>
-            <Button variant="danger" full-width @click="clearCart">
-              Vider
-            </Button>
-          </div>
-        </div>
+    <!-- Chargement -->
+    <div v-if="panierStore.loading && panierStore.isEmpty" class="grid grid-cols-1 gap-6 lg:grid-cols-3" aria-busy="true">
+      <div class="space-y-3 lg:col-span-2">
+        <div v-for="n in 3" :key="n" class="skeleton h-28 rounded-elegant"></div>
       </div>
-    </Teleport>
+      <div class="skeleton h-72 rounded-elegant"></div>
+    </div>
+
+    <!-- Panier vide -->
+    <EmptyState
+      v-else-if="panierStore.isEmpty"
+      :icone="ShoppingCart"
+      titre="Votre panier est vide"
+      texte="Parcourez nos gâteaux, pâtisseries et glaces : ils vous attendent."
+    >
+      <Button to="/produits" variant="primary" :icon="ShoppingBag">Découvrir nos produits</Button>
+    </EmptyState>
+
+    <!-- Contenu -->
+    <div v-else class="grid grid-cols-1 items-start gap-6 lg:grid-cols-3 lg:gap-8">
+      <div class="space-y-6 lg:col-span-2">
+        <AlertMessage v-if="groupes.length > 1" type="info">
+          Votre panier contient les produits de {{ groupes.length }} vendeurs :
+          une commande sera créée pour chacun, avec ses propres frais de livraison.
+        </AlertMessage>
+
+        <section
+          v-for="groupe in livraisonParGroupe"
+          :key="groupe.vendeurId ?? 'sans-vendeur'"
+          class="card"
+          :aria-labelledby="`vendeur-${groupe.vendeurId ?? 'aucun'}`"
+        >
+          <header class="border-b border-gray-200 px-4 py-4 sm:px-5">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 :id="`vendeur-${groupe.vendeurId ?? 'aucun'}`" class="flex items-center gap-2 font-body text-base font-bold">
+                <Store :size="18" class="text-gold-600" aria-hidden="true" />
+                <router-link
+                  v-if="groupe.vendeurId"
+                  :to="{ name: 'vendeur-profil', params: { id: groupe.vendeurId } }"
+                  class="hover:underline"
+                >
+                  {{ groupe.vendeurNom }}
+                </router-link>
+                <template v-else>{{ groupe.vendeurNom }}</template>
+              </h2>
+              <p class="text-sm text-gray-700">
+                Sous-total : <span class="font-semibold tabular-nums">{{ formatPrice(groupe.sousTotal) }} FCFA</span>
+              </p>
+            </div>
+
+            <p class="mt-2 flex items-start gap-2 text-sm" :class="etatLivraison(groupe).classe">
+              <component :is="etatLivraison(groupe).icone" :size="16" class="mt-0.5 flex-shrink-0" aria-hidden="true" />
+              <span>{{ etatLivraison(groupe).message }}</span>
+            </p>
+
+            <!-- Jauge vers le minimum de livraison du vendeur -->
+            <div v-if="groupe.minimum > 0 && groupe.manque > 0" class="mt-3">
+              <div
+                class="h-2 overflow-hidden rounded-full bg-gray-200"
+                role="progressbar"
+                :aria-valuenow="Math.round(groupe.sousTotal)"
+                aria-valuemin="0"
+                :aria-valuemax="groupe.minimum"
+                :aria-label="`Minimum de livraison chez ${groupe.vendeurNom}`"
+                :aria-valuetext="`${formatPrice(groupe.sousTotal)} sur ${formatPrice(groupe.minimum)} FCFA`"
+              >
+                <div class="h-full rounded-full bg-gold-600 transition-[width] duration-500" :style="{ width: `${Math.min(100, (groupe.sousTotal / groupe.minimum) * 100)}%` }"></div>
+              </div>
+            </div>
+          </header>
+
+          <TransitionGroup name="liste" tag="ul" class="divide-y divide-gray-200">
+            <PanierItem
+              v-for="item in groupe.items"
+              :key="item.id"
+              :item="item"
+              :loading="itemsEnCours.has(item.id)"
+              @update-quantity="updateQuantity"
+              @remove="removeItem"
+            />
+          </TransitionGroup>
+        </section>
+      </div>
+
+      <!-- Récapitulatif -->
+      <aside class="lg:sticky lg:top-24" aria-labelledby="titre-recapitulatif">
+        <div class="card p-5 sm:p-6">
+          <h2 id="titre-recapitulatif" class="text-xl">Récapitulatif</h2>
+
+          <dl class="mt-5 space-y-3 text-[0.9375rem]">
+            <div class="flex items-center justify-between gap-3 text-gray-700">
+              <dt>Produits ({{ panierStore.itemCount }})</dt>
+              <dd class="font-semibold tabular-nums text-gray-900">{{ formatPrice(panierStore.total) }} FCFA</dd>
+            </div>
+            <div class="flex items-center justify-between gap-3 text-gray-700">
+              <dt>Livraison{{ livraisonEstimee ? ' estimée' : '' }}</dt>
+              <dd v-if="livraisonEstimee" class="font-semibold tabular-nums text-gray-900">{{ formatPrice(fraisEstimes) }} FCFA</dd>
+              <dd v-else class="text-sm text-gray-600">Calculée à l'étape suivante</dd>
+            </div>
+            <div class="flex items-baseline justify-between gap-3 border-t border-gray-200 pt-4">
+              <dt class="font-semibold text-gray-900">Total{{ livraisonEstimee ? ' estimé' : '' }}</dt>
+              <dd class="price text-2xl">{{ formatPrice(totalEstime) }} FCFA</dd>
+            </div>
+          </dl>
+
+          <p v-if="livraisonEstimee" class="mt-2 text-xs text-gray-600">
+            {{ adressePrincipale ? `Vers ${adressePrincipale.quartier}, ${formatVille(villeLivraison)} (adresse principale)` : `À ${formatVille(villeLivraison)} (ville choisie)` }},
+            modifiable à l'étape suivante.
+          </p>
+
+          <AlertMessage v-if="aDesProduitsSansVendeur" type="error" class="mt-4">
+            Retirez les produits sans vendeur pour pouvoir commander.
+          </AlertMessage>
+
+          <Button
+            :to="aDesProduitsSansVendeur ? null : '/commander'"
+            variant="primary"
+            size="lg"
+            full-width
+            class="mt-5"
+            :disabled="aDesProduitsSansVendeur"
+          >
+            Passer la commande
+            <ArrowRight :size="18" aria-hidden="true" />
+          </Button>
+
+          <p class="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600">
+            <ShieldCheck :size="16" class="text-green-700" aria-hidden="true" />
+            Paiement sécurisé
+          </p>
+
+          <!-- Durée réglée par l'admin : sans modification, le panier est vidé -->
+          <p v-if="panierStore.expireLe" class="mt-4 flex items-start gap-2 rounded-xl bg-gray-50 p-3 text-xs text-gray-600">
+            <Clock :size="14" class="mt-0.5 flex-shrink-0" aria-hidden="true" />
+            <span>Sans modification, ce panier sera vidé le {{ formatDateHeure(panierStore.expireLe) }}.</span>
+          </p>
+        </div>
+
+        <!-- Moyens de paiement acceptés -->
+        <div class="mt-4 rounded-elegant border border-gray-200 bg-surface p-4">
+          <p class="mb-3 text-center text-xs font-semibold text-gray-600">Moyens de paiement acceptés</p>
+          <ul class="flex items-center justify-center gap-3">
+            <li v-for="moyen in MOYENS" :key="moyen.nom" class="flex h-12 w-16 items-center justify-center rounded-lg bg-white p-1.5 ring-1 ring-gray-200">
+              <img :src="moyen.logo" :alt="moyen.nom" class="max-h-full w-auto object-contain" loading="lazy" />
+            </li>
+          </ul>
+        </div>
+      </aside>
+    </div>
   </div>
 </template>
 
@@ -214,22 +184,32 @@ File: src/views/Panier.vue
 import { ref, computed, onMounted, watch } from 'vue'
 import { usePanierStore } from '@/stores/panier'
 import { useToastStore } from '@/stores/toast'
+import { useConfirm } from '@/composables/useConfirm'
 import api from '@/services/api'
 import PanierItem from '@/components/panier/PanierItem.vue'
 import Button from '@/components/common/Button.vue'
-import Card from '@/components/common/Card.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 import { useLivraisonVendeurs, grouperParVendeur } from '@/composables/useLivraisonVendeurs'
 import { useVilleStore } from '@/stores/ville'
 import { formatVille, villeAdresse } from '@/utils/villes'
-import { Shield, Clock } from 'lucide-vue-next'
-import { formatDateHeure } from '@/utils/format'
+import {
+  ShieldCheck, Clock, Trash2, ShoppingCart, ShoppingBag, Store, Truck, AlertTriangle, AlertCircle, Info, ArrowRight, Loader2,
+} from 'lucide-vue-next'
+import { formatDateHeure, formatPrice } from '@/utils/format'
+
+const MOYENS = [
+  { nom: 'Orange Money', logo: '/Orange-Money-logo.png' },
+  { nom: 'MTN Mobile Money', logo: '/Momo-logo.png' },
+  { nom: 'Espèces', logo: '/argent.png' },
+]
 
 const panierStore = usePanierStore()
 const toastStore = useToastStore()
 const villeStore = useVilleStore()
+const { confirmer } = useConfirm()
 const { chargerLivraisonVendeurs, livraisonDesGroupes } = useLivraisonVendeurs()
 
-const showClearConfirm = ref(false)
 // Sert à estimer les frais de livraison (l'adresse reste modifiable au checkout)
 const adressePrincipale = ref(null)
 
@@ -245,39 +225,31 @@ const fraisEstimes = computed(() => livraisonParGroupe.value.reduce((somme, grou
 const totalEstime = computed(() => panierStore.total + (livraisonEstimee.value ? fraisEstimes.value : 0))
 const aDesProduitsSansVendeur = computed(() => groupes.value.some((groupe) => !groupe.vendeurId))
 
-const formatPrice = (price) => {
-  return new Intl.NumberFormat('fr-FR').format(price)
-}
-
-const messageLivraison = (groupe) => {
-  const ville = formatVille(villeLivraison.value)
-
-  switch (groupe.statut) {
-    case 'ok':
-      return `Livraison estimée à ${ville} : ${formatPrice(groupe.frais)} FCFA`
-    case 'non_couvert':
-      return `Ce vendeur ne livre pas à ${ville} (retrait en boutique possible)`
-    case 'minimum_non_atteint':
-      return messageMinimum(groupe)
-    case 'chargement':
-      return 'Calcul des frais de livraison...'
-    case 'sans_vendeur':
-      return 'Produits rattachés à aucun vendeur : ils ne peuvent pas être commandés.'
-    default:
-      // Sans adresse, le minimum du vendeur reste utile à connaître
-      return groupe.manque > 0 ? messageMinimum(groupe) : 'Frais de livraison calculés à l\'étape suivante'
-  }
-}
-
 const messageMinimum = (groupe) => {
   return `Livraison dès ${formatPrice(groupe.minimum)} FCFA d'achat chez ce vendeur : ajoutez ${formatPrice(groupe.manque)} FCFA ou choisissez le retrait en boutique.`
 }
 
-const classeMessageLivraison = (groupe) => {
-  if (groupe.statut === 'sans_vendeur') return 'text-red-600'
-  if (groupe.statut === 'non_couvert' || groupe.manque > 0) return 'text-orange-600'
-  if (groupe.statut === 'ok') return 'text-gray-600'
-  return 'text-gray-500'
+// État de livraison d'un groupe : message, icône et couleur
+const etatLivraison = (groupe) => {
+  const ville = formatVille(villeLivraison.value)
+
+  switch (groupe.statut) {
+    case 'ok':
+      return { message: `Livraison à ${ville} : ${formatPrice(groupe.frais)} FCFA`, icone: Truck, classe: 'text-gray-700' }
+    case 'non_couvert':
+      return { message: `Ce vendeur ne livre pas à ${ville} : retrait en boutique possible.`, icone: AlertTriangle, classe: 'text-orange-700' }
+    case 'minimum_non_atteint':
+      return { message: messageMinimum(groupe), icone: AlertTriangle, classe: 'text-orange-700' }
+    case 'chargement':
+      return { message: 'Calcul des frais de livraison…', icone: Loader2, classe: 'text-gray-600' }
+    case 'sans_vendeur':
+      return { message: 'Produits rattachés à aucun vendeur : ils ne peuvent pas être commandés.', icone: AlertCircle, classe: 'text-red-700' }
+    default:
+      // Sans adresse, le minimum du vendeur reste utile à connaître
+      return groupe.manque > 0
+        ? { message: messageMinimum(groupe), icone: AlertTriangle, classe: 'text-orange-700' }
+        : { message: 'Frais de livraison calculés à l\'étape suivante.', icone: Info, classe: 'text-gray-600' }
+  }
 }
 
 const fetchAdressePrincipale = async () => {
@@ -327,9 +299,16 @@ const removeItem = async (itemId) => {
   }
 }
 
-const clearCart = async () => {
+const confirmerVidage = async () => {
+  const ok = await confirmer({
+    titre: 'Vider le panier ?',
+    message: 'Tous les articles seront retirés. Cette action est définitive.',
+    libelleConfirmer: 'Vider le panier',
+    danger: true,
+  })
+  if (!ok) return
+
   const result = await panierStore.clear()
-  showClearConfirm.value = false
   if (result?.success) {
     toastStore.succes('Panier vidé.')
   } else {
@@ -339,22 +318,18 @@ const clearCart = async () => {
 </script>
 
 <style scoped>
-.list-enter-active,
-.list-leave-active {
-  transition: all 0.3s ease;
+.liste-enter-active,
+.liste-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
 
-.list-enter-from {
+.liste-enter-from,
+.liste-leave-to {
   opacity: 0;
-  transform: translateX(-30px);
+  transform: translateX(16px);
 }
 
-.list-leave-to {
-  opacity: 0;
-  transform: translateX(30px);
-}
-
-.list-move {
-  transition: transform 0.3s ease;
+.liste-move {
+  transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
 </style>
