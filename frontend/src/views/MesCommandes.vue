@@ -16,7 +16,7 @@ File: src/views/MesCommandes.vue
           v-for="filtre in filtres"
           :key="filtre.value"
           class="px-4 py-2 rounded-full whitespace-nowrap transition-colors"
-          :class="filtreActif === filtre.value ? 'bg-gold-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+          :class="filtreActif === filtre.value ? 'bg-gold-500 text-on-gold' : 'bg-surface text-gray-700 hover:bg-gray-50'"
           role="tab"
           :aria-selected="filtreActif === filtre.value"
           @click="changerFiltre(filtre.value)"

@@ -6,7 +6,7 @@ File: src/views/Produits.vue
 <template>
   <div class="produits-page bg-cream min-h-screen pb-4">
     <!-- Header avec recherche -->
-    <div class="bg-white sticky top-16 md:top-20 z-30 shadow-sm">
+    <div class="bg-surface sticky top-16 md:top-20 z-30 shadow-sm">
       <div class="container mx-auto px-4 py-4">
         <div class="flex items-center gap-2">
           <div class="flex-1 relative">
@@ -16,12 +16,12 @@ File: src/views/Produits.vue
               type="search"
               placeholder="Rechercher un produit..."
               aria-label="Rechercher un produit"
-              class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-gold-500 focus:ring-2 focus:ring-gold-200 outline-none"
+              class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-gold-600 focus:ring-2 focus:ring-gold-200 outline-none"
               @input="handleSearch"
             />
           </div>
           <button
-            class="md:hidden h-12 min-w-12 px-3 rounded-xl bg-gold-500 text-white flex items-center justify-center gap-2 shadow-sm"
+            class="md:hidden h-12 min-w-12 px-3 rounded-xl bg-gold-500 text-on-gold flex items-center justify-center gap-2 shadow-sm"
             aria-label="Afficher les filtres"
             @click="showFilters = true"
           >
@@ -64,7 +64,7 @@ File: src/views/Produits.vue
             <select
               v-model="sortBy"
               aria-label="Trier les produits"
-              class="hidden md:block px-4 py-2 rounded-lg border border-gray-200 focus:border-gold-500 focus:ring-2 focus:ring-gold-200 outline-none"
+              class="hidden md:block px-4 py-2 rounded-lg border border-gray-200 focus:border-gold-600 focus:ring-2 focus:ring-gold-200 outline-none"
             >
               <option value="recent">Plus récents</option>
               <option value="price_asc">Prix croissant</option>
@@ -164,7 +164,7 @@ File: src/views/Produits.vue
                   :class="[
                     'px-4 py-2 rounded-lg',
                     page === currentPage
-                      ? 'bg-gold-500 text-white'
+                      ? 'bg-gold-500 text-on-gold'
                       : 'border border-gray-200 hover:bg-gray-50'
                   ]"
                   :aria-current="page === currentPage ? 'page' : undefined"
@@ -196,7 +196,7 @@ File: src/views/Produits.vue
         @click="showFilters = false"
       >
         <div
-          class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl p-6 max-h-[80vh] overflow-y-auto animate-slideUp"
+          class="absolute bottom-0 left-0 right-0 bg-surface rounded-t-3xl p-6 max-h-[80vh] overflow-y-auto animate-slideUp"
           @click.stop
         >
           <div class="mx-auto mb-4 h-1 w-12 rounded-full bg-gray-300"></div>

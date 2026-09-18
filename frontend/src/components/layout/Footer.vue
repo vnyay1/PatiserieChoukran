@@ -4,7 +4,7 @@ File: src/components/layout/Footer.vue
 =================================== -->
 
 <template>
-  <footer class="bg-white border-t border-gray-100 mt-12">
+  <footer class="bg-surface border-t border-gray-100 mt-12">
     <!-- Mobile accordions -->
     <div class="md:hidden px-4 py-8 space-y-4">
       <div class="flex items-center gap-3">
@@ -14,7 +14,7 @@ File: src/components/layout/Footer.vue
 
       <div class="divide-y divide-gray-100 rounded-2xl border border-gray-100 overflow-hidden">
         <details v-for="section in mobileSections" :key="section.title" class="group">
-          <summary class="flex items-center justify-between px-4 py-3 bg-white cursor-pointer">
+          <summary class="flex items-center justify-between px-4 py-3 bg-surface cursor-pointer">
             <span class="font-semibold text-gray-800">{{ section.title }}</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 9l6 6 6-6" />

@@ -44,7 +44,7 @@ File: src/views/admin/AdminDashboard.vue
             v-for="option in periodes"
             :key="option.value"
             class="px-4 py-2 rounded-full text-sm font-medium transition-colors"
-            :class="periode === option.value ? 'bg-gold-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+            :class="periode === option.value ? 'bg-gold-500 text-on-gold' : 'bg-surface text-gray-700 hover:bg-gray-50'"
             @click="setPeriode(option.value)"
           >
             {{ option.label }}
@@ -193,7 +193,7 @@ File: src/views/admin/AdminDashboard.vue
             <div
               v-for="commande in dernieresCommandes"
               :key="commande.id"
-              class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-3 rounded-lg border border-gray-100 bg-white"
+              class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-3 rounded-lg border border-gray-100 bg-surface"
             >
               <div>
                 <div class="font-semibold text-gray-800">

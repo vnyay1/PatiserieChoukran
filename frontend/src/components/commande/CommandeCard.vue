@@ -84,7 +84,7 @@ File: src/components/commande/CommandeCard.vue
       </div>
       <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
         <div
-          class="h-full bg-gradient-gold transition-all duration-500"
+          class="h-full bg-gold-600 transition-[width] duration-500"
           :style="{ width: `${getProgressPercent(commande.statut)}%` }"
         ></div>
       </div>

@@ -1,201 +1,334 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-
 /* ===================================
-   BASE STYLES
+   JETONS DE DESIGN (clair / sombre)
+   Canaux RGB lus par tailwind.config.js : rgb(var(--gold-600) / <alpha-value>).
+   Contrastes vérifiés (WCAG 2.2) :
+   - texte gray-900 sur fond : 16,4:1 clair, 16,9:1 sombre (AAA)
+   - texte secondaire gray-500 : ≥ 5,1:1 dans les deux thèmes (AA)
+   - bouton principal cacao sur or : 7,7:1 clair, 9,4:1 sombre (AAA)
+   - liens et prix gold-600/700 : ≥ 4,9:1 (AA), anneau de focus ≥ 4,9:1
+   - bordure de champ gray-400 : ≥ 3,5:1 (composant d'interface, 1.4.11)
 =================================== */
 @layer base {
   :root {
-    --page-padding: 1rem;
+    color-scheme: light;
+
+    --bg: 255 251 245;
+    --surface: 255 255 255;
+    --on-gold: 42 30 20;
+    --on-accent: 255 255 255;
+    --danger: 180 35 24;
+    --success: 6 118 71;
+    --primaire-survol: 201 164 44;
+    --primaire-actif: 184 148 30;
+    --hero-debut: 255 232 220;
+    --hero-fin: 255 251 245;
+
+    --gray-50: 250 246 241; --gray-100: 243 236 228; --gray-200: 231 221 210; --gray-300: 211 197 183; --gray-400: 148 132 115; --gray-500: 118 102 90; --gray-600: 94 79 67; --gray-700: 74 61 51; --gray-800: 52 42 34; --gray-900: 35 27 21;
+    --gold-50: 255 250 235; --gold-100: 253 240 200; --gold-200: 248 224 154; --gold-300: 237 203 102; --gold-400: 224 186 69; --gold-500: 212 175 55; --gold-600: 138 106 18; --gold-700: 115 88 16; --gold-800: 92 70 13; --gold-900: 70 53 10;
+    --red-50: 254 243 242; --red-100: 254 228 226; --red-200: 254 205 202; --red-300: 253 162 155; --red-400: 249 112 102; --red-500: 217 45 32; --red-600: 180 35 24; --red-700: 145 32 24; --red-800: 122 39 26; --red-900: 85 22 12;
+    --orange-50: 255 246 237; --orange-100: 255 234 213; --orange-200: 253 220 171; --orange-300: 254 178 115; --orange-400: 253 133 58; --orange-500: 217 72 15; --orange-600: 185 56 21; --orange-700: 156 42 16; --orange-800: 126 36 16; --orange-900: 81 28 16;
+    --yellow-50: 254 251 232; --yellow-100: 254 247 195; --yellow-200: 254 238 149; --yellow-300: 253 226 114; --yellow-400: 250 197 21; --yellow-500: 202 133 4; --yellow-600: 161 92 7; --yellow-700: 133 74 14; --yellow-800: 113 59 18; --yellow-900: 84 44 13;
+    --green-50: 236 253 243; --green-100: 209 250 223; --green-200: 166 244 197; --green-300: 108 233 166; --green-400: 50 213 131; --green-500: 7 148 85; --green-600: 6 118 71; --green-700: 5 96 58; --green-800: 5 79 49; --green-900: 5 51 33;
+    --blue-50: 239 248 255; --blue-100: 209 233 255; --blue-200: 178 221 255; --blue-300: 132 202 255; --blue-400: 83 177 253; --blue-500: 46 144 250; --blue-600: 21 112 239; --blue-700: 23 92 211; --blue-800: 24 73 169; --blue-900: 25 65 133;
+    --purple-50: 244 243 255; --purple-100: 235 233 254; --purple-200: 217 214 254; --purple-300: 189 180 254; --purple-400: 155 138 251; --purple-500: 122 90 248; --purple-600: 105 56 239; --purple-700: 89 37 220; --purple-800: 74 31 184; --purple-900: 62 28 150;
+    --indigo-50: 238 244 255; --indigo-100: 224 234 255; --indigo-200: 199 215 254; --indigo-300: 164 188 253; --indigo-400: 128 152 249; --indigo-500: 97 114 243; --indigo-600: 68 76 231; --indigo-700: 53 56 205; --indigo-800: 45 49 166; --indigo-900: 45 50 130;
+
+    --shadow-card: 0 1px 2px rgb(35 27 21 / 0.05), 0 4px 16px rgb(35 27 21 / 0.06);
+    --shadow-elegant: 0 8px 28px rgb(138 106 18 / 0.14);
+    --shadow-elegant-lg: 0 16px 48px rgb(35 27 21 / 0.16);
+
+    --hauteur-entete: 3.5rem;
   }
 
-  * {
-    @apply box-border;
+  .dark {
+    color-scheme: dark;
+
+    --bg: 20 16 12;
+    --surface: 30 24 19;
+    --on-gold: 26 19 11;
+    --on-accent: 26 19 11;
+    --danger: 196 39 27;
+    --success: 8 116 67;
+    --primaire-survol: 228 194 87;
+    --primaire-actif: 201 164 44;
+    --hero-debut: 42 29 22;
+    --hero-fin: 20 16 12;
+
+    --gray-50: 34 27 22; --gray-100: 43 35 29; --gray-200: 58 48 39; --gray-300: 76 64 54; --gray-400: 133 117 102; --gray-500: 171 157 143; --gray-600: 198 185 171; --gray-700: 219 208 196; --gray-800: 235 227 217; --gray-900: 247 241 234;
+    --gold-50: 42 33 19; --gold-100: 58 45 21; --gold-200: 87 68 26; --gold-300: 134 105 31; --gold-400: 194 157 46; --gold-500: 217 182 71; --gold-600: 232 199 102; --gold-700: 240 213 136; --gold-800: 246 227 174; --gold-900: 251 240 210;
+    --red-50: 45 22 20; --red-100: 63 29 26; --red-200: 92 38 33; --red-300: 122 46 39; --red-400: 180 71 61; --red-500: 249 112 102; --red-600: 253 162 155; --red-700: 254 205 202; --red-800: 254 228 226; --red-900: 254 243 242;
+    --orange-50: 43 26 16; --orange-100: 61 36 20; --orange-200: 90 51 25; --orange-300: 122 69 32; --orange-400: 184 100 42; --orange-500: 253 154 87; --orange-600: 253 181 122; --orange-700: 253 212 174; --orange-800: 254 234 213; --orange-900: 255 246 237;
+    --yellow-50: 42 35 11; --yellow-100: 58 48 15; --yellow-200: 84 70 26; --yellow-300: 122 100 32; --yellow-400: 184 150 31; --yellow-500: 234 170 8; --yellow-600: 250 197 21; --yellow-700: 253 226 114; --yellow-800: 254 238 149; --yellow-900: 254 247 195;
+    --green-50: 15 36 25; --green-100: 19 51 34; --green-200: 28 74 49; --green-300: 37 107 69; --green-400: 47 158 98; --green-500: 71 205 137; --green-600: 108 233 166; --green-700: 166 244 197; --green-800: 209 250 223; --green-900: 236 253 243;
+    --blue-50: 15 27 45; --blue-100: 16 42 76; --blue-200: 22 59 107; --blue-300: 29 79 143; --blue-400: 46 111 196; --blue-500: 83 177 253; --blue-600: 132 202 255; --blue-700: 178 221 255; --blue-800: 209 233 255; --blue-900: 239 248 255;
+    --purple-50: 28 22 51; --purple-100: 39 29 74; --purple-200: 54 41 107; --purple-300: 74 56 148; --purple-400: 107 83 214; --purple-500: 155 138 251; --purple-600: 189 180 254; --purple-700: 217 214 254; --purple-800: 235 233 254; --purple-900: 244 243 255;
+    --indigo-50: 22 26 51; --indigo-100: 29 35 80; --indigo-200: 40 48 112; --indigo-300: 54 63 153; --indigo-400: 78 91 214; --indigo-500: 128 152 249; --indigo-600: 164 188 253; --indigo-700: 199 215 254; --indigo-800: 224 234 255; --indigo-900: 238 244 255;
+
+    /* En sombre, une ombre ne se voit plus : un liseré clair détache les surfaces */
+    --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.04), 0 2px 8px rgb(0 0 0 / 0.45);
+    --shadow-elegant: 0 0 0 1px rgb(232 199 102 / 0.18), 0 10px 30px rgb(0 0 0 / 0.55);
+    --shadow-elegant-lg: 0 0 0 1px rgb(255 255 255 / 0.06), 0 20px 50px rgb(0 0 0 / 0.65);
+  }
+
+  @media (min-width: 768px) {
+    :root {
+      --hauteur-entete: 4.5rem;
+    }
   }
 
   html {
-    @apply scroll-smooth;
+    @apply scroll-smooth bg-cream;
+    -webkit-tap-highlight-color: transparent;
+    /* L'en-tête fixe ne masque pas la cible d'une ancre ni l'élément qui reçoit le focus */
+    scroll-padding-top: calc(var(--hauteur-entete) + 1rem);
   }
 
   body {
-    @apply font-body text-text-dark bg-cream antialiased;
-    padding: 0;
+    @apply bg-cream font-body text-base leading-relaxed text-gray-800 antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-display text-text-dark;
+  h1, h2, h3, h4 {
+    @apply font-display text-gray-900;
+    text-wrap: balance;
   }
 
   h1 {
-    @apply text-4xl md:text-5xl font-bold leading-tight;
+    @apply text-[1.75rem] font-bold leading-tight md:text-[2.25rem];
   }
 
   h2 {
-    @apply text-3xl md:text-4xl font-bold leading-snug;
+    @apply text-2xl font-bold leading-snug md:text-[1.75rem];
   }
 
   h3 {
-    @apply text-2xl md:text-3xl font-semibold;
+    @apply text-xl font-semibold leading-snug;
   }
 
   h4 {
-    @apply text-xl md:text-2xl font-semibold;
+    @apply text-lg font-semibold;
+  }
+
+  p {
+    text-wrap: pretty;
   }
 
   img {
-    @apply max-w-full h-auto;
+    @apply h-auto max-w-full;
+  }
+
+  /* Focus clavier visible partout (2.4.7), jamais affiché au clic de la souris */
+  :focus-visible {
+    outline: 2px solid rgb(var(--gold-600));
+    outline-offset: 2px;
+  }
+
+  /* Cibles de focus programmatique (contenu principal, titres d'étape) */
+  [tabindex='-1']:focus {
+    outline: none;
+  }
+
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: rgb(var(--gold-600));
+  }
+
+  ::placeholder {
+    color: rgb(var(--gray-500));
+    opacity: 1;
+  }
+
+  ::selection {
+    background-color: rgb(var(--gold-200));
+    color: rgb(var(--gray-900));
+  }
+
+  /* Mouvements réduits (2.3.3) : animations et défilement doux neutralisés */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
 /* ===================================
-   COMPONENTS
+   COMPOSANTS
 =================================== */
 @layer components {
-  /* Bouton principal (doré) */
+  /* Boutons : hauteur minimale 44 px (40 px en taille sm), pilule, texte 15 px semi-gras */
+  .btn {
+    @apply inline-flex min-h-11 select-none items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 text-[0.9375rem] font-semibold leading-tight
+           transition-[background-color,border-color,color,box-shadow] duration-150 ease-douce
+           disabled:cursor-not-allowed disabled:opacity-55 aria-disabled:cursor-not-allowed aria-disabled:opacity-55;
+  }
+
+  .btn-sm {
+    @apply min-h-10 px-4 text-sm;
+  }
+
+  .btn-lg {
+    @apply min-h-12 px-7 text-base;
+  }
+
+  /* Principal : or de la marque, texte cacao (7,7:1) */
   .btn-primary {
-    @apply bg-gold-500 text-white px-6 py-3 rounded-full font-medium
-           hover:bg-gold-600 active:bg-gold-700
-           transition-all duration-200
-           shadow-md hover:shadow-lg
-           disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply btn bg-gold-500 text-on-gold shadow-sm
+           hover:bg-[rgb(var(--primaire-survol))] hover:shadow-elegant
+           active:bg-[rgb(var(--primaire-actif))]
+           disabled:hover:bg-gold-500 disabled:hover:shadow-sm;
   }
 
-  /* Bouton secondaire (blanc avec bordure dorée) */
+  /* Secondaire : contour bronze sur surface */
   .btn-secondary {
-    @apply bg-white text-gold-600 border-2 border-gold-500
-           px-6 py-3 rounded-full font-medium
-           hover:bg-gold-50 active:bg-gold-100
-           transition-all duration-200
-           shadow-sm hover:shadow-md;
+    @apply btn border border-gold-600 bg-surface text-gold-700
+           hover:bg-gold-50 active:bg-gold-100;
   }
 
-  /* Bouton outline */
+  /* Tertiaire : contour neutre, pour « Annuler », « Retour », « Réinitialiser » */
   .btn-outline {
-    @apply bg-transparent text-gold-600 border border-gold-500
-           px-6 py-3 rounded-full font-medium
-           hover:bg-gold-50 active:bg-gold-100
-           transition-all duration-200;
+    @apply btn border border-gray-400 bg-transparent text-gray-800
+           hover:border-gray-500 hover:bg-gray-50 active:bg-gray-100;
   }
 
-  /* Card élégante */
+  .btn-ghost {
+    @apply btn bg-transparent text-gray-700 hover:bg-gray-100 active:bg-gray-200;
+  }
+
+  .btn-danger {
+    @apply btn bg-danger text-white shadow-sm hover:brightness-110 active:brightness-95;
+  }
+
+  /* Bouton icône carré (fermer, supprimer, notifications…) : 44 × 44 px */
+  .btn-icone {
+    @apply inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-gray-700
+           transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200
+           disabled:cursor-not-allowed disabled:opacity-55;
+  }
+
   .card {
-    @apply bg-white rounded-elegant shadow-card
-           overflow-hidden transition-shadow duration-200
-           hover:shadow-elegant;
+    @apply overflow-hidden rounded-elegant border border-gray-200/70 bg-surface shadow-card;
   }
 
-  /* Input avec style Choukrane */
+  /* Champs : 44 px de haut, bordure 3,5:1, focus bronze + halo */
   .input {
-    @apply w-full px-4 py-3 rounded-xl
-           border border-gray-200
-           focus:border-gold-500 focus:ring-2 focus:ring-gold-200
-           outline-none transition-all duration-200
-           bg-white text-text-dark;
+    @apply block min-h-11 w-full rounded-xl border border-gray-400 bg-surface px-4 py-2.5 text-base text-gray-900
+           transition-[border-color,box-shadow] duration-150
+           hover:border-gray-500
+           focus:border-gold-600 focus:outline-none focus:ring-4 focus:ring-gold-500/25
+           disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500
+           aria-[invalid=true]:border-red-600 aria-[invalid=true]:focus:ring-red-500/20;
   }
 
-  /* Badge */
+  .label {
+    @apply mb-1.5 block text-sm font-semibold text-gray-800;
+  }
+
+  .aide {
+    @apply mt-1.5 text-[0.8125rem] leading-snug text-gray-500;
+  }
+
+  .erreur-champ {
+    @apply mt-1.5 flex items-start gap-1.5 text-[0.8125rem] font-medium leading-snug text-red-600;
+  }
+
   .badge {
-    @apply inline-flex items-center justify-center
-           px-3 py-1 rounded-full text-xs font-medium;
+    @apply inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold leading-5;
   }
 
   .badge-primary {
-    @apply bg-gold-100 text-gold-700;
+    @apply bg-gold-100 text-gold-800;
   }
 
   .badge-success {
-    @apply bg-green-100 text-green-700;
+    @apply bg-green-100 text-green-800;
   }
 
   .badge-danger {
-    @apply bg-red-100 text-red-700;
+    @apply bg-red-100 text-red-800;
   }
 
-  /* Section avec ornements */
-  .section-ornament {
-    @apply relative;
+  .badge-warning {
+    @apply bg-yellow-100 text-yellow-800;
   }
 
-  .section-ornament::before {
-    content: '✦';
-    @apply absolute top-0 left-1/2 transform -translate-x-1/2
-           text-gold-400 text-2xl;
+  .badge-neutral {
+    @apply bg-gray-100 text-gray-700;
   }
 
-  /* Divider avec ornement */
+  /* Pastille de compteur (panier, notifications) */
+  .badge-compteur {
+    @apply inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-gold-600 px-1 text-[11px] font-bold leading-none text-on-accent ring-2 ring-surface;
+  }
+
+  /* Puce de filtre (période, statut) : état actif = or + coche implicite par aria-pressed */
+  .puce {
+    @apply inline-flex min-h-10 items-center gap-2 rounded-full border border-gray-300 bg-surface px-4 text-sm font-semibold text-gray-700
+           transition-colors duration-150 hover:border-gray-400 hover:bg-gray-50
+           aria-pressed:border-gold-500 aria-pressed:bg-gold-500 aria-pressed:text-on-gold;
+  }
+
+  .lien {
+    @apply font-semibold text-gold-700 underline decoration-gold-500/50 decoration-2 underline-offset-4 transition-colors hover:text-gold-800 hover:decoration-gold-600;
+  }
+
   .divider-ornament {
-    @apply relative h-px bg-gradient-to-r from-transparent via-gold-300 to-transparent
-           my-8;
+    @apply relative my-6 h-px bg-gradient-to-r from-transparent via-gold-300 to-transparent;
   }
 
   .divider-ornament::after {
     content: '❖';
-    @apply absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2
-           text-gold-400 bg-cream px-2;
+    content: '❖' / '';
+    @apply absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface px-2 text-sm text-gold-500;
   }
 
-  /* Prix avec style */
   .price {
-    @apply font-display font-bold text-gold-600;
+    @apply font-display font-bold tabular-nums text-gold-700;
   }
 
   .price-old {
-    @apply text-gray-400 line-through text-sm;
+    @apply text-sm font-normal tabular-nums text-gray-500 line-through;
   }
 
-  /* Loading spinner */
   .spinner {
-    @apply inline-block w-6 h-6 border-4 border-gold-200 
-           border-t-gold-600 rounded-full animate-spin;
+    @apply inline-block h-5 w-5 flex-shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent;
+  }
+
+  .skeleton {
+    @apply animate-pulse rounded-lg bg-gray-200;
   }
 }
 
 /* ===================================
-   UTILITIES
+   UTILITAIRES
 =================================== */
 @layer utilities {
-  /* Containers & layout helpers */
-  .section {
-    @apply py-10 px-4 md:py-14;
+  .bg-gradient-peach {
+    background-image:
+      radial-gradient(90% 70% at 50% 0%, rgb(var(--gold-100) / 0.7) 0%, transparent 70%),
+      linear-gradient(180deg, rgb(var(--hero-debut)) 0%, rgb(var(--hero-fin)) 100%);
   }
 
-  .grid-responsive {
-    @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6;
+  .bg-gradient-gold {
+    background-image: linear-gradient(135deg, rgb(var(--gold-500)) 0%, rgb(var(--gold-300)) 100%);
   }
 
-  .content-narrow {
-    @apply max-w-5xl mx-auto px-4;
-  }
-
-  /* Ornement doré */
   .ornament {
-    @apply text-gold-400;
+    @apply text-gold-600;
   }
 
-  /* Gradient doré */
-  .gradient-gold {
-    background: linear-gradient(135deg, #D4AF37 0%, #FFE084 100%);
-  }
-
-  /* Gradient pêche */
-  .gradient-peach {
-    background: linear-gradient(135deg, #FFB8A0 0%, #FFF5F0 100%);
-  }
-
-  /* Text gradient */
-  .text-gradient-gold {
-    @apply bg-gradient-to-r from-gold-600 to-gold-400 bg-clip-text text-transparent;
-  }
-
-  /* Shadow élégante */
-  .shadow-elegant-lg {
-    box-shadow: 0 10px 40px rgba(212, 175, 55, 0.2);
-  }
-
-  /* Scrollbar personnalisée */
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
@@ -205,7 +338,6 @@
     scrollbar-width: none;
   }
 
-  /* Safe area pour iOS */
   .safe-top {
     padding-top: env(safe-area-inset-top);
   }
@@ -214,14 +346,8 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
 
-  /* Touch target (min 44x44px pour mobile) */
   .touch-target {
-    @apply min-h-[44px] min-w-[44px];
-  }
-
-  /* Aspect ratios helpers */
-  .ratio-card {
-    @apply aspect-[4/5] overflow-hidden rounded-elegant bg-white;
+    @apply min-h-11 min-w-11;
   }
 }
 
@@ -231,11 +357,11 @@
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
@@ -248,74 +374,38 @@
   }
 }
 
-@keyframes bounce-soft {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
-}
-
 .animate-fadeIn {
-  animation: fadeIn 0.3s ease-out;
+  animation: fadeIn 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .animate-slideUp {
-  animation: slideUp 0.3s ease-out;
-}
-
-.animate-bounce-soft {
-  animation: bounce-soft 2s infinite;
+  animation: slideUp 0.28s cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* ===================================
-   RESPONSIVE
+   BARRE DE DÉFILEMENT (desktop)
 =================================== */
-@media (max-width: 640px) {
-  h1 {
-    @apply text-3xl;
+@media (hover: hover) and (pointer: fine) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
   }
 
-  h2 {
-    @apply text-2xl;
+  ::-webkit-scrollbar-track {
+    background: rgb(var(--bg));
   }
 
-  h3 {
-    @apply text-xl;
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--gray-300));
+    border: 2px solid rgb(var(--bg));
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--gray-400));
   }
 }
 
-/* ===================================
-   CUSTOM SCROLLBAR (Desktop)
-=================================== */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-cream;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-gold-300 rounded-full;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-gold-400;
-}
-
-/* ===================================
-   LOADING STATE
-=================================== */
-.skeleton {
-  @apply bg-gray-200 animate-pulse rounded;
-}
-
-/* ===================================
-   PRINT STYLES
-=================================== */
 @media print {
   .no-print {
     display: none !important;

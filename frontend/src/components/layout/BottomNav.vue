@@ -4,7 +4,7 @@ File: src/components/layout/BottomNav.vue
 =================================== -->
 
 <template>
-  <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-gray-100 safe-bottom z-50 md:hidden">
+  <nav class="fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur border-t border-gray-100 safe-bottom z-50 md:hidden">
     <div class="flex justify-around items-center h-16 px-2">
       <router-link
         v-for="item in navItems"
@@ -16,13 +16,13 @@ File: src/components/layout/BottomNav.vue
         <!-- Badge pour le panier -->
         <span
           v-if="authStore.isAuthenticated && item.name === 'panier' && panierCount > 0"
-          class="absolute top-1 right-1/4 bg-gold-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold"
+          class="absolute top-1 right-1/4 bg-gold-600 text-on-accent text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold"
         >
           {{ panierCount }}
         </span>
         <span
           v-if="showVendeurCommandesBadge(item.name)"
-          class="absolute top-1 right-1/4 bg-gold-600 text-white text-xs rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
+          class="absolute top-1 right-1/4 bg-gold-600 text-on-accent text-xs rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
         >
           {{ formatBadgeCount(vendeurCommandesCount) }}
         </span>

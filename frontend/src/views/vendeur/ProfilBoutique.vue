@@ -66,7 +66,7 @@ File: src/views/vendeur/ProfilBoutique.vue
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Logo de l'entreprise *</label>
             <div class="flex items-center gap-4">
-              <div class="h-24 w-24 flex-shrink-0 rounded-elegant border bg-white overflow-hidden flex items-center justify-center">
+              <div class="h-24 w-24 flex-shrink-0 rounded-elegant border bg-surface overflow-hidden flex items-center justify-center">
                 <img
                   v-if="apercuLogo"
                   :src="apercuLogo"

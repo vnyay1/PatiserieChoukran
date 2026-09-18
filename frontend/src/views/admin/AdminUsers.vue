@@ -32,7 +32,7 @@ File: src/views/admin/AdminUsers.vue
                 v-model="filters.search"
                 type="search"
                 placeholder="Nom, email ou téléphone..."
-                class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-gold-500 focus:ring-2 focus:ring-gold-200 outline-none"
+                class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-gold-600 focus:ring-2 focus:ring-gold-200 outline-none"
                 @input="handleSearch"
               />
             </div>
@@ -208,7 +208,7 @@ File: src/views/admin/AdminUsers.vue
         v-if="showDetail"
         class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6 overflow-y-auto"
       >
-        <div class="bg-white w-full max-w-3xl rounded-elegant shadow-card overflow-hidden max-h-[calc(90vh-80px)] md:max-h-[90vh] flex flex-col">
+        <div class="bg-surface w-full max-w-3xl rounded-elegant shadow-card overflow-hidden max-h-[calc(90vh-80px)] md:max-h-[90vh] flex flex-col">
           <div class="p-4 border-b border-gray-100 flex items-center justify-between">
             <h2 class="font-display text-xl font-bold text-gray-800">
               Détails utilisateur
@@ -350,7 +350,7 @@ File: src/views/admin/AdminUsers.vue
                 <div
                   v-for="commande in lastCommandes"
                   :key="commande.id"
-                  class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-3 rounded-lg border border-gray-100 bg-white"
+                  class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-3 rounded-lg border border-gray-100 bg-surface"
                 >
                   <div>
                     <div class="font-semibold text-gray-800">{{ commande.numero_commande }}</div>

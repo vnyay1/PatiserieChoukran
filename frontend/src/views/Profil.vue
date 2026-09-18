@@ -15,7 +15,7 @@ File: src/views/Profil.vue
         <div class="lg:col-span-1">
           <Card padding="md">
             <div class="text-center mb-6">
-              <div class="w-20 h-20 rounded-full bg-gradient-gold flex items-center justify-center text-white text-2xl font-bold mx-auto mb-3">
+              <div class="w-20 h-20 rounded-full bg-gold-500 flex items-center justify-center text-on-gold text-2xl font-bold mx-auto mb-3">
                 {{ initiales }}
               </div>
               <h2 class="font-display font-semibold text-lg">{{ authStore.user?.nom_complet }}</h2>
@@ -27,7 +27,7 @@ File: src/views/Profil.vue
                 v-for="item in menuItems"
                 :key="item.id"
                 class="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors"
-                :class="activeTab === item.id ? 'bg-gold-500 text-white' : 'hover:bg-gray-50 text-gray-700'"
+                :class="activeTab === item.id ? 'bg-gold-500 text-on-gold' : 'hover:bg-gray-50 text-gray-700'"
                 @click="activeTab = item.id"
               >
                 <component :is="item.icon" :size="20" />
@@ -115,7 +115,7 @@ File: src/views/Profil.vue
               <div
                 v-for="adresse in adresses"
                 :key="adresse.id"
-                class="p-4 border border-gray-200 rounded-lg hover:border-gold-500 transition-colors"
+                class="p-4 border border-gray-200 rounded-lg hover:border-gold-600 transition-colors"
               >
                 <div class="flex items-start justify-between">
                   <div class="flex-1">

@@ -2,142 +2,151 @@
 COMPOSANT FORMULAIRE ADRESSE (modale)
 File: src/components/adresse/AdresseFormModal.vue
 =================================== -->
-
+<!--
+  Ordre des champs : ville, puis quartier de cette ville (avec recherche), puis précisions facultatives.
+  Sur mobile, la fenêtre s'ouvre en tiroir bas ; les boutons restent visibles en pied.
+-->
 <template>
-  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6">
-    <div class="bg-white w-full max-w-2xl rounded-elegant shadow-card overflow-hidden flex flex-col max-h-[90vh] md:max-h-none">
-      <div class="p-4 border-b border-gray-100 flex items-center justify-between">
-        <h2 class="font-display text-xl font-bold text-gray-800">
-          {{ isEditing ? 'Modifier une adresse' : 'Ajouter une adresse' }}
-        </h2>
-        <button type="button" class="text-sm text-gray-500 hover:text-gray-700" @click="$emit('close')">
-          Fermer
-        </button>
-      </div>
+  <BaseModal
+    :titre="isEditing ? 'Modifier l\'adresse' : 'Nouvelle adresse de livraison'"
+    variante="feuille"
+    taille="lg"
+    @fermer="$emit('close')"
+  >
+    <form :id="idFormulaire" class="grid grid-cols-1 gap-x-4 gap-y-5 md:grid-cols-2" novalidate @submit.prevent="submit">
+      <AlertMessage v-if="adresseSansQuartier" type="warning" class="md:col-span-2">
+        Cette adresse n'a pas encore de quartier reconnu ({{ adresse.quartier }}) :
+        choisissez-en un pour pouvoir être livré.
+      </AlertMessage>
 
-      <form
-        class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto md:overflow-visible max-h-[70vh] md:max-h-none scrollbar-hide"
-        @submit.prevent="submit"
+      <!-- 1. Ville : réduit la liste des quartiers -->
+      <FormField v-slot="{ attrs }" label="Ville" requis :erreur="erreurs.ville">
+        <select v-model="form.ville" v-bind="attrs" class="input" data-autofocus @change="changerVille">
+          <option value="" disabled>Choisir la ville</option>
+          <option v-for="ville in VILLES" :key="ville.valeur" :value="ville.valeur">
+            {{ ville.libelle }}
+          </option>
+        </select>
+      </FormField>
+
+      <!-- 2. Quartier de cette ville (obligatoire) -->
+      <FormField
+        v-slot="{ attrs }"
+        label="Quartier"
+        requis
+        :erreur="erreurs.quartier_id"
+        :aide="!form.ville ? 'Choisissez d\'abord la ville.' : ''"
       >
-        <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Libellé (optionnel)</label>
-          <input v-model="form.libelle" type="text" class="input" placeholder="Maison, Bureau..." />
-        </div>
+        <select
+          v-model="form.quartier_id"
+          v-bind="attrs"
+          class="input"
+          :disabled="!form.ville || chargementQuartiers"
+        >
+          <option value="" disabled>
+            {{ chargementQuartiers ? 'Chargement…' : 'Sélectionner un quartier' }}
+          </option>
+          <option v-for="quartier in quartiersFiltres" :key="quartier.id" :value="quartier.id">
+            {{ quartier.nom }}
+          </option>
+        </select>
+      </FormField>
 
-        <!-- 1. Ville : réduit la liste des quartiers -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Ville *</label>
-          <select v-model="form.ville" class="input" required @change="form.quartier_id = ''">
-            <option value="">Choisir la ville</option>
-            <option v-for="ville in VILLES" :key="ville.valeur" :value="ville.valeur">
-              {{ ville.libelle }}
-            </option>
-          </select>
-        </div>
-
-        <!-- 2. Quartier de cette ville (obligatoire) -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Quartier *</label>
-          <select
-            v-model="form.quartier_id"
-            class="input"
-            required
-            :disabled="!form.ville || chargementQuartiers"
-          >
-            <option value="">
-              {{ !form.ville ? 'Choisissez d\'abord la ville' : (chargementQuartiers ? 'Chargement...' : 'Sélectionner un quartier') }}
-            </option>
-            <option v-for="quartier in quartiersFiltres" :key="quartier.id" :value="quartier.id">
-              {{ quartier.nom }}
-            </option>
-          </select>
-        </div>
-
-        <div v-if="form.ville" class="md:col-span-2 -mt-2">
+      <div v-if="form.ville" class="md:col-span-2">
+        <label class="sr-only" :for="idRecherche">Rechercher un quartier de {{ formatVille(form.ville) }}</label>
+        <div class="relative">
+          <Search :size="18" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" aria-hidden="true" />
           <input
+            :id="idRecherche"
             v-model="recherche"
             type="search"
-            class="input text-sm"
-            :placeholder="`Rechercher un quartier de ${formatVille(form.ville)}...`"
+            class="input pl-10 text-sm"
+            :placeholder="`Filtrer les quartiers de ${formatVille(form.ville)}…`"
+            :aria-describedby="idResultat"
           />
-          <p v-if="recherche && quartiersFiltres.length === 0" class="text-xs text-gray-500 mt-1">
+        </div>
+        <p :id="idResultat" class="aide" aria-live="polite">
+          <template v-if="recherche && quartiersFiltres.length === 0">
             Aucun quartier de {{ formatVille(form.ville) }} ne correspond à « {{ recherche }} ».
-          </p>
-        </div>
-
-        <p v-if="adresseSansQuartier" class="md:col-span-2 text-xs text-orange-600 -mt-2">
-          Cette adresse n'a pas encore de quartier reconnu ({{ adresse.quartier }}) :
-          choisissez-en un pour pouvoir être livré.
+          </template>
+          <template v-else-if="recherche">
+            {{ quartiersFiltres.length }} quartier{{ quartiersFiltres.length > 1 ? 's' : '' }} dans la liste.
+          </template>
         </p>
+      </div>
 
-        <!-- 3. Zone libre (facultative) -->
-        <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Zone / secteur (facultatif)</label>
-          <input
-            v-model="form.zone"
-            type="text"
-            maxlength="150"
-            class="input"
-            placeholder="Ex. Carrefour Obili, entrée du lycée..."
-          />
-        </div>
+      <!-- 3. Précisions facultatives -->
+      <FormField v-slot="{ attrs }" label="Zone ou secteur" facultatif class="md:col-span-2">
+        <input
+          v-model="form.zone"
+          v-bind="attrs"
+          type="text"
+          maxlength="150"
+          class="input"
+          placeholder="Ex. Carrefour Obili, entrée du lycée"
+        />
+      </FormField>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Téléphone *</label>
-          <input
-            v-model="form.telephone_contact"
-            type="tel"
-            class="input"
-            placeholder="+237699123456"
-            required
-          />
-        </div>
+      <FormField
+        v-slot="{ attrs }"
+        label="Téléphone du destinataire"
+        requis
+        :erreur="erreurs.telephone_contact"
+        aide="Le vendeur vous appelle à ce numéro pour la livraison."
+      >
+        <input
+          v-model="form.telephone_contact"
+          v-bind="attrs"
+          type="tel"
+          inputmode="tel"
+          autocomplete="tel"
+          class="input"
+          placeholder="+237 6XX XX XX XX"
+        />
+      </FormField>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Point de repère</label>
-          <input v-model="form.point_repere" type="text" class="input" />
-        </div>
+      <FormField v-slot="{ attrs }" label="Point de repère" facultatif>
+        <input v-model="form.point_repere" v-bind="attrs" type="text" class="input" placeholder="Ex. Face à la pharmacie" />
+      </FormField>
 
-        <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Complément d'adresse</label>
-          <textarea v-model="form.complement_adresse" rows="2" class="input resize-none"></textarea>
-        </div>
+      <FormField v-slot="{ attrs }" label="Complément d'adresse" facultatif class="md:col-span-2">
+        <textarea v-model="form.complement_adresse" v-bind="attrs" rows="2" class="input resize-none"></textarea>
+      </FormField>
 
-        <div class="md:col-span-2">
-          <label class="inline-flex items-center gap-2">
-            <input
-              v-model="form.est_principale"
-              type="checkbox"
-              class="rounded border-gray-300 text-gold-600 focus:ring-gold-500"
-            />
-            <span class="text-sm text-gray-700">Définir comme adresse principale</span>
-          </label>
-        </div>
+      <FormField v-slot="{ attrs }" label="Nom de l'adresse" facultatif aide="Pour la retrouver facilement : Maison, Bureau…" class="md:col-span-2">
+        <input v-model="form.libelle" v-bind="attrs" type="text" class="input" placeholder="Maison" />
+      </FormField>
 
-        <p v-if="error" class="text-sm text-red-600 md:col-span-2">
-          {{ error }}
-        </p>
+      <label class="flex min-h-11 cursor-pointer items-center gap-3 md:col-span-2">
+        <input v-model="form.est_principale" type="checkbox" class="h-5 w-5 flex-shrink-0 rounded" />
+        <span class="text-sm font-medium text-gray-800">Utiliser comme adresse principale</span>
+      </label>
 
-        <div class="md:col-span-2 flex gap-3">
-          <Button type="submit" variant="primary" :loading="saving">
-            {{ isEditing ? 'Mettre à jour' : 'Enregistrer' }}
-          </Button>
-          <Button type="button" variant="outline" @click="$emit('close')">
-            Annuler
-          </Button>
-        </div>
-      </form>
-    </div>
-  </div>
+      <AlertMessage v-if="error" type="error" class="md:col-span-2">{{ error }}</AlertMessage>
+    </form>
+
+    <template #actions>
+      <Button type="button" variant="outline" @click="$emit('close')">
+        Annuler
+      </Button>
+      <Button type="submit" :form="idFormulaire" variant="primary" :loading="saving">
+        {{ isEditing ? 'Enregistrer les modifications' : 'Enregistrer l\'adresse' }}
+      </Button>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick, useId } from 'vue'
 import api, { messageErreur } from '@/services/api'
+import BaseModal from '@/components/common/BaseModal.vue'
 import Button from '@/components/common/Button.vue'
+import FormField from '@/components/common/FormField.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
 import { useVilleStore } from '@/stores/ville'
 import { normaliserTexte } from '@/utils/format'
 import { VILLES, formatVille, villeAdresse } from '@/utils/villes'
+import { Search } from 'lucide-vue-next'
 
 const props = defineProps({
   // null = création, sinon l'adresse à modifier
@@ -152,6 +161,10 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'saved'])
+
+const idFormulaire = useId()
+const idRecherche = useId()
+const idResultat = useId()
 
 const villeStore = useVilleStore()
 const isEditing = computed(() => Boolean(props.adresse?.id))
@@ -175,6 +188,7 @@ const chargementQuartiers = ref(false)
 const recherche = ref('')
 const saving = ref(false)
 const error = ref('')
+const erreurs = ref({})
 
 const quartiersFiltres = computed(() => {
   const terme = normaliserTexte(recherche.value.trim())
@@ -185,6 +199,11 @@ const quartiersFiltres = computed(() => {
     || normaliserTexte(quartier.nom).includes(terme)
     || Number(quartier.id) === Number(form.value.quartier_id))
 })
+
+const changerVille = () => {
+  form.value.quartier_id = ''
+  recherche.value = ''
+}
 
 const fetchQuartiers = async () => {
   chargementQuartiers.value = true
@@ -200,9 +219,26 @@ const fetchQuartiers = async () => {
   }
 }
 
+// Contrôle côté navigateur : message sous le champ concerné plutôt qu'une bulle native
+const valider = () => {
+  const manquants = {}
+  if (!form.value.ville) manquants.ville = 'Choisissez la ville de livraison.'
+  if (!form.value.quartier_id) manquants.quartier_id = 'Choisissez le quartier.'
+  if (!form.value.telephone_contact.trim()) manquants.telephone_contact = 'Indiquez un numéro pour joindre le destinataire.'
+  erreurs.value = manquants
+  return Object.keys(manquants).length === 0
+}
+
 const submit = async () => {
-  saving.value = true
   error.value = ''
+  if (!valider()) {
+    // Le focus va au premier champ en erreur (3.3.1)
+    await nextTick()
+    document.querySelector(`#${CSS.escape(idFormulaire)} [aria-invalid="true"]`)?.focus()
+    return
+  }
+
+  saving.value = true
 
   // Le backend reprend le nom du quartier et sa ville à partir de quartier_id
   const payload = {

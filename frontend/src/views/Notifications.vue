@@ -31,7 +31,7 @@
         </div>
       </div>
 
-      <div class="bg-white rounded-elegant shadow-card p-4 mb-4">
+      <div class="bg-surface rounded-elegant shadow-card p-4 mb-4">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
             <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
@@ -52,7 +52,7 @@
                 v-for="option in readFilterOptions"
                 :key="option.value"
                 class="px-4 py-2 rounded-full text-sm transition-colors"
-                :class="readFilter === option.value ? 'bg-gold-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                :class="readFilter === option.value ? 'bg-gold-500 text-on-gold' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
                 @click="setReadFilter(option.value)"
               >
                 {{ option.label }}
@@ -70,7 +70,7 @@
         <article
           v-for="notification in notifications"
           :key="notification.id"
-          class="bg-white rounded-elegant shadow-card p-4 border transition-colors"
+          class="bg-surface rounded-elegant shadow-card p-4 border transition-colors"
           :class="notification.est_lu ? 'border-transparent' : 'border-gold-200'"
         >
           <div class="flex items-start gap-3">

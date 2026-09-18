@@ -32,7 +32,7 @@ File: src/views/vendeur/MaLivraison.vue
               v-for="ville in VILLES"
               :key="ville.valeur"
               class="flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors"
-              :class="form.villes.includes(ville.valeur) ? 'border-gold-500 bg-gold-50' : 'border-gray-200'"
+              :class="form.villes.includes(ville.valeur) ? 'border-gold-600 bg-gold-50' : 'border-gray-200'"
             >
               <input
                 v-model="form.villes"

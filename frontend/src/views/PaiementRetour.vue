@@ -34,7 +34,7 @@ File: src/views/PaiementRetour.vue
           v-for="commande in paiement.commandes"
           :key="commande.id"
           :to="`/mes-commandes/${commande.id}`"
-          class="flex items-center justify-between gap-3 p-3 bg-white border border-gray-200 rounded-lg hover:border-gold-300"
+          class="flex items-center justify-between gap-3 p-3 bg-surface border border-gray-200 rounded-lg hover:border-gold-300"
         >
           <span class="font-medium text-gray-800">{{ commande.numero_commande }}</span>
           <span :class="['badge', classePaiement(commande.statut_paiement)]">

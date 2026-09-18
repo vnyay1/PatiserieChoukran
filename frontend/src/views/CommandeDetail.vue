@@ -314,7 +314,7 @@ File: src/views/CommandeDetail.vue
         @click="showCancelConfirm = false"
       >
         <div
-          class="bg-white rounded-elegant p-6 max-w-sm w-full animate-fadeIn"
+          class="bg-surface rounded-elegant p-6 max-w-sm w-full animate-fadeIn"
           @click.stop
         >
           <div class="text-center mb-4">

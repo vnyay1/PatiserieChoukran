@@ -30,7 +30,7 @@ File: src/views/admin/AdminCategories.vue
                 v-model="filters.search"
                 type="search"
                 placeholder="Nom de catégorie..."
-                class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-gold-500 focus:ring-2 focus:ring-gold-200 outline-none"
+                class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-gold-600 focus:ring-2 focus:ring-gold-200 outline-none"
                 @input="handleSearch"
               />
             </div>

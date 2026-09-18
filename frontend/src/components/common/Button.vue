@@ -2,37 +2,51 @@
 4. COMPOSANT BOUTON RÉUTILISABLE
 File: src/components/common/Button.vue
 =================================== -->
-
+<!--
+  Une navigation reste un lien : avec `to`, le bouton est rendu en <router-link>
+  (clic milieu, « ouvrir dans un nouvel onglet », annonce « lien » au lecteur d'écran).
+  Pendant `loading`, le bouton garde son libellé (lu par les lecteurs d'écran) et expose aria-busy.
+-->
 <template>
-  <button
-    :type="type"
-    :disabled="disabled || loading"
+  <component
+    :is="to ? RouterLink : 'button'"
+    :to="to || undefined"
+    :type="to ? undefined : type"
+    :disabled="to ? undefined : (disabled || loading)"
+    :aria-disabled="to && disabled ? 'true' : undefined"
+    :aria-busy="loading ? 'true' : undefined"
     :class="buttonClasses"
     @click="handleClick"
   >
-    <span v-if="loading" class="spinner mr-2"></span>
-    <component :is="icon" v-if="icon && !loading" :size="iconSize" class="mr-2" />
+    <span v-if="loading" class="spinner" aria-hidden="true"></span>
+    <component :is="icon" v-else-if="icon" :size="iconSize" aria-hidden="true" class="flex-shrink-0" />
     <slot />
-  </button>
+  </component>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 
 const props = defineProps({
   variant: {
     type: String,
-    default: 'primary', // primary, secondary, outline, danger
-    validator: (value) => ['primary', 'secondary', 'outline', 'danger'].includes(value)
+    default: 'primary',
+    validator: (value) => ['primary', 'secondary', 'outline', 'ghost', 'danger'].includes(value)
   },
   size: {
     type: String,
-    default: 'md', // sm, md, lg
+    default: 'md',
     validator: (value) => ['sm', 'md', 'lg'].includes(value)
   },
   type: {
     type: String,
     default: 'button'
+  },
+  // Destination vue-router : rend un lien stylé en bouton
+  to: {
+    type: [String, Object],
+    default: null
   },
   disabled: {
     type: Boolean,
@@ -47,43 +61,43 @@ const props = defineProps({
     default: false
   },
   icon: {
-    type: Object,
+    type: [Object, Function],
     default: null
   },
   iconSize: {
     type: Number,
-    default: 20
+    default: 18
   }
 })
 
 const emit = defineEmits(['click'])
 
-const buttonClasses = computed(() => {
-  const base = 'inline-flex items-center justify-center font-medium rounded-full transition-all duration-200 touch-target disabled:opacity-50 disabled:cursor-not-allowed'
-  
-  // Variants
-  const variants = {
-    primary: 'btn-primary',
-    secondary: 'btn-secondary',
-    outline: 'btn-outline',
-    danger: 'bg-red-500 text-white hover:bg-red-600 active:bg-red-700 shadow-md'
-  }
+const VARIANTES = {
+  primary: 'btn-primary',
+  secondary: 'btn-secondary',
+  outline: 'btn-outline',
+  ghost: 'btn-ghost',
+  danger: 'btn-danger',
+}
 
-  // Sizes
-  const sizes = {
-    sm: 'px-4 py-2 text-sm',
-    md: 'px-6 py-3 text-base',
-    lg: 'px-8 py-4 text-lg'
-  }
+const TAILLES = {
+  sm: 'btn-sm',
+  md: '',
+  lg: 'btn-lg',
+}
 
-  const width = props.fullWidth ? 'w-full' : ''
-
-  return `${base} ${variants[props.variant]} ${sizes[props.size]} ${width}`
-})
+const buttonClasses = computed(() => [
+  VARIANTES[props.variant],
+  TAILLES[props.size],
+  props.fullWidth ? 'w-full' : '',
+  props.to && props.disabled ? 'pointer-events-none' : '',
+])
 
 const handleClick = (event) => {
-  if (!props.disabled && !props.loading) {
-    emit('click', event)
+  if (props.disabled || props.loading) {
+    event.preventDefault()
+    return
   }
+  emit('click', event)
 }
 </script>

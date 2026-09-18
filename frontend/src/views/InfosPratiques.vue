@@ -5,7 +5,7 @@ File: src/views/InfosPratiques.vue
 
 <template>
   <div class="infos-pratiques-page bg-cream min-h-screen pb-20">
-    <section class="bg-white border-b border-gray-100">
+    <section class="bg-surface border-b border-gray-100">
       <div class="container mx-auto px-4 py-10 md:py-14">
         <p class="text-xs uppercase tracking-[0.2em] text-gold-600 font-semibold mb-3">Infos pratiques</p>
         <h1 class="font-display text-3xl md:text-4xl font-bold text-gray-900 mb-3">

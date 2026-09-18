@@ -30,7 +30,7 @@ File: src/components/produits/ProduitCard.vue
       <!-- Badge vedette : vendeur mis en avant par l'admin -->
       <div
         v-if="produit.createur?.est_vendeur_vedette"
-        class="absolute top-2 left-2 bg-gold-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center"
+        class="absolute top-2 left-2 bg-gold-500 text-on-gold px-2 py-1 rounded-full text-xs font-bold flex items-center"
         title="Vendeur en vedette"
       >
         <Star :size="12" class="mr-1" fill="white" />
@@ -42,7 +42,7 @@ File: src/components/produits/ProduitCard.vue
         v-if="!produit.est_disponible || produit.stock_disponible === 0"
         class="absolute inset-0 bg-black/50 flex items-center justify-center"
       >
-        <span class="bg-red-500 text-white px-4 py-2 rounded-full font-semibold">
+        <span class="bg-danger text-white px-4 py-2 rounded-full font-semibold">
           Rupture de stock
         </span>
       </div>

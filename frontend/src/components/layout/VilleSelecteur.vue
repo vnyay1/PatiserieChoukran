@@ -20,7 +20,7 @@ File: src/components/layout/VilleSelecteur.vue
 
     <ul
       v-if="ouvert"
-      class="absolute z-50 mt-2 w-56 rounded-xl border border-gray-100 bg-white shadow-elegant-lg py-1"
+      class="absolute z-50 mt-2 w-56 rounded-xl border border-gray-100 bg-surface shadow-elegant-lg py-1"
       :class="alignement === 'droite' ? 'right-0' : 'left-0'"
       role="listbox"
     >

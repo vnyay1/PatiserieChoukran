@@ -270,7 +270,7 @@ File: src/views/admin/AdminCommandes.vue
         class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6"
         @click.self="closeDetail"
       >
-        <div class="bg-white w-full max-w-4xl rounded-elegant shadow-card overflow-hidden flex flex-col max-h-full">
+        <div class="bg-surface w-full max-w-4xl rounded-elegant shadow-card overflow-hidden flex flex-col max-h-full">
           <div class="p-4 border-b border-gray-100 flex items-center justify-between">
             <h2 class="font-display text-xl font-bold text-gray-800">
               {{ selectedCommande?.numero_commande || 'Détails commande' }}
@@ -413,7 +413,7 @@ File: src/views/admin/AdminCommandes.vue
                 <div
                   v-for="ligne in selectedCommande.ligne_commandes"
                   :key="ligne.id"
-                  class="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-100 bg-white"
+                  class="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-100 bg-surface"
                 >
                   <div class="flex items-center gap-3">
                     <img

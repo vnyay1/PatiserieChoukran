@@ -21,7 +21,7 @@ File: src/views/Checkout.vue
           <div class="flex flex-col items-center">
             <div
               class="w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors"
-              :class="currentStep >= index + 1 ? 'bg-gold-500 text-white' : 'bg-gray-200 text-gray-500'"
+              :class="currentStep >= index + 1 ? 'bg-gold-500 text-on-gold' : 'bg-gray-200 text-gray-500'"
             >
               {{ index + 1 }}
             </div>
@@ -50,7 +50,7 @@ File: src/views/Checkout.vue
             <div class="grid grid-cols-2 gap-3">
               <label
                 class="relative flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors"
-                :class="formData.type_livraison === 'livraison' ? 'border-gold-500 bg-gold-50' : 'border-gray-200'"
+                :class="formData.type_livraison === 'livraison' ? 'border-gold-600 bg-gold-50' : 'border-gray-200'"
               >
                 <input
                   v-model="formData.type_livraison"
@@ -67,7 +67,7 @@ File: src/views/Checkout.vue
 
               <label
                 class="relative flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors"
-                :class="formData.type_livraison === 'retrait_boutique' ? 'border-gold-500 bg-gold-50' : 'border-gray-200'"
+                :class="formData.type_livraison === 'retrait_boutique' ? 'border-gold-600 bg-gold-50' : 'border-gray-200'"
               >
                 <input
                   v-model="formData.type_livraison"
@@ -180,7 +180,7 @@ File: src/views/Checkout.vue
               v-for="method in paymentMethods"
               :key="method.value"
               class="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors"
-              :class="formData.moyen_paiement === method.value ? 'border-gold-500 bg-gold-50' : 'border-gray-200'"
+              :class="formData.moyen_paiement === method.value ? 'border-gold-600 bg-gold-50' : 'border-gray-200'"
             >
               <input
                 v-model="formData.moyen_paiement"

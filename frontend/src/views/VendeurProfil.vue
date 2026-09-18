@@ -24,7 +24,7 @@ File: src/views/VendeurProfil.vue
         <!-- En-tête de la boutique -->
         <Card padding="lg" class="mb-8">
           <div class="flex flex-col sm:flex-row gap-6 items-center sm:items-start">
-            <div class="h-28 w-28 flex-shrink-0 rounded-elegant border bg-white overflow-hidden flex items-center justify-center">
+            <div class="h-28 w-28 flex-shrink-0 rounded-elegant border bg-surface overflow-hidden flex items-center justify-center">
               <img
                 v-if="vendeur.logo_boutique"
                 :src="resolveImageUrl(vendeur.logo_boutique, { placeholder: false })"
@@ -41,7 +41,7 @@ File: src/views/VendeurProfil.vue
                 </h1>
                 <span
                   v-if="vendeur.est_vendeur_vedette"
-                  class="bg-gold-500 text-white px-2 py-1 rounded-full text-xs font-bold inline-flex items-center"
+                  class="bg-gold-500 text-on-gold px-2 py-1 rounded-full text-xs font-bold inline-flex items-center"
                 >
                   <Star :size="12" class="mr-1" fill="white" />
                   Vedette

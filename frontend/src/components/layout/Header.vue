@@ -4,7 +4,7 @@ File: src/components/layout/Header.vue
 =================================== -->
 
 <template>
-  <header class="bg-white shadow-sm sticky top-0 z-40 safe-top">
+  <header class="bg-surface shadow-sm sticky top-0 z-40 safe-top">
     <div class="container mx-auto px-4">
       <div class="flex items-center justify-between h-14 md:h-20">
         <!-- Logo et ville du client (le catalogue est filtré par ville) -->
@@ -20,14 +20,14 @@ File: src/components/layout/Header.vue
           <router-link
             v-if="authStore.isAuthenticated"
             to="/notifications"
-            class="relative touch-target h-11 w-11 rounded-full border border-gray-200 bg-white text-gray-700 flex items-center justify-center"
+            class="relative touch-target h-11 w-11 rounded-full border border-gray-200 bg-surface text-gray-700 flex items-center justify-center"
             aria-label="Notifications"
             title="Notifications"
           >
             <Bell :size="20" />
             <span
               v-if="unreadNotificationsCount > 0"
-              class="absolute -top-1 -right-1 bg-gold-600 text-white text-[10px] rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
+              class="absolute -top-1 -right-1 bg-gold-600 text-on-accent text-[11px] rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
             >
               {{ formatNotificationBadgeCount(unreadNotificationsCount) }}
             </span>
@@ -43,7 +43,7 @@ File: src/components/layout/Header.vue
             <ShoppingCart :size="22" />
             <span
               v-if="panierCount > 0"
-              class="absolute -top-1 -right-1 bg-gold-600 text-white text-[10px] rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
+              class="absolute -top-1 -right-1 bg-gold-600 text-on-accent text-[11px] rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
             >
               {{ panierCount }}
             </span>
@@ -51,7 +51,7 @@ File: src/components/layout/Header.vue
 
           <button
             type="button"
-            class="touch-target h-11 w-11 rounded-full border border-gray-200 bg-white text-gray-800 flex items-center justify-center shadow-sm"
+            class="touch-target h-11 w-11 rounded-full border border-gray-200 bg-surface text-gray-800 flex items-center justify-center shadow-sm"
             aria-label="Menu"
             :aria-expanded="mobileOpen"
             @click="toggleMobileNav(!mobileOpen)"
@@ -77,7 +77,7 @@ File: src/components/layout/Header.vue
             <span>{{ item.label }}</span>
             <span
               v-if="showVendeurCommandesBadge(item.name)"
-              class="bg-gold-600 text-white text-xs rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
+              class="bg-gold-600 text-on-accent text-xs rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
             >
               {{ formatBadgeCount(vendeurCommandesCount) }}
             </span>
@@ -94,7 +94,7 @@ File: src/components/layout/Header.vue
             <ShoppingCart :size="24" class="text-gray-700 hover:text-gold-600" />
             <span
               v-if="panierCount > 0"
-              class="absolute -top-1 -right-1 bg-gold-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold"
+              class="absolute -top-1 -right-1 bg-gold-600 text-on-accent text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold"
             >
               {{ panierCount }}
             </span>
@@ -113,7 +113,7 @@ File: src/components/layout/Header.vue
             />
             <span
               v-if="unreadNotificationsCount > 0"
-              class="absolute -top-1 -right-1 bg-gold-600 text-white text-xs rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
+              class="absolute -top-1 -right-1 bg-gold-600 text-on-accent text-xs rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
             >
               {{ formatNotificationBadgeCount(unreadNotificationsCount) }}
             </span>
@@ -154,7 +154,7 @@ File: src/components/layout/Header.vue
       <transition name="slide-right">
         <aside
           v-if="mobileOpen"
-          class="fixed inset-y-0 right-0 w-[88%] max-w-xs bg-white z-50 shadow-elegant-lg md:hidden overflow-y-auto safe-top safe-bottom"
+          class="fixed inset-y-0 right-0 w-[88%] max-w-xs bg-surface z-50 shadow-elegant-lg md:hidden overflow-y-auto safe-top safe-bottom"
         >
           <div class="p-5 space-y-4">
             <div class="flex items-center justify-between">
@@ -185,7 +185,7 @@ File: src/components/layout/Header.vue
                 <span>{{ item.label }}</span>
                 <span
                   v-if="showVendeurCommandesBadge(item.name)"
-                  class="bg-gold-600 text-white text-[11px] rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
+                  class="bg-gold-600 text-on-accent text-[11px] rounded-full h-5 min-w-5 px-1 flex items-center justify-center font-bold"
                 >
                   {{ formatBadgeCount(vendeurCommandesCount) }}
                 </span>

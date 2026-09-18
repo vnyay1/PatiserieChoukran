@@ -74,7 +74,7 @@ File: src/views/Home.vue
     </section>
 
     <!-- Produits Vedettes -->
-    <section class="py-12 px-4 bg-white">
+    <section class="py-12 px-4 bg-surface">
       <div class="container mx-auto">
         <div class="text-center mb-8">
           <h2 class="font-display text-3xl font-bold text-gold-600 mb-2">Nos Produits Vedettes</h2>

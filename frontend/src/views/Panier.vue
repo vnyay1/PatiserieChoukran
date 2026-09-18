@@ -156,7 +156,7 @@ File: src/views/Panier.vue
             </Card>
 
             <!-- Moyens de paiement acceptés -->
-            <div class="mt-4 p-4 bg-white rounded-elegant">
+            <div class="mt-4 p-4 bg-surface rounded-elegant">
               <p class="text-xs text-gray-600 text-center mb-2">Moyens de paiement acceptés</p>
               <div class="flex items-center justify-center gap-3">
                 <div class="px-3 py-2 bg-orange-100 rounded text-xs font-semibold text-orange-700">
@@ -183,7 +183,7 @@ File: src/views/Panier.vue
         @click="showClearConfirm = false"
       >
         <div
-          class="bg-white rounded-elegant p-6 max-w-sm w-full animate-fadeIn"
+          class="bg-surface rounded-elegant p-6 max-w-sm w-full animate-fadeIn"
           @click.stop
         >
           <div class="text-center mb-4">

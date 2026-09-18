@@ -3,13 +3,39 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#b45309" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#FFFFFF" />
     <meta
       name="description"
       content="Choukrane Pâtisserie — pâtisseries, gâteaux et glaces livrés à Yaoundé et Douala. Paiement Orange Money, MTN MoMo ou à la livraison."
     />
     <title>Choukrane Pâtisserie — Gâteaux et glaces livrés au Cameroun</title>
+
+    <!-- Thème appliqué avant le premier rendu : pas de flash blanc en mode sombre.
+         Même logique que src/stores/theme.js (clé choukrane:theme = clair | sombre | systeme). -->
+    <script>
+      (function () {
+        var preference = null
+        try {
+          preference = localStorage.getItem('choukrane:theme')
+        } catch (e) {
+          // Stockage indisponible : on suit le système
+        }
+        var sombre = preference === 'sombre'
+          || (preference !== 'clair' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.classList.toggle('dark', sombre)
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', sombre ? '#1E1813' : '#FFFFFF')
+      })()
+    </script>
+
+    <!-- Polices chargées sans bloquer le CSS de l'application -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap"
+    />
   </head>
   <body>
     <div id="app"></div>

@@ -53,7 +53,7 @@ File: src/components/panier/PanierItem.vue
           <div class="flex items-center gap-2">
             <button
               :disabled="item.quantite <= 1 || loading"
-              class="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 hover:border-gold-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 hover:border-gold-600 disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Diminuer la quantité"
               @click="updateQuantity(item.quantite - 1)"
             >
@@ -66,13 +66,13 @@ File: src/components/panier/PanierItem.vue
               min="1"
               :max="item.produit.stock_disponible"
               aria-label="Quantité"
-              class="w-16 text-center border border-gray-200 rounded-lg py-1 focus:border-gold-500 focus:ring-2 focus:ring-gold-200 outline-none"
+              class="w-16 text-center border border-gray-200 rounded-lg py-1 focus:border-gold-600 focus:ring-2 focus:ring-gold-200 outline-none"
               @change="updateQuantity($event.target.value)"
             />
 
             <button
               :disabled="item.quantite >= item.produit.stock_disponible || loading"
-              class="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 hover:border-gold-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 hover:border-gold-600 disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Augmenter la quantité"
               @click="updateQuantity(item.quantite + 1)"
             >
@@ -147,7 +147,7 @@ File: src/components/panier/PanierItem.vue
     </div>
 
     <!-- Loading overlay -->
-    <div v-if="loading" class="absolute inset-0 bg-white/80 flex items-center justify-center rounded-elegant">
+    <div v-if="loading" class="absolute inset-0 bg-surface/80 flex items-center justify-center rounded-elegant">
       <div class="spinner"></div>
     </div>
   </Card>

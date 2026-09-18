@@ -28,7 +28,7 @@ File: src/views/ProduitDetail.vue
         <!-- Galerie d'images -->
         <div>
           <!-- Image principale -->
-          <div class="relative aspect-[4/5] rounded-elegant overflow-hidden bg-white shadow-card mb-4">
+          <div class="relative aspect-[4/5] rounded-elegant overflow-hidden bg-surface shadow-card mb-4">
             <img
               :src="currentImage"
               :alt="produit.nom"
@@ -40,7 +40,7 @@ File: src/views/ProduitDetail.vue
             <!-- Badge vedette -->
             <div
               v-if="produit.createur?.est_vendeur_vedette"
-              class="absolute top-4 left-4 bg-gold-500 text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1"
+              class="absolute top-4 left-4 bg-gold-500 text-on-gold px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1"
               title="Vendeur en vedette"
             >
               <Star :size="16" fill="white" />
@@ -50,7 +50,7 @@ File: src/views/ProduitDetail.vue
             <!-- Badge promo -->
             <div
               v-if="produit.prix_promo"
-              class="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold"
+              class="absolute top-4 right-4 bg-danger text-white px-3 py-1 rounded-full text-sm font-bold"
             >
               -{{ reductionPercent }}%
             </div>
@@ -60,7 +60,7 @@ File: src/views/ProduitDetail.vue
               v-if="!produit.est_disponible || produit.stock_disponible === 0"
               class="absolute inset-0 bg-black/50 flex items-center justify-center"
             >
-              <span class="bg-red-500 text-white px-6 py-3 rounded-full font-semibold text-lg">
+              <span class="bg-danger text-white px-6 py-3 rounded-full font-semibold text-lg">
                 Rupture de stock
               </span>
             </div>
@@ -72,7 +72,7 @@ File: src/views/ProduitDetail.vue
               v-for="(image, index) in allImages"
               :key="index"
               class="aspect-square rounded-lg overflow-hidden border-2 transition-all"
-              :class="currentImage === image ? 'border-gold-500' : 'border-transparent'"
+              :class="currentImage === image ? 'border-gold-600' : 'border-transparent'"
               @click="currentImage = image"
             >
               <img loading="lazy" :src="image" :alt="`${produit.nom} - ${index + 1}`" class="w-full h-full object-cover" @error="onImageError" />
@@ -83,7 +83,7 @@ File: src/views/ProduitDetail.vue
               v-for="(image, index) in allImages"
               :key="index"
               class="min-w-[80px] h-20 rounded-lg overflow-hidden border-2 transition-all flex-shrink-0"
-              :class="currentImage === image ? 'border-gold-500' : 'border-transparent'"
+              :class="currentImage === image ? 'border-gold-600' : 'border-transparent'"
               @click="currentImage = image"
             >
               <img loading="lazy" :src="image" :alt="`${produit.nom} - ${index + 1}`" class="w-full h-full object-cover" @error="onImageError" />
@@ -117,7 +117,7 @@ File: src/views/ProduitDetail.vue
               loading="lazy"
               :src="resolveImageUrl(produit.createur.logo_boutique, { placeholder: false })"
               :alt="produit.createur.nom_complet"
-              class="h-8 w-8 rounded-full object-cover border bg-white"
+              class="h-8 w-8 rounded-full object-cover border bg-surface"
             />
             <span>Vendu par <span class="font-medium text-gray-800 underline-offset-2 hover:underline">{{ produit.createur.nom_complet }}</span></span>
           </router-link>
@@ -191,7 +191,7 @@ File: src/views/ProduitDetail.vue
               <div class="flex items-center gap-3">
                 <button
                   :disabled="quantite <= 1"
-                  class="touch-target flex items-center justify-center w-12 h-12 rounded-lg border-2 border-gray-200 hover:border-gold-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="touch-target flex items-center justify-center w-12 h-12 rounded-lg border-2 border-gray-200 hover:border-gold-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   @click="quantite--"
                 >
                   <Minus :size="20" />
@@ -203,13 +203,13 @@ File: src/views/ProduitDetail.vue
                   min="1"
                   :max="produit.stock_disponible"
                   aria-label="Quantité"
-                  class="w-20 text-center text-lg font-semibold border-2 border-gray-200 rounded-lg py-2 focus:border-gold-500 focus:ring-2 focus:ring-gold-200 outline-none"
+                  class="w-20 text-center text-lg font-semibold border-2 border-gray-200 rounded-lg py-2 focus:border-gold-600 focus:ring-2 focus:ring-gold-200 outline-none"
                   @blur="normaliserQuantite"
                 />
 
                 <button
                   :disabled="quantite >= produit.stock_disponible"
-                  class="touch-target flex items-center justify-center w-12 h-12 rounded-lg border-2 border-gray-200 hover:border-gold-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="touch-target flex items-center justify-center w-12 h-12 rounded-lg border-2 border-gray-200 hover:border-gold-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   @click="quantite++"
                 >
                   <Plus :size="20" />
@@ -262,7 +262,7 @@ File: src/views/ProduitDetail.vue
         v-if="produit && produit.est_disponible"
         class="md:hidden fixed left-0 right-0 bottom-16 z-40 px-4 safe-bottom"
       >
-        <div class="bg-white border border-gold-100 shadow-elegant rounded-2xl p-4 flex items-center gap-3">
+        <div class="bg-surface border border-gold-100 shadow-elegant rounded-2xl p-4 flex items-center gap-3">
           <div class="flex-1">
             <p class="text-xs text-gray-500">Total</p>
             <p class="font-display text-xl text-gold-700">{{ formatPrice(sousTotal) }} FCFA</p>
