@@ -58,7 +58,7 @@ File: src/views/Home.vue
           <h2 id="titre-categories">Nos catégories</h2>
           <p class="mt-1 text-gray-600">Des créations pour tous les goûts</p>
         </div>
-        <router-link to="/produits" class="lien hidden flex-shrink-0 text-sm sm:inline">Tout voir</router-link>
+        <router-link to="/produits" class="lien hidden min-h-9 flex-shrink-0 items-center text-sm sm:inline-flex">Tout voir</router-link>
       </div>
 
       <ul
@@ -111,7 +111,7 @@ File: src/views/Home.vue
           <h2 :id="`titre-${bloc.id}`">{{ bloc.titre }}</h2>
           <p class="mt-1 text-gray-600">{{ bloc.sousTitre }}</p>
         </div>
-        <router-link :to="bloc.lien" class="lien hidden flex-shrink-0 text-sm sm:inline">Tout voir</router-link>
+        <router-link :to="bloc.lien" class="lien hidden min-h-9 flex-shrink-0 items-center text-sm sm:inline-flex">Tout voir</router-link>
       </div>
 
       <ul class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4" :aria-busy="chargement">

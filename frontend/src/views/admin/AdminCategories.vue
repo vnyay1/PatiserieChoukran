@@ -177,7 +177,7 @@ File: src/views/admin/AdminCategories.vue
                     <div>
                       <div class="font-semibold text-gray-800">{{ categorie.nom }}</div>
                       <div class="text-xs text-gray-500">{{ categorie.slug }}</div>
-                      <div v-if="categorie.createur?.nom_complet" class="text-xs text-gray-400">
+                      <div v-if="categorie.createur?.nom_complet" class="text-xs text-gray-500">
                         Ajoutée par: {{ categorie.createur.nom_complet }}
                       </div>
                     </div>
@@ -211,7 +211,7 @@ File: src/views/admin/AdminCategories.vue
                     >
                       Supprimer
                     </Button>
-                    <span v-else class="text-xs text-gray-400">Lecture seule</span>
+                    <span v-else class="text-xs text-gray-500">Lecture seule</span>
                   </div>
                 </td>
               </tr>

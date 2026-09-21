@@ -210,18 +210,28 @@ const ouvrir = async () => {
   cible?.focus({ preventScroll: true })
 }
 
-const liberer = () => {
+const liberer = async () => {
   const index = pile.indexOf(jeton)
   if (index === -1) return
   pile.splice(index, 1)
   definirInerte()
   document.removeEventListener('keydown', surTouche, true)
 
-  // Retour au bouton qui a ouvert la fenêtre, s'il est encore affiché
-  if (declencheur && document.contains(declencheur) && typeof declencheur.focus === 'function') {
-    declencheur.focus({ preventScroll: true })
+  // Le focus ne reste jamais dans une fenêtre en cours de fermeture (animation de sortie,
+  // onglet en arrière-plan) : au pire il retombe sur <body>.
+  if (panneau.value?.contains(document.activeElement)) {
+    document.activeElement.blur()
   }
+
+  // Retour au bouton qui a ouvert la fenêtre, s'il est encore affiché.
+  // Après nextTick : la fermeture fait souvent re-rendre le parent (liste, formulaire),
+  // et un focus rendu avant ce rendu serait perdu.
+  const cible = declencheur
   declencheur = null
+  await nextTick()
+  if (cible && document.contains(cible) && typeof cible.focus === 'function') {
+    cible.focus({ preventScroll: true })
+  }
 }
 
 watch(

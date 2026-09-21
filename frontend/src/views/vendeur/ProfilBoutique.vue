@@ -75,7 +75,7 @@ File: src/views/vendeur/ProfilBoutique.vue
                   class="h-full w-full object-contain"
                   @error="onImageError"
                 />
-                <Store v-else :size="32" class="text-gray-300" />
+                <Store v-else :size="32" class="text-gray-500" />
               </div>
               <div class="flex-1 min-w-0">
                 <input

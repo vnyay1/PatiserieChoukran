@@ -250,7 +250,7 @@ File: src/views/admin/AdminProduits.vue
                       <div class="font-semibold text-gray-800">{{ produit.nom }}</div>
                       <div class="text-xs text-gray-500">{{ produit.categorie?.nom || 'Sans catégorie' }}</div>
                     </div>
-                    <div v-if="isAdmin && produit.createur?.nom_complet" class="font-semibold text-gray-400">
+                    <div v-if="isAdmin && produit.createur?.nom_complet" class="font-semibold text-gray-500">
                       {{ produit.createur.nom_complet }}
                     </div>
                   </div>
@@ -259,7 +259,7 @@ File: src/views/admin/AdminProduits.vue
                   <div class="font-semibold text-gray-800">
                     {{ formatPrice(produit.prix_promo || produit.prix_unitaire) }} FCFA
                   </div>
-                  <div v-if="produit.prix_promo" class="text-xs text-gray-400 line-through">
+                  <div v-if="produit.prix_promo" class="price-old text-xs">
                     {{ formatPrice(produit.prix_unitaire) }} FCFA
                   </div>
                 </td>

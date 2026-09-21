@@ -246,7 +246,7 @@ File: src/views/admin/AdminUsers.vue
                   Profil boutique incomplet
                 </span>
               </div>
-              <div class="text-xs text-gray-400 mt-3">
+              <div class="text-xs text-gray-500 mt-3">
                 Inscrit le {{ formatDate(selectedUser.created_at) }}
               </div>
               <div v-if="selectedUser.role === 'vendeur'" class="mt-4 flex flex-wrap gap-2">
