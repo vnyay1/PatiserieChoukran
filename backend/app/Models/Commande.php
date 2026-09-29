@@ -221,18 +221,23 @@ class Commande extends Model
 
     public function changerStatut($nouveauStatut, $userId = null, $commentaire = null)
     {
-        if (! $this->peutPasserA($nouveauStatut)) {
-            throw new RegleMetierException(sprintf(
-                'Impossible de passer la commande %s de « %s » à « %s ».',
-                $this->numero_commande,
-                self::libelleStatut($this->statut),
-                self::libelleStatut($nouveauStatut)
-            ));
-        }
+        $ancienStatut = null;
 
-        $ancienStatut = $this->statut;
+        DB::transaction(function () use (&$ancienStatut, $nouveauStatut, $userId, $commentaire) {
+            // Relue sous verrou : deux requêtes simultanées (double clic, client et vendeur)
+            // ne peuvent pas annuler deux fois ni remettre deux fois le stock
+            $this->relireVerrouillee();
 
-        DB::transaction(function () use ($ancienStatut, $nouveauStatut, $userId, $commentaire) {
+            if (! $this->peutPasserA($nouveauStatut)) {
+                throw new RegleMetierException(sprintf(
+                    'Impossible de passer la commande %s de « %s » à « %s ».',
+                    $this->numero_commande,
+                    self::libelleStatut($this->statut),
+                    self::libelleStatut($nouveauStatut)
+                ));
+            }
+
+            $ancienStatut = $this->statut;
             $this->statut = $nouveauStatut;
             $this->save();
 
@@ -277,22 +282,33 @@ class Commande extends Model
      */
     public function confirmerPaiement(?string $reference = null): void
     {
-        if ($this->isAnnulee()) {
-            throw new RegleMetierException('Impossible de confirmer le paiement d\'une commande annulée.');
-        }
+        DB::transaction(function () use ($reference) {
+            // Vendeur, admin et NotchPay peuvent confirmer en même temps : une seule fois
+            $this->relireVerrouillee();
 
-        if ($this->isPaid()) {
-            throw new RegleMetierException('Le paiement de cette commande est déjà confirmé.');
-        }
+            if ($this->isAnnulee()) {
+                throw new RegleMetierException('Impossible de confirmer le paiement d\'une commande annulée.');
+            }
 
-        $this->update([
-            'statut_paiement' => 'paye',
-            'date_paiement' => now(),
-            'reference_paiement' => $reference,
-        ]);
+            if ($this->isPaid()) {
+                throw new RegleMetierException('Le paiement de cette commande est déjà confirmé.');
+            }
+
+            $this->update([
+                'statut_paiement' => 'paye',
+                'date_paiement' => now(),
+                'reference_paiement' => $reference,
+            ]);
+        });
 
         $this->loadMissing('user');
         NotificationsCommande::paiementConfirme($this);
+    }
+
+    // État de la ligne relu avec un verrou d'écriture (à appeler dans une transaction)
+    private function relireVerrouillee(): void
+    {
+        $this->setRawAttributes(static::whereKey($this->getKey())->lockForUpdate()->firstOrFail()->getAttributes(), true);
     }
 
     public function isPaid()

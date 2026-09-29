@@ -203,13 +203,36 @@ File: src/views/CommandeDetail.vue
           <!-- Actions (commande en attente) -->
           <section v-if="canEdit && !editing" class="card p-5 sm:p-6" aria-labelledby="titre-actions">
             <h2 id="titre-actions" class="text-lg">Modifier ou annuler</h2>
-            <p class="mt-1 text-sm text-gray-600">Possible tant que le vendeur n'a pas confirmé la commande.</p>
-            <div class="mt-4 flex flex-col gap-2">
-              <Button variant="outline" :icon="Pencil" @click="toggleEdit">Modifier la commande</Button>
-              <Button variant="ghost" class="text-red-700 hover:bg-red-50" :icon="XCircle" :loading="canceling" @click="confirmerAnnulation">
-                Annuler la commande
-              </Button>
-            </div>
+            <!-- Payée : seul le vendeur annule (il rembourse) ; les instructions restent modifiables -->
+            <template v-if="estPayee">
+              <p class="mt-1 text-sm text-gray-600">
+                Votre commande est payée : pour l'annuler ou changer la livraison, contactez le vendeur, qui organisera le remboursement.
+              </p>
+              <div class="mt-4 flex flex-col gap-2">
+                <a
+                  v-if="commande.vendeur?.telephone"
+                  :href="`tel:${commande.vendeur.telephone}`"
+                  class="btn-secondary"
+                >
+                  <Phone :size="16" aria-hidden="true" />
+                  Contacter le vendeur
+                  <span class="sr-only">au {{ commande.vendeur.telephone }}</span>
+                </a>
+                <Button variant="outline" :icon="Pencil" @click="toggleEdit">Modifier les instructions</Button>
+              </div>
+            </template>
+            <template v-else>
+              <p class="mt-1 text-sm text-gray-600">Possible tant que le vendeur n'a pas confirmé la commande.</p>
+              <p v-if="commande.paiement?.statut === 'en_attente'" class="mt-2 text-sm text-gray-600">
+                Un paiement en ligne a été ouvert : tant qu'il est en cours, la livraison et le moyen de paiement ne peuvent plus changer.
+              </p>
+              <div class="mt-4 flex flex-col gap-2">
+                <Button variant="outline" :icon="Pencil" @click="toggleEdit">Modifier la commande</Button>
+                <Button variant="ghost" class="text-red-700 hover:bg-red-50" :icon="XCircle" :loading="canceling" @click="confirmerAnnulation">
+                  Annuler la commande
+                </Button>
+              </div>
+            </template>
           </section>
         </div>
       </div>
@@ -219,14 +242,17 @@ File: src/views/CommandeDetail.vue
         <h2 id="titre-modification" ref="titreModif" tabindex="-1" class="text-xl">Modifier la commande</h2>
 
         <form class="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2" novalidate @submit.prevent="submitUpdate">
-          <FormField v-slot="{ attrs }" label="Mode de réception">
+          <p v-if="estPayee" class="text-sm text-gray-600 md:col-span-2">
+            Commande payée : le mode de réception, l'adresse et le paiement ne changent plus. Pour cela, contactez le vendeur.
+          </p>
+          <FormField v-if="!estPayee" v-slot="{ attrs }" label="Mode de réception">
             <select v-model="form.type_livraison" v-bind="attrs" class="input">
               <option value="livraison">Livraison à domicile</option>
               <option value="retrait_boutique">Retrait en boutique</option>
             </select>
           </FormField>
 
-          <FormField v-if="form.type_livraison === 'livraison'" v-slot="{ attrs }" label="Adresse de livraison" requis>
+          <FormField v-if="!estPayee && form.type_livraison === 'livraison'" v-slot="{ attrs }" label="Adresse de livraison" requis>
             <select v-model="form.adresse_livraison_id" v-bind="attrs" class="input">
               <option value="" disabled>Sélectionner une adresse</option>
               <option v-for="adresse in adresses" :key="adresse.id" :value="adresse.id">
@@ -239,7 +265,7 @@ File: src/views/CommandeDetail.vue
             <input v-model="form.telephone_livraison" v-bind="attrs" type="tel" autocomplete="tel" class="input" />
           </FormField>
 
-          <FormField v-slot="{ attrs }" label="Moyen de paiement">
+          <FormField v-if="!estPayee" v-slot="{ attrs }" label="Moyen de paiement">
             <select v-model="form.moyen_paiement" v-bind="attrs" class="input">
               <option value="orange_money">Orange Money</option>
               <option value="mtn_momo">MTN Mobile Money</option>
@@ -247,7 +273,7 @@ File: src/views/CommandeDetail.vue
             </select>
           </FormField>
 
-          <FormField v-if="form.moyen_paiement !== 'especes'" v-slot="{ attrs }" label="Numéro Mobile Money" requis>
+          <FormField v-if="!estPayee && form.moyen_paiement !== 'especes'" v-slot="{ attrs }" label="Numéro Mobile Money" requis>
             <input v-model="form.telephone_paiement" v-bind="attrs" type="tel" autocomplete="tel" class="input" />
           </FormField>
 
@@ -255,11 +281,11 @@ File: src/views/CommandeDetail.vue
             <textarea v-model="form.instructions_speciales" v-bind="attrs" rows="3" class="input resize-y"></textarea>
           </FormField>
 
-          <p v-if="form.type_livraison === 'livraison' && livraisonPossible" class="flex items-center gap-2 text-sm text-gray-700 md:col-span-2">
+          <p v-if="!estPayee && form.type_livraison === 'livraison' && livraisonPossible" class="flex items-center gap-2 text-sm text-gray-700 md:col-span-2">
             <Truck :size="16" aria-hidden="true" />
             Frais de livraison : {{ formatPrice(fraisLivraison) }} FCFA
           </p>
-          <AlertMessage v-if="shippingError" type="warning" class="md:col-span-2">{{ shippingError }}</AlertMessage>
+          <AlertMessage v-if="!estPayee && shippingError" type="warning" class="md:col-span-2">{{ shippingError }}</AlertMessage>
 
           <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end md:col-span-2">
             <Button type="button" variant="outline" @click="toggleEdit">Abandonner</Button>
@@ -345,6 +371,8 @@ const form = ref({
 })
 
 const canEdit = computed(() => commande.value?.statut === 'en_attente')
+// Payée : seul le vendeur annule ou change la livraison (il rembourse)
+const estPayee = computed(() => commande.value?.statut_paiement === 'paye')
 
 // Paiement NotchPay proposé tant qu'une commande mobile money n'est ni payée ni annulée
 const paiementEnLigne = ref(false)

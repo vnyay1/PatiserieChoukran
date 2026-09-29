@@ -304,6 +304,21 @@ class CommandeController extends Controller
             ], 400);
         }
 
+        // Payée (ou en cours de paiement) : le client passe par le vendeur, qui annule et
+        // rembourse. Un paiement expiré ou échoué chez NotchPay ne bloque plus l'annulation.
+        if ($commande->paiementEnCours()) {
+            Paiements::synchroniser($commande->paiement);
+            $commande->refresh();
+        }
+        if ($commande->isPaid() || $commande->paiementEnCours()) {
+            return response()->json([
+                'success' => false,
+                'message' => $commande->isPaid()
+                    ? 'Cette commande est déjà payée : contactez le vendeur pour l\'annuler, il organisera le remboursement.'
+                    : 'Un paiement en ligne est en cours pour cette commande : attendez son expiration ou contactez le vendeur pour l\'annuler.',
+            ], 422);
+        }
+
         // changerStatut remet aussi le stock des produits (voir Commande::changerStatut)
         $commande->changerStatut('annulee', $request->user()->id, 'Annulée par le client');
 
