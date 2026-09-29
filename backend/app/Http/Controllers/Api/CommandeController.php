@@ -345,6 +345,22 @@ class CommandeController extends Controller
 
         $typeLivraison = $validated['type_livraison'] ?? $commande->type_livraison;
 
+        // Payée ou en cours de paiement : le montant et le moyen de paiement sont figés
+        // (sinon on paierait l'ancien montant pour une commande modifiée). Un paiement
+        // expiré ou échoué chez NotchPay libère la commande.
+        if ($commande->paiementEnCours()) {
+            Paiements::synchroniser($commande->paiement);
+            $commande->refresh();
+        }
+        if (($commande->isPaid() || $commande->paiementEnCours()) && $this->changeLivraisonOuPaiement($commande, $validated, $typeLivraison)) {
+            return response()->json([
+                'success' => false,
+                'message' => $commande->isPaid()
+                    ? 'Cette commande est déjà payée : contactez le vendeur pour changer la livraison ou le paiement.'
+                    : 'Un paiement en ligne est en cours pour cette commande : terminez-le ou attendez son expiration avant de changer la livraison ou le paiement.',
+            ], 422);
+        }
+
         $adresseLivraisonId = $typeLivraison === 'livraison'
             ? ($validated['adresse_livraison_id'] ?? $commande->adresse_livraison_id)
             : null;
@@ -448,6 +464,19 @@ class CommandeController extends Controller
             'success' => true,
             'data' => $stats,
         ]);
+    }
+
+    // La modification toucherait-elle au montant ou au paiement ? (mode, adresse, moyen, numéro payeur)
+    private function changeLivraisonOuPaiement(Commande $commande, array $validated, string $typeLivraison): bool
+    {
+        $moyen = $validated['moyen_paiement'] ?? $commande->moyen_paiement;
+
+        return $typeLivraison !== $commande->type_livraison
+            || ($typeLivraison === 'livraison' && ! empty($validated['adresse_livraison_id'])
+                && (int) $validated['adresse_livraison_id'] !== (int) $commande->adresse_livraison_id)
+            || $moyen !== $commande->moyen_paiement
+            || ($moyen !== 'especes' && array_key_exists('telephone_paiement', $validated)
+                && (string) $validated['telephone_paiement'] !== (string) $commande->telephone_paiement);
     }
 
     private function syncPanierVendeurIds(Collection $panierItems): void

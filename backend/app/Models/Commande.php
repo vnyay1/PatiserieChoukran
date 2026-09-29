@@ -300,6 +300,12 @@ class Commande extends Model
         return $this->statut_paiement === 'paye';
     }
 
+    // Paiement en ligne ouvert chez NotchPay, sans réponse définitive pour l'instant
+    public function paiementEnCours(): bool
+    {
+        return $this->paiement_id !== null && $this->paiement?->statut === Paiement::STATUT_EN_ATTENTE;
+    }
+
     public function isLivree()
     {
         return $this->statut === 'livree';

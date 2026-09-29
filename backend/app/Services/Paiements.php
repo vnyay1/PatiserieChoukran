@@ -79,6 +79,11 @@ class Paiements
     /**
      * Relit le statut chez NotchPay et l'applique (idempotent : un paiement terminé ne
      * change plus, une commande n'est confirmée payée qu'une fois).
+     *
+     * Un paiement « complete » ne confirme les commandes que si trois montants concordent :
+     * celui que NotchPay a encaissé (quand l'API le renvoie), celui du paiement créé chez
+     * nous, et le total actuel des commandes rattachées. Sinon l'argent est bien reçu mais
+     * un admin vérifie avant toute confirmation.
      */
     public static function synchroniser(Paiement $paiement): Paiement
     {
@@ -87,16 +92,17 @@ class Paiements
         }
 
         // NotchPay ne retrouve un paiement que par sa propre référence (notchpay_id)
-        $statutNotchPay = NotchPay::statut($paiement->notchpay_id ?: $paiement->reference);
-        $nouveauStatut = self::STATUTS[$statutNotchPay] ?? null;
+        $etat = NotchPay::statut($paiement->notchpay_id ?: $paiement->reference);
+        $nouveauStatut = self::STATUTS[$etat['statut'] ?? null] ?? null;
 
         if (! $nouveauStatut) {
             return $paiement;
         }
 
         $commandesPayees = collect();
+        $ecart = null;
 
-        DB::transaction(function () use ($paiement, $nouveauStatut, &$commandesPayees) {
+        DB::transaction(function () use ($paiement, $nouveauStatut, $etat, &$commandesPayees, &$ecart) {
             $verrouille = Paiement::whereKey($paiement->id)->lockForUpdate()->first();
             if ($verrouille->estTermine()) {
                 return;
@@ -108,13 +114,23 @@ class Paiements
             ]);
 
             $commandes = $verrouille->commandes()->get();
-            if ($nouveauStatut === 'complete') {
-                $commandesPayees = $commandes->filter(fn (Commande $commande) => ! $commande->isPaid() && ! $commande->isAnnulee());
-            } else {
+            if ($nouveauStatut !== 'complete') {
                 Commande::whereIn('id', $commandes->where('statut_paiement', 'en_attente')->pluck('id'))
                     ->update(['statut_paiement' => 'echec']);
+
+                return;
+            }
+
+            $ecart = self::ecart($verrouille, $commandes, $etat);
+            if (! $ecart) {
+                $commandesPayees = $commandes->filter(fn (Commande $commande) => ! $commande->isPaid() && ! $commande->isAnnulee());
             }
         });
+
+        if ($ecart) {
+            Log::warning('Paiement NotchPay à vérifier : montants discordants', ['paiement' => $paiement->reference, ...$ecart]);
+            NotificationsCompte::paiementAVerifier($paiement->reference, $ecart['recu'], $ecart['du']);
+        }
 
         // Après la transaction : confirmation (et notification client) commande par commande
         foreach ($commandesPayees as $commande) {
@@ -130,5 +146,32 @@ class Paiements
         }
 
         return $paiement->fresh();
+    }
+
+    /**
+     * Null si le montant encaissé correspond aux commandes, sinon le détail de l'écart.
+     * Les commandes annulées depuis ne sont plus dues : leur part rend le paiement discordant.
+     *
+     * @param  Collection<int, Commande>  $commandes
+     * @param  array{statut: ?string, montant: ?int, devise: ?string}  $etat
+     * @return array{recu: ?int, attendu: int, du: int, devise: ?string}|null
+     */
+    private static function ecart(Paiement $paiement, Collection $commandes, array $etat): ?array
+    {
+        $attendu = (int) round((float) $paiement->montant);
+        $du = (int) round($commandes->reject(fn (Commande $commande) => $commande->isAnnulee())
+            ->sum(fn (Commande $commande) => (float) $commande->montant_total));
+        $deviseAttendue = strtoupper((string) config('services.notchpay.currency', 'XAF'));
+
+        $concordant = $du === $attendu
+            && ($etat['montant'] === null || $etat['montant'] === $attendu)
+            && ($etat['devise'] === null || strtoupper($etat['devise']) === $deviseAttendue);
+
+        return $concordant ? null : [
+            'recu' => $etat['montant'],
+            'attendu' => $attendu,
+            'du' => $du,
+            'devise' => $etat['devise'],
+        ];
     }
 }
