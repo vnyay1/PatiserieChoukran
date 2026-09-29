@@ -63,7 +63,7 @@ class CommandeController extends Controller
         }
 
         $commandes = $query->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 15));
+            ->paginate($this->parPage($request));
 
         return response()->json([
             'success' => true,
@@ -123,7 +123,7 @@ class CommandeController extends Controller
     public function confirmPayment(Request $request, $id)
     {
         $validated = $request->validate([
-            'reference_paiement' => 'nullable|string',
+            'reference_paiement' => 'nullable|string|max:255',
         ]);
 
         $commande = Commande::findOrFail($id);

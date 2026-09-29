@@ -52,14 +52,14 @@ File: src/views/Register.vue
               v-slot="{ attrs }"
               label="Mot de passe"
               requis
-              aide="6 caractères minimum."
+              aide="8 caractères minimum."
               :erreur="erreurs.mot_de_passe"
             >
-              <PasswordInput v-model="form.mot_de_passe" v-bind="attrs" autocomplete="new-password" minlength="6" />
+              <PasswordInput v-model="form.mot_de_passe" v-bind="attrs" autocomplete="new-password" minlength="8" />
             </FormField>
 
             <FormField v-slot="{ attrs }" label="Confirmer le mot de passe" requis :erreur="erreurs.mot_de_passe_confirmation">
-              <PasswordInput v-model="form.mot_de_passe_confirmation" v-bind="attrs" autocomplete="new-password" minlength="6" />
+              <PasswordInput v-model="form.mot_de_passe_confirmation" v-bind="attrs" autocomplete="new-password" minlength="8" />
             </FormField>
 
             <AlertMessage v-if="error" type="error">{{ error }}</AlertMessage>
@@ -116,7 +116,7 @@ const valider = () => {
   if (!form.value.nom_complet.trim()) manquants.nom_complet = 'Indiquez votre nom et votre prénom.'
   if (!estTelephoneComplet(form.value.telephone)) manquants.telephone = 'Le numéro doit comporter 9 chiffres (ex. 699 12 34 56).'
   if (form.value.email && !EMAIL_VALIDE.test(form.value.email)) manquants.email = 'Cette adresse e-mail n\'est pas valide (ex. nom@exemple.com).'
-  if (form.value.mot_de_passe.length < 6) manquants.mot_de_passe = 'Le mot de passe doit contenir au moins 6 caractères.'
+  if (form.value.mot_de_passe.length < 8) manquants.mot_de_passe = 'Le mot de passe doit contenir au moins 8 caractères.'
   if (form.value.mot_de_passe_confirmation !== form.value.mot_de_passe) {
     manquants.mot_de_passe_confirmation = 'Les deux mots de passe ne correspondent pas.'
   }

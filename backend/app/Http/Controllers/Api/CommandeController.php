@@ -13,6 +13,7 @@ use App\Services\LivraisonVendeur;
 use App\Services\NotchPay;
 use App\Services\NotificationsCommande;
 use App\Services\Paiements;
+use App\Support\Telephone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -42,7 +43,7 @@ class CommandeController extends Controller
             }
         }
 
-        $commandes = $query->paginate(min(max((int) $request->get('per_page', 10), 1), 50));
+        $commandes = $query->paginate($this->parPage($request, 10, 50));
 
         return response()->json([
             'success' => true,
@@ -88,14 +89,15 @@ class CommandeController extends Controller
             return $response;
         }
 
+        $this->normaliserTelephones($request);
         $validated = $request->validate([
             'type_livraison' => 'required|in:livraison,retrait_boutique',
             'adresse_livraison_id' => 'exclude_unless:type_livraison,livraison|required|exists:adresses,id',
-            'telephone_livraison' => 'exclude_unless:type_livraison,livraison|required|string',
+            'telephone_livraison' => ['exclude_unless:type_livraison,livraison', 'required', 'string', Telephone::REGLE],
             'instructions_speciales' => 'nullable|string|max:500',
             'moyen_paiement' => 'required|in:orange_money,mtn_momo,especes',
-            'telephone_paiement' => 'required_unless:moyen_paiement,especes|string',
-        ]);
+            'telephone_paiement' => ['required_unless:moyen_paiement,especes', 'nullable', 'string', Telephone::REGLE],
+        ], $this->messagesTelephones());
 
         Panier::purgerExpires($request->user()->id);
 
@@ -349,14 +351,15 @@ class CommandeController extends Controller
             ], 400);
         }
 
+        $this->normaliserTelephones($request);
         $validated = $request->validate([
             'type_livraison' => 'sometimes|in:livraison,retrait_boutique',
             'adresse_livraison_id' => 'nullable|exists:adresses,id',
-            'telephone_livraison' => 'nullable|string',
+            'telephone_livraison' => ['nullable', 'string', Telephone::REGLE],
             'instructions_speciales' => 'nullable|string|max:500',
             'moyen_paiement' => 'sometimes|in:orange_money,mtn_momo,especes',
-            'telephone_paiement' => 'nullable|string',
-        ]);
+            'telephone_paiement' => ['nullable', 'string', Telephone::REGLE],
+        ], $this->messagesTelephones());
 
         $typeLivraison = $validated['type_livraison'] ?? $commande->type_livraison;
 
@@ -479,6 +482,24 @@ class CommandeController extends Controller
             'success' => true,
             'data' => $stats,
         ]);
+    }
+
+    // Numéros saisis librement (« 690 00 09 99 ») ramenés au format +237XXXXXXXXX avant validation
+    private function normaliserTelephones(Request $request): void
+    {
+        foreach (['telephone_livraison', 'telephone_paiement'] as $champ) {
+            if ($request->filled($champ)) {
+                $request->merge([$champ => Telephone::normaliser($request->input($champ))]);
+            }
+        }
+    }
+
+    private function messagesTelephones(): array
+    {
+        return [
+            'telephone_livraison.regex' => 'Le téléphone de livraison doit être un numéro camerounais à 9 chiffres (ex. 6 90 00 00 00).',
+            'telephone_paiement.regex' => 'Le numéro Mobile Money doit être un numéro camerounais à 9 chiffres (ex. 6 90 00 00 00).',
+        ];
     }
 
     // La modification toucherait-elle au montant ou au paiement ? (mode, adresse, moyen, numéro payeur)

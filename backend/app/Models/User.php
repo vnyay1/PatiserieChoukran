@@ -29,6 +29,7 @@ class User extends Authenticatable
     ];
 
     protected $casts = [
+        // Haché à l'écriture ; une valeur déjà hachée (Hash::make) est gardée telle quelle
         'mot_de_passe' => 'hashed',
         'conditions_acceptees_le' => 'datetime',
         'montant_minimum_livraison' => 'decimal:2',
@@ -112,12 +113,6 @@ class User extends Authenticatable
     public function scopeVendeursEnActivite($query)
     {
         return $query->vendeurs()->actifs()->profilVendeurComplet();
-    }
-
-    // Accessors & Mutators
-    public function setMotDePasseAttribute($value)
-    {
-        $this->attributes['mot_de_passe'] = bcrypt($value);
     }
 
     // Toujours vrai pour un client ou un admin : seul un vendeur a un profil boutique à remplir

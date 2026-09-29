@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\PersonalAccessToken;
+use App\Support\Telephone;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Events\MessageSent;
@@ -71,17 +72,26 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
-        // Connexion / inscription : protection contre la force brute
-        RateLimiter::for('auth', function (Request $request) {
-            $trop = fn () => response()->json([
-                'success' => false,
-                'message' => 'Trop de tentatives. Veuillez patienter une minute avant de réessayer.',
-            ], 429);
+        $trop = fn () => response()->json([
+            'success' => false,
+            'message' => 'Trop de tentatives. Veuillez patienter une minute avant de réessayer.',
+        ], 429);
+
+        // Connexion / inscription : protection contre la force brute. Le numéro est normalisé
+        // comme à la connexion : « 690… », « 237690… » et « +237 690… » partagent un compteur.
+        RateLimiter::for('auth', function (Request $request) use ($trop) {
+            $telephone = Telephone::normaliser($request->input('telephone'));
 
             return [
-                Limit::perMinute(10)->by($request->ip().'|'.$request->input('telephone'))->response($trop),
+                Limit::perMinute(10)->by($request->ip().'|'.(is_string($telephone) ? $telephone : ''))->response($trop),
                 Limit::perMinute(30)->by($request->ip())->response($trop),
             ];
+        });
+
+        // Actions sensibles d'un compte connecté (mot de passe, identifiants, ouverture d'un
+        // paiement NotchPay) : quelques essais par minute suffisent
+        RateLimiter::for('sensible', function (Request $request) use ($trop) {
+            return Limit::perMinute(5)->by($request->user()?->id ?: $request->ip())->response($trop);
         });
     }
 }

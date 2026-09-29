@@ -28,7 +28,7 @@ class CategorieController extends Controller
 
         $categories = $query->orderBy('ordre_affichage', 'asc')
             ->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 15));
+            ->paginate($this->parPage($request, 15, 200));
 
         return response()->json([
             'success' => true,

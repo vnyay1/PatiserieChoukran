@@ -75,6 +75,18 @@ File: src/views/Profil.vue
             <TelephoneInput v-model="profileForm.telephone" v-bind="attrs" :disabled="isClientProfileLocked" />
           </FormField>
 
+          <!-- Le téléphone sert à se connecter : le changer demande le mot de passe -->
+          <FormField
+            v-if="telephoneModifie"
+            v-slot="{ attrs }"
+            label="Mot de passe actuel"
+            requis
+            aide="Nécessaire pour changer le numéro qui sert à vous connecter."
+            :erreur="erreursProfil.mot_de_passe_actuel"
+          >
+            <PasswordInput v-model="profileForm.mot_de_passe_actuel" v-bind="attrs" autocomplete="current-password" />
+          </FormField>
+
           <FormField v-slot="{ attrs }" label="E-mail" :facultatif="!isClientProfileLocked" :erreur="erreursProfil.email">
             <input
               v-model="profileForm.email"
@@ -182,11 +194,11 @@ File: src/views/Profil.vue
           <FormField v-slot="{ attrs }" label="Mot de passe actuel" requis :erreur="erreursMotDePasse.ancien_mot_de_passe">
             <PasswordInput v-model="passwordForm.ancien_mot_de_passe" v-bind="attrs" autocomplete="current-password" />
           </FormField>
-          <FormField v-slot="{ attrs }" label="Nouveau mot de passe" requis aide="6 caractères minimum." :erreur="erreursMotDePasse.nouveau_mot_de_passe">
-            <PasswordInput v-model="passwordForm.nouveau_mot_de_passe" v-bind="attrs" autocomplete="new-password" minlength="6" />
+          <FormField v-slot="{ attrs }" label="Nouveau mot de passe" requis aide="8 caractères minimum." :erreur="erreursMotDePasse.nouveau_mot_de_passe">
+            <PasswordInput v-model="passwordForm.nouveau_mot_de_passe" v-bind="attrs" autocomplete="new-password" minlength="8" />
           </FormField>
           <FormField v-slot="{ attrs }" label="Confirmer le nouveau mot de passe" requis :erreur="erreursMotDePasse.nouveau_mot_de_passe_confirmation">
-            <PasswordInput v-model="passwordForm.nouveau_mot_de_passe_confirmation" v-bind="attrs" autocomplete="new-password" minlength="6" />
+            <PasswordInput v-model="passwordForm.nouveau_mot_de_passe_confirmation" v-bind="attrs" autocomplete="new-password" minlength="8" />
           </FormField>
 
           <AlertMessage v-if="passwordError" type="error">{{ passwordError }}</AlertMessage>
@@ -249,6 +261,7 @@ const profileForm = ref({
   nom_complet: authStore.user?.nom_complet || '',
   telephone: '',
   email: authStore.user?.email || '',
+  mot_de_passe_actuel: '',
 })
 
 const passwordForm = ref({
@@ -301,6 +314,8 @@ const initiales = computed(() => {
     .slice(0, 2) || 'U'
 })
 const isClientProfileLocked = computed(() => authStore.user?.role === 'client')
+const telephoneModifie = computed(() => !isClientProfileLocked.value
+  && chiffresLocaux(profileForm.value.telephone) !== chiffresLocaux(authStore.user?.telephone || ''))
 
 const focusPremiereErreur = async () => {
   await nextTick()
@@ -321,6 +336,9 @@ const updateProfile = async () => {
   if (!isClientProfileLocked.value && localTelephone.length !== 9) {
     erreursProfil.value.telephone = 'Le numéro de téléphone doit contenir 9 chiffres.'
   }
+  if (telephoneModifie.value && !profileForm.value.mot_de_passe_actuel) {
+    erreursProfil.value.mot_de_passe_actuel = 'Saisissez votre mot de passe actuel pour changer de numéro.'
+  }
   if (Object.keys(erreursProfil.value).length > 0) {
     focusPremiereErreur()
     return
@@ -334,6 +352,9 @@ const updateProfile = async () => {
     if (!isClientProfileLocked.value) {
       payload.telephone = telephoneComplet(localTelephone)
       payload.email = email || null
+    }
+    if (telephoneModifie.value) {
+      payload.mot_de_passe_actuel = profileForm.value.mot_de_passe_actuel
     }
 
     const response = await api.auth.updateProfile(payload)
@@ -351,6 +372,7 @@ const updateProfile = async () => {
     profileForm.value.nom_complet = authStore.user?.nom_complet || nomComplet
     profileForm.value.telephone = chiffresLocaux(authStore.user?.telephone || localTelephone)
     profileForm.value.email = authStore.user?.email || ''
+    profileForm.value.mot_de_passe_actuel = ''
 
     toastStore.succes('Profil mis à jour.')
   } catch (error) {
@@ -359,6 +381,7 @@ const updateProfile = async () => {
       nom_complet: validationErrors.nom_complet?.[0],
       telephone: validationErrors.telephone?.[0],
       email: validationErrors.email?.[0],
+      mot_de_passe_actuel: validationErrors.mot_de_passe_actuel?.[0],
     }
     if (!Object.values(erreursProfil.value).some(Boolean)) {
       profileError.value = messageErreur(error, 'Erreur lors de la mise à jour du profil.')
@@ -373,7 +396,7 @@ const changePassword = async () => {
   passwordError.value = ''
   const erreurs = {}
   if (!passwordForm.value.ancien_mot_de_passe) erreurs.ancien_mot_de_passe = 'Saisissez votre mot de passe actuel.'
-  if (passwordForm.value.nouveau_mot_de_passe.length < 6) erreurs.nouveau_mot_de_passe = 'Le nouveau mot de passe doit contenir au moins 6 caractères.'
+  if (passwordForm.value.nouveau_mot_de_passe.length < 8) erreurs.nouveau_mot_de_passe = 'Le nouveau mot de passe doit contenir au moins 8 caractères.'
   if (passwordForm.value.nouveau_mot_de_passe !== passwordForm.value.nouveau_mot_de_passe_confirmation) {
     erreurs.nouveau_mot_de_passe_confirmation = 'Les deux mots de passe ne correspondent pas.'
   }

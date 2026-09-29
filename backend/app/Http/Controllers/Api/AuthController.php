@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\Telephone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -16,14 +18,14 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $request->merge([
-            'telephone' => $this->normalizeTelephone($request->telephone),
+            'telephone' => Telephone::normaliser($request->telephone),
         ]);
 
         $validated = $request->validate([
             'nom_complet' => 'required|string|max:255',
-            'telephone' => 'required|string|unique:users,telephone|regex:/^\+237[0-9]{9}$/',
+            'telephone' => ['required', 'string', 'unique:users,telephone', Telephone::REGLE],
             'email' => 'nullable|email|unique:users,email',
-            'mot_de_passe' => 'required|string|min:6|confirmed',
+            'mot_de_passe' => ['required', 'string', 'confirmed', Password::min(8)],
         ]);
 
         $user = User::create([
@@ -54,7 +56,7 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->merge([
-            'telephone' => $this->normalizeTelephone($request->telephone),
+            'telephone' => Telephone::normaliser($request->telephone),
         ]);
 
         $request->validate([
@@ -129,7 +131,7 @@ class AuthController extends Controller
 
         if ($request->has('telephone')) {
             $request->merge([
-                'telephone' => $this->normalizeTelephone($request->telephone),
+                'telephone' => Telephone::normaliser($request->telephone),
             ]);
         }
 
@@ -158,8 +160,22 @@ class AuthController extends Controller
             'nom_complet' => 'sometimes|string|max:255',
             // L'e-mail fait partie du profil boutique obligatoire d'un vendeur
             'email' => ($user->isVendeur() ? 'sometimes|required' : 'sometimes|nullable').'|email|unique:users,email,'.$user->id,
-            'telephone' => 'sometimes|string|unique:users,telephone,'.$user->id.'|regex:/^\+237[0-9]{9}$/',
+            'telephone' => ['sometimes', 'string', 'unique:users,telephone,'.$user->id, Telephone::REGLE],
         ]);
+
+        // Le téléphone sert à se connecter : un jeton volé ne doit pas suffire à en changer
+        // (le vrai titulaire se retrouverait enfermé dehors)
+        if (isset($validated['telephone']) && $validated['telephone'] !== $user->telephone) {
+            $request->validate([
+                'mot_de_passe_actuel' => ['required', 'string', function (string $attribut, mixed $valeur, \Closure $echec) use ($user) {
+                    if (! Hash::check($valeur, $user->mot_de_passe)) {
+                        $echec('Le mot de passe actuel est incorrect.');
+                    }
+                }],
+            ], [
+                'mot_de_passe_actuel.required' => 'Saisissez votre mot de passe actuel pour changer de numéro de téléphone.',
+            ]);
+        }
 
         $user->update($validated);
 
@@ -177,7 +193,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'ancien_mot_de_passe' => 'required|string',
-            'nouveau_mot_de_passe' => 'required|string|min:6|confirmed',
+            'nouveau_mot_de_passe' => ['required', 'string', 'confirmed', Password::min(8)],
         ]);
 
         $user = $request->user();
@@ -201,28 +217,5 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Mot de passe changé avec succès. Veuillez vous reconnecter.',
         ]);
-    }
-
-    private function normalizeTelephone(?string $telephone): ?string
-    {
-        if ($telephone === null) {
-            return null;
-        }
-
-        $cleaned = preg_replace('/[\s-]+/', '', trim($telephone));
-
-        if ($cleaned === '') {
-            return $cleaned;
-        }
-
-        if (str_starts_with($cleaned, '+')) {
-            return $cleaned;
-        }
-
-        if (str_starts_with($cleaned, '237')) {
-            return '+'.$cleaned;
-        }
-
-        return '+237'.$cleaned;
     }
 }

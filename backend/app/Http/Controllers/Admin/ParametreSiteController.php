@@ -35,7 +35,7 @@ class ParametreSiteController extends Controller
 
         $parametres = $query->orderBy('groupe', 'asc')
             ->orderBy('cle', 'asc')
-            ->paginate($request->get('per_page', 20));
+            ->paginate($this->parPage($request, 20));
 
         return response()->json([
             'success' => true,
@@ -50,7 +50,7 @@ class ParametreSiteController extends Controller
     {
         $validated = $request->validate([
             'cle' => 'required|string|max:255|unique:parametre_sites,cle',
-            'valeur' => 'nullable',
+            'valeur' => $this->regleValeur($request->input('type')),
             'type' => 'required|in:string,integer,boolean,json',
             'description' => 'nullable|string',
             'groupe' => 'nullable|string|max:100',
@@ -97,7 +97,7 @@ class ParametreSiteController extends Controller
                 'max:255',
                 Rule::unique('parametre_sites', 'cle')->ignore($parametre->id),
             ],
-            'valeur' => 'nullable',
+            'valeur' => $this->regleValeur($request->input('type', $parametre->type)),
             'type' => 'sometimes|in:string,integer,boolean,json',
             'description' => 'nullable|string',
             'groupe' => 'nullable|string|max:100',
@@ -129,6 +129,20 @@ class ParametreSiteController extends Controller
             'success' => true,
             'message' => 'Paramètre supprimé',
         ]);
+    }
+
+    // Un tableau n'a de sens que pour un paramètre JSON (ailleurs, il finissait en erreur 500)
+    private function regleValeur(?string $type): array
+    {
+        if ($type === 'json') {
+            return ['nullable'];
+        }
+
+        return ['nullable', function (string $attribut, mixed $valeur, \Closure $echec) {
+            if (is_array($valeur)) {
+                $echec('Cette valeur doit être un texte, un nombre ou un booléen.');
+            }
+        }];
     }
 
     private function normalizeValue(string $type, $value)
