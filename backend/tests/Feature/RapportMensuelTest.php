@@ -92,6 +92,29 @@ class RapportMensuelTest extends TestCase
         Storage::disk('local')->assertExists('rapports/2026-08/rapport-vendeurs-2026-08.csv');
     }
 
+    public function test_le_csv_neutralise_les_formules_saisies_par_les_vendeurs(): void
+    {
+        // Un vendeur choisit son nom et son e-mail : ouverts dans Excel, ils ne doivent rien exécuter
+        $this->creerUtilisateur('vendeur', [
+            'nom_complet' => '=HYPERLINK("http://pirate.test";"Cliquez")',
+            'email' => '@SOMME(1+1)@pirate.test',
+        ]);
+        Sanctum::actingAs($this->admin);
+
+        $contenu = $this->get('/api/v1/admin/rapports/mensuel?mois=2026-08&format=csv')->assertOk()->getContent();
+        $lignes = array_map(fn ($ligne) => str_getcsv($ligne, ';', '"', ''), array_filter(explode("\n", substr($contenu, 3))));
+
+        $pirate = collect($lignes)->first(fn (array $ligne) => str_contains($ligne[0], 'HYPERLINK'));
+        $this->assertSame('\'=HYPERLINK("http://pirate.test";"Cliquez")', $pirate[0]);
+        $this->assertSame('\'@SOMME(1+1)@pirate.test', $pirate[1]);
+
+        foreach ($lignes as $ligne) {
+            foreach ($ligne as $cellule) {
+                $this->assertDoesNotMatchRegularExpression('/^[=+\-@\t\r]/', $cellule);
+            }
+        }
+    }
+
     public function test_le_pdf_est_telechargeable(): void
     {
         Sanctum::actingAs($this->admin);

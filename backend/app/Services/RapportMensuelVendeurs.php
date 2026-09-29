@@ -163,7 +163,7 @@ class RapportMensuelVendeurs
 
         foreach ([...$rapport['vendeurs'], $rapport['totaux']] as $ligne) {
             fputcsv($flux, array_map(
-                fn (string $cle) => is_float($ligne[$cle]) ? (int) round($ligne[$cle]) : $ligne[$cle],
+                fn (string $cle) => is_float($ligne[$cle]) ? (int) round($ligne[$cle]) : self::celluleTexte($ligne[$cle]),
                 array_keys(self::COLONNES)
             ), ';', '"', '');
         }
@@ -173,6 +173,16 @@ class RapportMensuelVendeurs
         fclose($flux);
 
         return $contenu;
+    }
+
+    /**
+     * Nom, e-mail et téléphone viennent des vendeurs : un texte commençant par = + - @
+     * (ou tabulation, retour chariot) serait exécuté comme une formule par Excel.
+     * L'apostrophe initiale le fait lire comme du texte (et Excel ne l'affiche pas).
+     */
+    private static function celluleTexte(mixed $valeur): mixed
+    {
+        return is_string($valeur) && preg_match('/^[=+\-@\t\r]/', $valeur) ? "'".$valeur : $valeur;
     }
 
     public static function chemin(CarbonImmutable $mois, string $format): string
