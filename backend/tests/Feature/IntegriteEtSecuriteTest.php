@@ -6,6 +6,7 @@ use App\Models\Commande;
 use App\Models\LigneCommande;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\CreeDonneesBoutique;
@@ -148,6 +149,26 @@ class IntegriteEtSecuriteTest extends TestCase
         $this->postJson('/api/v1/auth/login', ['telephone' => $client->telephone, 'mot_de_passe' => 'password123'])
             ->assertStatus(429)
             ->assertJsonPath('success', false);
+    }
+
+    public function test_un_jeton_de_connexion_expire_apres_30_jours(): void
+    {
+        $client = $this->creerUtilisateur('client');
+        $jeton = $client->createToken('auth_token')->plainTextToken;
+
+        $this->travel(29)->days();
+        $this->withToken($jeton)->getJson('/api/v1/auth/user')->assertOk();
+
+        $this->app['auth']->forgetGuards();
+        $this->travel(2)->days();
+        $this->withToken($jeton)->getJson('/api/v1/auth/user')->assertUnauthorized();
+    }
+
+    public function test_les_jetons_expires_sont_purges_chaque_jour(): void
+    {
+        Artisan::call('schedule:list');
+
+        $this->assertStringContainsString('sanctum:prune-expired', Artisan::output());
     }
 
     public function test_l_api_n_utilise_pas_le_middleware_stateful_de_sanctum(): void
