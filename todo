@@ -114,8 +114,15 @@ Tous les points de cette liste ont été traités (branche amelioration/audit-co
 
 À faire par toi, hors code :
 
-1. Changer les secrets présents dans l'historique git (.env.docker y a été
-   commité) : APP_KEY, mots de passe MySQL et identifiants SMTP.
+1. Secrets de l'historique git (.env.docker commité du 09/03 au 11/09/2026,
+   dépôt GitHub public : à considérer comme connus de tous) :
+   - révoquer la clé API SendGrid (SendGrid > Settings > API Keys) ;
+   - remplacer APP_KEY partout où l'ancienne a servi ;
+   - changer les mots de passe MySQL patiserie_password / root_password là où
+     ils seraient réutilisés ;
+   - activer GitHub > Settings > Code security : Secret scanning + Push protection.
+   La CI refuse désormais tout nouveau secret (job gitleaks) et le hook local
+   bloque git add/commit des .env et de backups/.
 2. En local (XAMPP), passer MAIL_MAILER=log dans backend/.env si tu ne veux pas
    que les tests de commandes envoient de vrais e-mails (factures, nouvelles
    commandes) par Brevo.
