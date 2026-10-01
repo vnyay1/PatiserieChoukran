@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Adresse;
+use App\Models\Commande;
 use App\Models\Quartier;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -81,6 +82,17 @@ class AdresseController extends Controller
         $validated = $request->validate($this->regles($request, $adresse), $this->messages());
         $validated = $this->completerDepuisQuartier($validated);
 
+        // Une commande en cours livre à cette adresse : déplacer son quartier changerait la
+        // livraison (ville non livrée, commande déjà payée) sans aucune vérification
+        $deplacee = (isset($validated['quartier_id']) && (int) $validated['quartier_id'] !== (int) $adresse->quartier_id)
+            || (isset($validated['ville']) && $validated['ville'] !== $adresse->ville);
+        if ($deplacee && $this->sertUneCommandeEnCours($adresse)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cette adresse sert à une commande en cours : ajoutez plutôt une nouvelle adresse pour un autre quartier.',
+            ], 422);
+        }
+
         $adresse->update($validated);
 
         if ($validated['est_principale'] ?? false) {
@@ -103,6 +115,14 @@ class AdresseController extends Controller
             ->where('id', $id)
             ->firstOrFail();
 
+        // Supprimée, l'adresse disparaîtrait de la commande (clé étrangère « set null »)
+        if ($this->sertUneCommandeEnCours($adresse)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cette adresse sert à une commande en cours : vous pourrez la supprimer une fois la commande livrée ou annulée.',
+            ], 422);
+        }
+
         // Vérifier si c'est l'adresse principale
         $estPrincipale = $adresse->est_principale;
 
@@ -120,6 +140,13 @@ class AdresseController extends Controller
             'success' => true,
             'message' => 'Adresse supprimée',
         ]);
+    }
+
+    private function sertUneCommandeEnCours(Adresse $adresse): bool
+    {
+        return Commande::where('adresse_livraison_id', $adresse->id)
+            ->whereIn('statut', Commande::STATUTS_EN_COURS)
+            ->exists();
     }
 
     private function regles(Request $request, ?Adresse $adresse = null): array

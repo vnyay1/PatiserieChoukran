@@ -42,7 +42,7 @@ class PanierController extends Controller
         $this->purgeExpiredPanier($request);
 
         $validated = $request->validate([
-            'produit_id' => 'required|exists:produits,id',
+            'produit_id' => 'required|integer|exists:produits,id',
             'quantite' => 'required|integer|min:1',
         ]);
 

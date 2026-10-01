@@ -33,8 +33,9 @@ class ProfilBoutiqueController extends Controller
     {
         $vendeur = $request->user();
 
-        if ($request->has('email')) {
-            $request->merge(['email' => trim((string) $request->email)]);
+        // Un tableau est laissé tel quel : la règle « email » le refusera (422, pas 500)
+        if (is_string($request->input('email'))) {
+            $request->merge(['email' => trim($request->input('email'))]);
         }
 
         $validated = $request->validate([

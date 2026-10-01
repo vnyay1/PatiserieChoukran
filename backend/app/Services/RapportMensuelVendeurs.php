@@ -178,7 +178,7 @@ class RapportMensuelVendeurs
     /**
      * Nom, e-mail et téléphone viennent des vendeurs : un texte commençant par = + - @
      * (ou tabulation, retour chariot) serait exécuté comme une formule par Excel.
-     * L'apostrophe initiale le fait lire comme du texte (et Excel ne l'affiche pas).
+     * L'apostrophe initiale le fait lire comme du texte (selon le tableur, elle reste visible).
      */
     private static function celluleTexte(mixed $valeur): mixed
     {
@@ -188,8 +188,11 @@ class RapportMensuelVendeurs
     public static function chemin(CarbonImmutable $mois, string $format): string
     {
         $cle = $mois->format('Y-m');
+        // csv-v2 : CSV neutralisés contre l'injection de formules ; ceux stockés avant ce
+        // correctif ne sont plus servis (régénérés à la demande)
+        $dossier = $format === 'csv' ? "rapports/{$cle}/csv-v2" : "rapports/{$cle}";
 
-        return "rapports/{$cle}/rapport-vendeurs-{$cle}.{$format}";
+        return "{$dossier}/rapport-vendeurs-{$cle}.{$format}";
     }
 
     /**

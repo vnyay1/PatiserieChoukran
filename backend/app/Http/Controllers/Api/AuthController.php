@@ -25,7 +25,7 @@ class AuthController extends Controller
             'nom_complet' => 'required|string|max:255',
             'telephone' => ['required', 'string', 'unique:users,telephone', Telephone::REGLE],
             'email' => 'nullable|email|unique:users,email',
-            'mot_de_passe' => ['required', 'string', 'confirmed', Password::min(8)],
+            'mot_de_passe' => $this->regleNouveauMotDePasse(),
         ]);
 
         $user = User::create([
@@ -135,8 +135,9 @@ class AuthController extends Controller
             ]);
         }
 
-        if ($request->has('email')) {
-            $email = trim((string) $request->email);
+        // Un tableau est laissé tel quel : la règle « email » le refusera (422, pas 500)
+        if (is_string($request->input('email'))) {
+            $email = trim($request->input('email'));
             $request->merge([
                 'email' => $email === '' ? null : $email,
             ]);
@@ -167,8 +168,8 @@ class AuthController extends Controller
         // (le vrai titulaire se retrouverait enfermé dehors)
         if (isset($validated['telephone']) && $validated['telephone'] !== $user->telephone) {
             $request->validate([
-                'mot_de_passe_actuel' => ['required', 'string', function (string $attribut, mixed $valeur, \Closure $echec) use ($user) {
-                    if (! Hash::check($valeur, $user->mot_de_passe)) {
+                'mot_de_passe_actuel' => ['bail', 'required', 'string', function (string $attribut, mixed $valeur, \Closure $echec) use ($user) {
+                    if (! is_string($valeur) || ! Hash::check($valeur, $user->mot_de_passe)) {
                         $echec('Le mot de passe actuel est incorrect.');
                     }
                 }],
@@ -193,7 +194,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'ancien_mot_de_passe' => 'required|string',
-            'nouveau_mot_de_passe' => ['required', 'string', 'confirmed', Password::min(8)],
+            'nouveau_mot_de_passe' => $this->regleNouveauMotDePasse(),
         ]);
 
         $user = $request->user();
@@ -217,5 +218,16 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Mot de passe changé avec succès. Veuillez vous reconnecter.',
         ]);
+    }
+
+    // Nouveau mot de passe : 8 caractères au moins, et jamais une valeur déjà hachée (le cast
+    // « hashed » l'enregistrerait telle quelle, contournant la longueur minimale)
+    private function regleNouveauMotDePasse(): array
+    {
+        return ['required', 'string', 'confirmed', Password::min(8), function (string $attribut, mixed $valeur, \Closure $echec) {
+            if (is_string($valeur) && Hash::isHashed($valeur)) {
+                $echec('Choisissez un autre mot de passe.');
+            }
+        }];
     }
 }

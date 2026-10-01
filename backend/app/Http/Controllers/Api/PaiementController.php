@@ -35,6 +35,22 @@ class PaiementController extends Controller
             return response()->json(['success' => false, 'message' => $refus], 422);
         }
 
+        // Un paiement est déjà ouvert : on le rouvre plutôt que d'en créer un second, que le
+        // client pourrait aussi payer. Son statut est relu d'abord (expiré, il libère la commande).
+        if ($commande->paiementEnCours()) {
+            Paiements::rafraichir($commande->paiement);
+            $commande->refresh();
+        }
+        if ($commande->isPaid() || $commande->paiementAVerifier()) {
+            return response()->json(['success' => false, 'message' => $commande->motifMontantFige('la suite')], 422);
+        }
+        if ($commande->paiementEnCours() && $commande->paiement->url_paiement) {
+            return response()->json([
+                'success' => true,
+                'data' => ['reference' => $commande->paiement->reference, 'url_paiement' => $commande->paiement->url_paiement],
+            ]);
+        }
+
         try {
             ['paiement' => $paiement, 'url' => $url] = Paiements::demarrer(collect([$commande]), $request->user());
         } catch (\RuntimeException $e) {

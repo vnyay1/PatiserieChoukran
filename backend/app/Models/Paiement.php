@@ -23,6 +23,7 @@ class Paiement extends Model
         'telephone',
         'statut',
         'notchpay_id',
+        'url_paiement',
         'paye_le',
     ];
 

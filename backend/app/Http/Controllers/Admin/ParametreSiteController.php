@@ -132,7 +132,7 @@ class ParametreSiteController extends Controller
     }
 
     // Un tableau n'a de sens que pour un paramètre JSON (ailleurs, il finissait en erreur 500)
-    private function regleValeur(?string $type): array
+    private function regleValeur(mixed $type): array
     {
         if ($type === 'json') {
             return ['nullable'];

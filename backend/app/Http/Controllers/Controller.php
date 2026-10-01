@@ -12,6 +12,10 @@ abstract class Controller
      */
     protected function parPage(Request $request, int $defaut = 15, int $max = 100): int
     {
-        return min(max((int) $request->input('per_page', $defaut), 1), $max);
+        // Vide ou non numérique (?per_page=, ?per_page=abc) : taille par défaut
+        $demande = $request->input('per_page');
+        $taille = is_numeric($demande) ? (int) $demande : $defaut;
+
+        return min(max($taille, 1), $max);
     }
 }

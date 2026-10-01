@@ -87,19 +87,39 @@ class AppServiceProvider extends ServiceProvider
 
         // Connexion / inscription : protection contre la force brute. Le numéro est normalisé
         // comme à la connexion : « 690… », « 237690… » et « +237 690… » partagent un compteur.
+        // Le seau par compte borne aussi une attaque répartie sur de nombreuses adresses IP.
         RateLimiter::for('auth', function (Request $request) use ($trop) {
             $telephone = Telephone::normaliser($request->input('telephone'));
+            $telephone = is_string($telephone) ? $telephone : '';
+            $client = self::cleClient($request);
 
-            return [
-                Limit::perMinute(10)->by($request->ip().'|'.(is_string($telephone) ? $telephone : ''))->response($trop),
-                Limit::perMinute(30)->by($request->ip())->response($trop),
-            ];
+            return array_filter([
+                Limit::perMinute(10)->by($client.'|'.$telephone)->response($trop),
+                Limit::perMinute(30)->by($client)->response($trop),
+                $telephone !== '' ? Limit::perHour(50)->by('compte|'.$telephone)->response($trop) : null,
+            ]);
         });
 
-        // Actions sensibles d'un compte connecté (mot de passe, identifiants, ouverture d'un
-        // paiement NotchPay) : quelques essais par minute suffisent
+        // Actions sensibles d'un compte connecté (mot de passe, numéro de connexion) :
+        // quelques essais par minute suffisent
         RateLimiter::for('sensible', function (Request $request) use ($trop) {
-            return Limit::perMinute(5)->by($request->user()?->id ?: $request->ip())->response($trop);
+            return Limit::perMinute(5)->by($request->user()?->id ?: self::cleClient($request))->response($trop);
         });
+
+        // Ouverture d'un paiement NotchPay (appel sortant) : compteur à part, pour qu'un
+        // changement de mot de passe raté n'empêche pas de payer
+        RateLimiter::for('paiement', function (Request $request) use ($trop) {
+            return Limit::perMinute(5)->by('paiement|'.($request->user()?->id ?: self::cleClient($request)))->response($trop);
+        });
+    }
+
+    // Adresse du client ; en IPv6, le préfixe /64 (un abonné en dispose souvent d'un entier)
+    private static function cleClient(Request $request): string
+    {
+        $ip = (string) $request->ip();
+
+        return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)
+            ? bin2hex(substr((string) inet_pton($ip), 0, 8))
+            : $ip;
     }
 }

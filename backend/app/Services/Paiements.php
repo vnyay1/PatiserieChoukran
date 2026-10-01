@@ -6,6 +6,7 @@ use App\Models\Commande;
 use App\Models\Paiement;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -69,11 +70,25 @@ class Paiements
             throw new \RuntimeException('Le paiement en ligne est momentanément indisponible. Réessayez depuis le détail de la commande.', 0, $e);
         }
 
-        if ($resultat['notchpay_id']) {
-            $paiement->update(['notchpay_id' => $resultat['notchpay_id']]);
-        }
+        // L'adresse est gardée : « Payer maintenant » rouvre ce paiement tant qu'il est ouvert
+        $paiement->update(array_filter([
+            'notchpay_id' => $resultat['notchpay_id'],
+            'url_paiement' => $resultat['url'],
+        ]));
 
         return ['paiement' => $paiement, 'url' => $resultat['url']];
+    }
+
+    /**
+     * synchroniser() limité à un appel à NotchPay toutes les 10 secondes par paiement : les
+     * actions répétées du client (modifier, annuler, payer) ne multiplient pas les appels
+     * sortants. Le retour de paiement et le webhook appellent synchroniser() directement.
+     */
+    public static function rafraichir(Paiement $paiement): Paiement
+    {
+        return Cache::add("paiement:{$paiement->id}:relu", true, 10)
+            ? self::synchroniser($paiement)
+            : $paiement;
     }
 
     /**
@@ -121,6 +136,11 @@ class Paiements
                 return;
             }
 
+            if ($etat['montant'] === null) {
+                // Seule la concordance interne (paiement / commandes) peut alors être vérifiée
+                Log::warning('NotchPay n\'a pas renvoyé le montant encaissé', ['paiement' => $paiement->reference]);
+            }
+
             $ecart = self::ecart($verrouille, $commandes, $etat);
             if (! $ecart) {
                 $commandesPayees = $commandes->filter(fn (Commande $commande) => ! $commande->isPaid() && ! $commande->isAnnulee());
@@ -137,11 +157,14 @@ class Paiements
             try {
                 $commande->confirmerPaiement("NotchPay {$paiement->reference}");
             } catch (\Throwable $e) {
+                // Argent reçu mais commande non confirmée (annulée entre-temps, verrou…) :
+                // le paiement est terminé et ne sera plus relu, un admin doit trancher
                 Log::warning('Paiement NotchPay reçu pour une commande non confirmable', [
                     'paiement' => $paiement->reference,
                     'commande' => $commande->numero_commande,
                     'error' => $e->getMessage(),
                 ]);
+                NotificationsCompte::paiementAVerifier($paiement->reference, $etat['montant'], (int) round((float) $commande->montant_total));
             }
         }
 

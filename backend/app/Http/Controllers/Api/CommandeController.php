@@ -14,6 +14,7 @@ use App\Services\NotchPay;
 use App\Services\NotificationsCommande;
 use App\Services\Paiements;
 use App\Support\Telephone;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -92,7 +93,7 @@ class CommandeController extends Controller
         $this->normaliserTelephones($request);
         $validated = $request->validate([
             'type_livraison' => 'required|in:livraison,retrait_boutique',
-            'adresse_livraison_id' => 'exclude_unless:type_livraison,livraison|required|exists:adresses,id',
+            'adresse_livraison_id' => 'exclude_unless:type_livraison,livraison|required|integer|exists:adresses,id',
             'telephone_livraison' => ['exclude_unless:type_livraison,livraison', 'required', 'string', Telephone::REGLE],
             'instructions_speciales' => 'nullable|string|max:500',
             'moyen_paiement' => 'required|in:orange_money,mtn_momo,especes',
@@ -101,18 +102,12 @@ class CommandeController extends Controller
 
         Panier::purgerExpires($request->user()->id);
 
-        $panierItems = Panier::where('user_id', $request->user()->id)
-            ->with(['produit.createur:id,nom_complet', 'vendeur:id,nom_complet'])
-            ->get();
-
-        if ($panierItems->isEmpty()) {
+        if (! Panier::where('user_id', $request->user()->id)->exists()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Votre panier est vide',
             ], 400);
         }
-
-        $this->syncPanierVendeurIds($panierItems);
 
         $adresse = null;
         if ($validated['type_livraison'] === 'livraison') {
@@ -133,7 +128,20 @@ class CommandeController extends Controller
         $vendeursANotifier = [];
 
         try {
-            DB::transaction(function () use ($panierItems, $validated, $adresse, $request, &$commandes, &$vendeursANotifier) {
+            DB::transaction(function () use ($validated, $adresse, $request, &$commandes, &$vendeursANotifier) {
+                // Panier relu sous verrou : une double validation (double clic, deux onglets)
+                // attend la première puis trouve le panier vide, au lieu de recréer les commandes
+                $panierItems = Panier::where('user_id', $request->user()->id)
+                    ->with(['produit.createur:id,nom_complet', 'vendeur:id,nom_complet'])
+                    ->lockForUpdate()
+                    ->get();
+
+                if ($panierItems->isEmpty()) {
+                    throw new \InvalidArgumentException('Votre panier est vide');
+                }
+
+                $this->syncPanierVendeurIds($panierItems);
+
                 // Verrou sur les produits : deux clients ne peuvent pas acheter la dernière unité
                 // en même temps (le stock est relu et vérifié à l'intérieur de la transaction).
                 $produits = Produit::whereIn('id', $panierItems->pluck('produit_id'))
@@ -298,37 +306,39 @@ class CommandeController extends Controller
             ->where('id', $id)
             ->firstOrFail();
 
-        // Vérifier si la commande peut être annulée
-        if (! in_array($commande->statut, ['en_attente'])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cette commande ne peut plus être annulée',
-            ], 400);
-        }
-
-        // Payée (ou en cours de paiement) : le client passe par le vendeur, qui annule et
-        // rembourse. Un paiement expiré ou échoué chez NotchPay ne bloque plus l'annulation.
+        // Paiement ouvert : statut relu chez NotchPay avant la transaction (appel réseau) ;
+        // un paiement expiré ou échoué ne bloque plus l'annulation
         if ($commande->paiementEnCours()) {
-            Paiements::synchroniser($commande->paiement);
-            $commande->refresh();
+            Paiements::rafraichir($commande->paiement);
         }
-        if ($commande->isPaid() || $commande->paiementEnCours()) {
+
+        // Contrôles et annulation sous verrou : ni le vendeur (confirmation) ni NotchPay
+        // (paiement) ne peuvent changer la commande entre le contrôle et l'annulation
+        return DB::transaction(function () use ($commande, $request) {
+            $commande = Commande::whereKey($commande->id)->lockForUpdate()->firstOrFail();
+
+            if ($commande->statut !== 'en_attente') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cette commande ne peut plus être annulée',
+                ], 400);
+            }
+
+            // Payée, paiement ouvert ou reçu à vérifier : le client passe par le vendeur, qui
+            // annule et rembourse
+            if ($commande->montantFige()) {
+                return response()->json(['success' => false, 'message' => $commande->motifMontantFige('l\'annuler')], 422);
+            }
+
+            // changerStatut remet aussi le stock des produits (voir Commande::changerStatut)
+            $commande->changerStatut('annulee', $request->user()->id, 'Annulée par le client');
+
             return response()->json([
-                'success' => false,
-                'message' => $commande->isPaid()
-                    ? 'Cette commande est déjà payée : contactez le vendeur pour l\'annuler, il organisera le remboursement.'
-                    : 'Un paiement en ligne est en cours pour cette commande : attendez son expiration ou contactez le vendeur pour l\'annuler.',
-            ], 422);
-        }
-
-        // changerStatut remet aussi le stock des produits (voir Commande::changerStatut)
-        $commande->changerStatut('annulee', $request->user()->id, 'Annulée par le client');
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Commande annulée',
-            'data' => $commande,
-        ]);
+                'success' => true,
+                'message' => 'Commande annulée',
+                'data' => $commande,
+            ]);
+        });
     }
 
     /**
@@ -354,29 +364,61 @@ class CommandeController extends Controller
         $this->normaliserTelephones($request);
         $validated = $request->validate([
             'type_livraison' => 'sometimes|in:livraison,retrait_boutique',
-            'adresse_livraison_id' => 'nullable|exists:adresses,id',
+            'adresse_livraison_id' => 'nullable|integer|exists:adresses,id',
             'telephone_livraison' => ['nullable', 'string', Telephone::REGLE],
             'instructions_speciales' => 'nullable|string|max:500',
             'moyen_paiement' => 'sometimes|in:orange_money,mtn_momo,especes',
             'telephone_paiement' => ['nullable', 'string', Telephone::REGLE],
         ], $this->messagesTelephones());
 
-        $typeLivraison = $validated['type_livraison'] ?? $commande->type_livraison;
-
-        // Payée ou en cours de paiement : le montant et le moyen de paiement sont figés
-        // (sinon on paierait l'ancien montant pour une commande modifiée). Un paiement
-        // expiré ou échoué chez NotchPay libère la commande.
+        // Paiement ouvert : statut relu chez NotchPay avant la transaction (appel réseau) ;
+        // un paiement expiré ou échoué libère la commande
         if ($commande->paiementEnCours()) {
-            Paiements::synchroniser($commande->paiement);
-            $commande->refresh();
+            Paiements::rafraichir($commande->paiement);
         }
-        if (($commande->isPaid() || $commande->paiementEnCours()) && $this->changeLivraisonOuPaiement($commande, $validated, $typeLivraison)) {
+
+        // Contrôles et écriture sous verrou : NotchPay ne peut pas confirmer le paiement entre
+        // le contrôle du gel et l'enregistrement d'un nouveau montant
+        return DB::transaction(fn () => $this->modifier(
+            $request,
+            Commande::whereKey($commande->id)->lockForUpdate()->firstOrFail(),
+            $validated
+        ));
+    }
+
+    // Modification d'une commande déjà verrouillée (voir update())
+    private function modifier(Request $request, Commande $commande, array $validated): JsonResponse
+    {
+        if ($commande->statut !== 'en_attente') {
             return response()->json([
                 'success' => false,
-                'message' => $commande->isPaid()
-                    ? 'Cette commande est déjà payée : contactez le vendeur pour changer la livraison ou le paiement.'
-                    : 'Un paiement en ligne est en cours pour cette commande : terminez-le ou attendez son expiration avant de changer la livraison ou le paiement.',
-            ], 422);
+                'message' => 'Cette commande ne peut plus être modifiée',
+            ], 400);
+        }
+
+        $typeLivraison = $validated['type_livraison'] ?? $commande->type_livraison;
+
+        // Payée, paiement ouvert ou reçu à vérifier : montant, livraison et moyen de paiement
+        // sont figés (sinon on paierait l'ancien montant) ; seuls les instructions et le
+        // téléphone de livraison changent encore
+        if ($commande->montantFige()) {
+            if ($this->changeLivraisonOuPaiement($commande, $validated, $typeLivraison)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $commande->motifMontantFige('changer la livraison ou le paiement'),
+                ], 422);
+            }
+
+            $modifications = [];
+            if (array_key_exists('instructions_speciales', $validated)) {
+                $modifications['instructions_speciales'] = $validated['instructions_speciales'];
+            }
+            if ($commande->type_livraison === 'livraison' && ! empty($validated['telephone_livraison'])) {
+                $modifications['telephone_livraison'] = $validated['telephone_livraison'];
+            }
+            $commande->update($modifications);
+
+            return $this->reponseCommandeModifiee($commande);
         }
 
         $adresseLivraisonId = $typeLivraison === 'livraison'
@@ -390,9 +432,14 @@ class CommandeController extends Controller
             ], 422);
         }
 
-        // Livraison revérifiée pour la nouvelle adresse : ville livrée et minimum du vendeur
-        $montantLivraison = 0;
-        if ($typeLivraison === 'livraison') {
+        // Livraison revérifiée seulement si elle change (mode ou adresse) : ville livrée et
+        // minimum du vendeur. Sinon les frais acceptés à la commande restent, même si les frais
+        // standard ont changé depuis.
+        $livraisonChange = $typeLivraison !== $commande->type_livraison
+            || (int) $adresseLivraisonId !== (int) $commande->adresse_livraison_id;
+        $montantLivraison = $livraisonChange ? 0 : (float) $commande->montant_livraison;
+
+        if ($livraisonChange && $typeLivraison === 'livraison') {
             $adresse = $request->user()->adresses()->with('quartierLivraison')->findOrFail($adresseLivraisonId);
             $vendeur = User::with('villesLivraison')->find($commande->vendeur_id);
 
@@ -446,6 +493,11 @@ class CommandeController extends Controller
             'montant_total' => $commande->montant_produits + $montantLivraison,
         ]);
 
+        return $this->reponseCommandeModifiee($commande);
+    }
+
+    private function reponseCommandeModifiee(Commande $commande): JsonResponse
+    {
         $commande->load(['ligneCommandes.produit', 'adresseLivraison', 'vendeur:id,nom_complet,telephone', 'historiques.modifiePar:id,nom_complet,role']);
 
         return response()->json([
@@ -511,8 +563,9 @@ class CommandeController extends Controller
             || ($typeLivraison === 'livraison' && ! empty($validated['adresse_livraison_id'])
                 && (int) $validated['adresse_livraison_id'] !== (int) $commande->adresse_livraison_id)
             || $moyen !== $commande->moyen_paiement
+            // Numéro enregistré avant la normalisation (« 690 00 09 99 ») comparé sous la même forme
             || ($moyen !== 'especes' && array_key_exists('telephone_paiement', $validated)
-                && (string) $validated['telephone_paiement'] !== (string) $commande->telephone_paiement);
+                && (string) $validated['telephone_paiement'] !== (string) Telephone::normaliser($commande->telephone_paiement));
     }
 
     private function syncPanierVendeurIds(Collection $panierItems): void

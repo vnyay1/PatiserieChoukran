@@ -89,7 +89,7 @@ class RapportMensuelTest extends TestCase
         $this->assertSame('13000', $lignes[3][9]);
 
         // Mois clos : le fichier est conservé et resservi
-        Storage::disk('local')->assertExists('rapports/2026-08/rapport-vendeurs-2026-08.csv');
+        Storage::disk('local')->assertExists('rapports/2026-08/csv-v2/rapport-vendeurs-2026-08.csv');
     }
 
     public function test_le_csv_neutralise_les_formules_saisies_par_les_vendeurs(): void
@@ -113,6 +113,18 @@ class RapportMensuelTest extends TestCase
                 $this->assertDoesNotMatchRegularExpression('/^[=+\-@\t\r]/', $cellule);
             }
         }
+    }
+
+    public function test_un_csv_stocke_avant_la_neutralisation_n_est_plus_servi(): void
+    {
+        // Fichier d'un mois clos généré avant le correctif, avec une formule active
+        Storage::disk('local')->put('rapports/2026-08/rapport-vendeurs-2026-08.csv', "\xEF\xBB\xBFVendeur\n=HYPERLINK(\"http://pirate.test\";\"x\")\n");
+        Sanctum::actingAs($this->admin);
+
+        $contenu = $this->get('/api/v1/admin/rapports/mensuel?mois=2026-08&format=csv')->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('HYPERLINK', $contenu);
+        $this->assertStringContainsString('Jean', $contenu);
     }
 
     public function test_le_pdf_est_telechargeable(): void
@@ -149,7 +161,7 @@ class RapportMensuelTest extends TestCase
         $this->artisan('rapports:mensuels')->assertSuccessful();
 
         Storage::disk('local')->assertExists('rapports/2026-08/rapport-vendeurs-2026-08.pdf');
-        Storage::disk('local')->assertExists('rapports/2026-08/rapport-vendeurs-2026-08.csv');
+        Storage::disk('local')->assertExists('rapports/2026-08/csv-v2/rapport-vendeurs-2026-08.csv');
         $this->assertDatabaseHas('notifications', [
             'user_id' => $this->admin->id,
             'type' => 'systeme',

@@ -108,7 +108,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('/{id}/cancel', [CommandeController::class, 'cancel']);
                 Route::get('/{id}/facture', [FactureController::class, 'client'])->whereNumber('id');
                 // Chaque appel ouvre un paiement chez NotchPay
-                Route::post('/{id}/payer', [PaiementController::class, 'payer'])->whereNumber('id')->middleware('throttle:sensible');
+                Route::post('/{id}/payer', [PaiementController::class, 'payer'])->whereNumber('id')->middleware('throttle:paiement');
             });
 
             // Retour du client depuis la page de paiement NotchPay

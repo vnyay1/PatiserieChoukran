@@ -55,7 +55,7 @@ class ProduitController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'categorie_id' => 'required|exists:categories,id',
+            'categorie_id' => 'required|integer|exists:categories,id',
             'nom' => 'required|string|max:255',
             'description' => 'nullable|string',
             'prix_unitaire' => 'required|numeric|min:0',
@@ -128,7 +128,7 @@ class ProduitController extends Controller
         $produit = $this->findProduitForManagement($request, $id);
 
         $validated = $request->validate([
-            'categorie_id' => 'sometimes|exists:categories,id',
+            'categorie_id' => 'sometimes|integer|exists:categories,id',
             'nom' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
             'prix_unitaire' => 'sometimes|numeric|min:0',
