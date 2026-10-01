@@ -171,6 +171,21 @@ class IntegriteEtSecuriteTest extends TestCase
         $this->assertStringContainsString('sanctum:prune-expired', Artisan::output());
     }
 
+    public function test_par_defaut_seul_le_spa_peut_appeler_l_api_depuis_une_autre_origine(): void
+    {
+        $preflight = fn (string $origine) => $this->call('OPTIONS', '/api/v1/produits', [], [], [], [
+            'HTTP_ORIGIN' => $origine,
+            'HTTP_ACCESS_CONTROL_REQUEST_METHOD' => 'GET',
+        ]);
+
+        // Une seule origine autorisée : elle est renvoyée telle quelle et le navigateur bloque
+        // toute autre origine (jamais « * » ni l'origine qui demande)
+        $autorisee = $preflight('http://pirate.test')->headers->get('Access-Control-Allow-Origin');
+        $this->assertNotContains($autorisee, ['*', 'http://pirate.test']);
+
+        $preflight(config('app.frontend_url'))->assertHeader('Access-Control-Allow-Origin', config('app.frontend_url'));
+    }
+
     public function test_l_api_n_utilise_pas_le_middleware_stateful_de_sanctum(): void
     {
         // Avec ce middleware, le SPA servi depuis un domaine "stateful" recevait des 419 (CSRF)
