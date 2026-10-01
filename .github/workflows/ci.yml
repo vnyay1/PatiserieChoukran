@@ -262,6 +262,15 @@ jobs:
           echo "→ SPA"
           curl -fsS "$base/" | grep -q '<div id="app"'
 
+          # nginx n'hérite pas des add_header du bloc server : chaque type de réponse est vérifié
+          echo "→ en-têtes de sécurité (page du SPA, route du routeur, fichier statique, API)"
+          script=$(curl -fsS "$base/" | grep -o 'src="/assets/[^"]*\.js"' | head -n 1 | cut -d'"' -f2)
+          for chemin in / /produits "$script" /api/v1/produits; do
+            entetes=$(curl -fsS -o /dev/null -D - "$base$chemin")
+            echo "$entetes" | grep -qi '^content-security-policy:' || { echo "::error::CSP absente sur $chemin"; exit 1; }
+            echo "$entetes" | grep -qi '^x-content-type-options: *nosniff' || { echo "::error::nosniff absent sur $chemin"; exit 1; }
+          done
+
           echo "→ /up"
           curl -fsS "$base/up" > /dev/null
 

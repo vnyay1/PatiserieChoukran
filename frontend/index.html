@@ -12,30 +12,9 @@
     />
     <title>Choukrane Pâtisserie — Gâteaux et glaces livrés au Cameroun</title>
 
-    <!-- Thème appliqué avant le premier rendu : pas de flash blanc en mode sombre.
-         Même logique que src/stores/theme.js (clé choukrane:theme = clair | sombre | systeme). -->
-    <script>
-      (function () {
-        var preference = null
-        try {
-          preference = localStorage.getItem('choukrane:theme')
-        } catch (e) {
-          // Stockage indisponible : on suit le système
-        }
-        var sombre = preference === 'sombre'
-          || (preference !== 'clair' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-        document.documentElement.classList.toggle('dark', sombre)
-        document.querySelector('meta[name="theme-color"]').setAttribute('content', sombre ? '#1E1813' : '#FFFFFF')
-      })()
-    </script>
-
-    <!-- Polices chargées sans bloquer le CSS de l'application -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap"
-    />
+    <!-- Thème appliqué avant le premier rendu (pas de flash blanc en mode sombre) : script
+         synchrone du site, compatible avec la CSP (aucun script inline). Polices : src/main.js -->
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="app"></div>

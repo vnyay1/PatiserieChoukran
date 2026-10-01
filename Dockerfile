@@ -94,6 +94,7 @@ COPY docker/php/opcache.ini  /usr/local/etc/php/conf.d/zz-opcache.ini
 COPY docker/php-fpm/www.conf /usr/local/etc/php-fpm.d/zz-www.conf
 COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY docker/nginx/site.conf  /etc/nginx/http.d/default.conf
+COPY docker/nginx/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY docker/supervisord.conf /etc/supervisord.conf
 COPY docker/entrypoint.sh    /usr/local/bin/entrypoint
 
