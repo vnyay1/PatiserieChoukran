@@ -57,6 +57,10 @@ return [
     // Adresse de la SPA (retours de paiement) ; en Docker c'est la même origine que l'API
     'frontend_url' => rtrim((string) env('FRONTEND_URL', 'http://localhost:5173'), '/'),
 
+    // Proxys dont les en-têtes X-Forwarded-* sont crus (IP du client, HTTPS) : « * » en
+    // production derrière Caddy, seul à joindre l'application ; vide ailleurs.
+    'proxies_de_confiance' => env('TRUSTED_PROXIES'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

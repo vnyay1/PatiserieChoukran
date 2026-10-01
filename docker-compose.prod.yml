@@ -2,11 +2,16 @@
 # vient de l'image publiée sur GHCR par le workflow CD (aucun build sur le serveur).
 #
 # Sur le serveur, dans le dossier de déploiement (DEPLOY_PATH) :
-#   .env.docker                 secrets (copié à la main depuis .env.docker.example)
+#   .env.docker                 secrets (copié à la main depuis .env.docker.example),
+#                               avec DOMAINE (nom de domaine public) et TRUSTED_PROXIES=*
 #   docker-compose.prod.yml     déposé par le workflow CD à chaque déploiement
+#   docker/caddy/Caddyfile      idem
 #
-# Déploiement manuel d'une version :
-#   APP_IMAGE=ghcr.io/<propriétaire>/<dépôt>:sha-abc1234 docker compose -f docker-compose.prod.yml up -d
+# HTTPS : Caddy est le seul service exposé (80 et 443) et obtient le certificat de
+# DOMAINE ; l'application n'est joignable qu'à travers lui.
+#
+# Déploiement manuel d'une version (DOMAINE sert aussi à l'interpolation ci-dessous) :
+#   DOMAINE=choukrane.cm APP_IMAGE=ghcr.io/<propriétaire>/<dépôt>:sha-abc1234 docker compose -f docker-compose.prod.yml up -d
 #
 # phpMyAdmin n'est démarré qu'à la demande et n'écoute que sur le serveur lui-même
 # (tunnel SSH : ssh -L 8081:127.0.0.1:8081 serveur) :
@@ -20,8 +25,7 @@ services:
     environment:
       RUN_MIGRATIONS: "true"
       RUN_SEEDERS: "false"
-    ports:
-      - "${APP_PORT:-80}:80"
+    # Pas de port publié : seul Caddy, sur le réseau app_net, joint l'application
     volumes:
       - app_storage:/var/www/html/storage
     depends_on:
@@ -50,6 +54,26 @@ services:
     networks:
       - app_net
 
+  caddy:
+    image: caddy:2.11.4-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
+    environment:
+      # Seule variable passée à Caddy (pas tout .env.docker et ses secrets)
+      DOMAINE: ${DOMAINE:?DOMAINE doit désigner le domaine public (certificat HTTPS)}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app_net
+
   phpmyadmin:
     image: phpmyadmin:5.2-apache
     profiles: ["admin"]
@@ -69,6 +93,9 @@ services:
 volumes:
   mysql_data:
   app_storage:
+  # Certificats et clés de Caddy : à conserver (limite de délivrance de Let's Encrypt)
+  caddy_data:
+  caddy_config:
 
 networks:
   app_net:

@@ -1,0 +1,13 @@
+# Production : Caddy reçoit tout le trafic et obtient seul le certificat HTTPS
+# (Let's Encrypt) pour DOMAINE ; HTTP est redirigé vers HTTPS automatiquement.
+# Le DNS de DOMAINE doit pointer vers le serveur avant le premier démarrage.
+{$DOMAINE} {
+	encode zstd gzip
+
+	# HTTPS imposé au navigateur pendant un an (jetons, paiements)
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+	# Conteneur app (nginx + PHP + SPA) ; X-Forwarded-For/Proto transmis, crus par
+	# Laravel grâce à TRUSTED_PROXIES=*
+	reverse_proxy app:80
+}

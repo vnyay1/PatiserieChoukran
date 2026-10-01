@@ -132,7 +132,9 @@ jobs:
         if: steps.config.outputs.pret == 'true'
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-          sparse-checkout: docker-compose.prod.yml
+          sparse-checkout: |
+            docker-compose.prod.yml
+            docker/caddy/Caddyfile
           sparse-checkout-cone-mode: false
 
       - name: Préparer la clé SSH
@@ -144,12 +146,14 @@ jobs:
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-      - name: Déposer docker-compose.prod.yml
+      - name: Déposer docker-compose.prod.yml et le Caddyfile
         if: steps.config.outputs.pret == 'true'
         run: |
           # Chemin interprété par le shell distant (~ compris)
           ssh -i ~/.ssh/deploiement -p "$DEPLOY_PORT" -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
-            "mkdir -p $DEPLOY_PATH && cat > $DEPLOY_PATH/docker-compose.prod.yml" < docker-compose.prod.yml
+            "mkdir -p $DEPLOY_PATH/docker/caddy && cat > $DEPLOY_PATH/docker-compose.prod.yml" < docker-compose.prod.yml
+          ssh -i ~/.ssh/deploiement -p "$DEPLOY_PORT" -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cat > $DEPLOY_PATH/docker/caddy/Caddyfile" < docker/caddy/Caddyfile
 
       - name: Mettre à jour l'application
         if: steps.config.outputs.pret == 'true'
@@ -161,13 +165,18 @@ jobs:
           set -euo pipefail
           cd "${DEPLOY_PATH/#\~/$HOME}"
           test -f .env.docker || { echo ".env.docker absent de $PWD : copiez .env.docker.example et renseignez-le" >&2; exit 1; }
+          # Domaine public de Caddy (certificat HTTPS) : lu dans .env.docker, qui n'alimente
+          # pas l'interpolation ${…} de compose
+          DOMAINE=$(sed -n 's/^DOMAINE=//p' .env.docker | tail -n 1 | tr -d '"\r')
+          test -n "$DOMAINE" || { echo "DOMAINE absent de .env.docker : renseignez le domaine public (certificat HTTPS)" >&2; exit 1; }
+          export DOMAINE
           compose() { docker compose -f docker-compose.prod.yml "$@" < /dev/null; }
 
           # Le jeton GitHub n'est valable que pendant ce job : connexion, pull, déconnexion
           printf '%s\n' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
           unset GHCR_TOKEN
           trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
-          compose pull app
+          compose pull app caddy
           compose up -d --remove-orphans
 
           # Healthcheck de l'image (migrations comprises)

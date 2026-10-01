@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Commande;
 use App\Models\LigneCommande;
+use App\Providers\AppServiceProvider;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\Facades\Artisan;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 use Laravel\Sanctum\Sanctum;
@@ -184,6 +186,40 @@ class IntegriteEtSecuriteTest extends TestCase
         $this->assertNotContains($autorisee, ['*', 'http://pirate.test']);
 
         $preflight(config('app.frontend_url'))->assertHeader('Access-Control-Allow-Origin', config('app.frontend_url'));
+    }
+
+    public function test_derriere_le_proxy_de_production_la_limite_vise_le_vrai_client(): void
+    {
+        config(['app.proxies_de_confiance' => '*']);
+        $this->app->getProvider(AppServiceProvider::class)->boot();
+
+        try {
+            $this->epuiserLimiteParIp('198.51.100.1');
+
+            // Un autre client derrière le même proxy (Caddy) n'est pas bloqué
+            $this->postJson('/api/v1/auth/login', ['telephone' => '690000999', 'mot_de_passe' => 'mauvais'], ['X-Forwarded-For' => '198.51.100.2'])
+                ->assertStatus(422);
+        } finally {
+            TrustProxies::flushState();
+        }
+    }
+
+    public function test_sans_proxy_de_confiance_l_en_tete_x_forwarded_for_est_ignore(): void
+    {
+        $this->epuiserLimiteParIp('198.51.100.1');
+
+        // En-tête falsifié : le client reste identifié par son adresse réelle
+        $this->postJson('/api/v1/auth/login', ['telephone' => '690000999', 'mot_de_passe' => 'mauvais'], ['X-Forwarded-For' => '198.51.100.2'])
+            ->assertStatus(429);
+    }
+
+    // 30 échecs de connexion (numéros différents : seule la limite par adresse IP joue)
+    private function epuiserLimiteParIp(string $ip): void
+    {
+        for ($i = 0; $i < 30; $i++) {
+            $this->postJson('/api/v1/auth/login', ['telephone' => '6900001'.str_pad((string) $i, 2, '0', STR_PAD_LEFT), 'mot_de_passe' => 'mauvais'], ['X-Forwarded-For' => $ip])
+                ->assertStatus(422);
+        }
     }
 
     public function test_l_api_n_utilise_pas_le_middleware_stateful_de_sanctum(): void

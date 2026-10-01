@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\PersonalAccessToken;
 use App\Support\Telephone;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Support\Facades\Event;
@@ -39,6 +40,13 @@ class AppServiceProvider extends ServiceProvider
 
         // last_used_at écrit au plus une fois toutes les 5 minutes par jeton
         Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
+
+        // Derrière Caddy (production) : IP réelle du client (limitation de débit) et HTTPS
+        // reconnus. Sans réglage, aucun en-tête X-Forwarded-* n'est cru.
+        $proxies = config('app.proxies_de_confiance');
+        if (filled($proxies)) {
+            TrustProxies::at($proxies === '*' ? '*' : array_map('trim', explode(',', $proxies)));
+        }
 
         $this->definirLimiteurs();
         $this->journaliserEmails();
