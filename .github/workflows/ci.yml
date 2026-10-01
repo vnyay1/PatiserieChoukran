@@ -88,6 +88,10 @@ jobs:
       - name: Style de code (Pint)
         run: ./vendor/bin/pint --test
 
+      # Paquets PHP embarqués dans l'image : aucun avis de sécurité connu
+      - name: Audit des dépendances (Composer)
+        run: composer audit --no-dev
+
       - name: Tests
         run: composer test
 
@@ -180,6 +184,10 @@ jobs:
 
       - name: Installer les dépendances
         run: npm ci
+
+      # Trivy ne voit que le SPA compilé : les paquets npm livrés au navigateur sont audités ici
+      - name: Audit des dépendances (npm)
+        run: npm audit --omit=dev --audit-level=high
 
       # Sans --fix : la CI signale les problèmes, elle ne les masque pas.
       - name: Lint (ESLint)
