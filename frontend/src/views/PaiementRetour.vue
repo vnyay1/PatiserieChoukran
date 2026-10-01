@@ -79,10 +79,10 @@ const erreur = ref('')
 let minuterie = null
 let tentatives = 0
 
-// Le serveur accepte notre référence comme celle de NotchPay
-const reference = route.query.reference
-  || route.query.trxref
-  || route.query.notchpay_trxref
+// Le serveur accepte notre référence comme celle de NotchPay (une seule valeur texte :
+// ?reference=a&reference=b donnerait un tableau)
+const premiereReference = (...valeurs) => valeurs.find((valeur) => typeof valeur === 'string' && valeur !== '')
+const reference = premiereReference(route.query.reference, route.query.trxref, route.query.notchpay_trxref)
   || referencePaiementMemorisee()
 
 const titre = computed(() => ({
@@ -147,6 +147,10 @@ const interroger = async () => {
   } catch (err) {
     etat.value = 'introuvable'
     erreur.value = messageErreur(err, 'Impossible de vérifier le paiement pour le moment.')
+    // Référence inconnue : inutile de la garder ; panne réseau : elle reste pour réessayer
+    if (err.response?.status === 404) {
+      oublierReferencePaiement()
+    }
   }
 }
 

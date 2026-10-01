@@ -304,6 +304,7 @@ import api, { messageErreur, lireErreurBlob } from '@/services/api'
 import { useToastStore } from '@/stores/toast'
 import { telechargerBlob } from '@/utils/telechargement'
 import { memoriserReferencePaiement } from '@/utils/paiement'
+import { estUrlPaiementSure } from '@/utils/url'
 import {
   formatPrice,
   formatDateLongue as formatDate,
@@ -386,8 +387,13 @@ const payerMaintenant = async () => {
   ouverturePaiement.value = true
   try {
     const response = await api.commandes.payer(commande.value.id)
-    memoriserReferencePaiement(response.data.data.reference)
-    window.location.assign(response.data.data.url_paiement)
+    const { reference, url_paiement: urlPaiement } = response.data.data
+    // Seule la page de paiement NotchPay est ouverte, jamais une autre adresse
+    if (!estUrlPaiementSure(urlPaiement)) {
+      throw new Error('Adresse de paiement inattendue')
+    }
+    memoriserReferencePaiement(reference)
+    window.location.assign(urlPaiement)
   } catch (err) {
     toastStore.erreur(messageErreur(err, 'Impossible d\'ouvrir le paiement pour le moment.'))
     ouverturePaiement.value = false

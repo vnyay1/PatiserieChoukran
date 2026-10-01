@@ -146,6 +146,7 @@ import { useNotificationsStore } from '@/stores/notifications'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { formatDateHeure } from '@/utils/format'
+import { cheminInterne } from '@/utils/url'
 
 const router = useRouter()
 const notificationsStore = useNotificationsStore()
@@ -285,26 +286,14 @@ const clearReadNotifications = async () => {
   }
 }
 
-const resolveActionUrl = (url) => {
-  if (!url) return ''
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url
-  }
-  return url.startsWith('/') ? url : `/${url}`
-}
-
 const openAction = async (notification) => {
   if (!notification.est_lu) {
     await markAsRead(notification.id)
   }
 
-  const url = resolveActionUrl(notification.url_action)
+  // Le serveur n'envoie que des chemins du site : toute autre adresse est ignorée
+  const url = cheminInterne(notification.url_action)
   if (!url) return
-
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    window.location.href = url
-    return
-  }
 
   try {
     await router.push(url)

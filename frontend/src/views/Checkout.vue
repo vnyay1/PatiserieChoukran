@@ -342,6 +342,7 @@ import { useLivraisonVendeurs, grouperParVendeur } from '@/composables/useLivrai
 import { useVilleStore } from '@/stores/ville'
 import { formatVille, villeAdresse } from '@/utils/villes'
 import { memoriserReferencePaiement } from '@/utils/paiement'
+import { estUrlPaiementSure } from '@/utils/url'
 import { formatPrice } from '@/utils/format'
 import {
   Truck, Store, Check, MapPin, Pencil, Plus, AlertTriangle, ArrowRight, ArrowLeft, Lock, CheckCircle2,
@@ -564,14 +565,16 @@ const submitOrder = async () => {
       // Le panier a été vidé côté serveur : on resynchronise le store
       await panierStore.fetch()
 
-      // Mobile money : un seul paiement NotchPay pour toutes les commandes du panier
+      // Mobile money : un seul paiement NotchPay pour toutes les commandes du panier.
+      // Seule la page de paiement NotchPay est ouverte, jamais une autre adresse.
       const urlPaiement = response.data.paiement?.url_paiement
-      if (urlPaiement) {
+      if (estUrlPaiementSure(urlPaiement)) {
         memoriserReferencePaiement(response.data.paiement.reference)
         window.location.assign(urlPaiement)
         return
       }
-      erreurPaiement.value = response.data.erreur_paiement || ''
+      erreurPaiement.value = response.data.erreur_paiement
+        || (urlPaiement ? 'Le paiement en ligne n\'a pas pu s\'ouvrir : relancez-le depuis le détail de la commande.' : '')
       allerEtape(3)
     } else {
       orderError.value = response.data?.message || 'Erreur lors de la création de la commande.'
