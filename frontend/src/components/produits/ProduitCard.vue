@@ -40,7 +40,7 @@ File: src/components/produits/ProduitCard.vue
       </div>
 
       <!-- Rupture de stock -->
-      <div v-if="indisponible" class="absolute inset-0 flex items-center justify-center bg-gray-900/55">
+      <div v-if="indisponible" class="absolute inset-0 flex items-center justify-center bg-voile/55">
         <span class="badge bg-surface px-3 py-1 text-sm text-gray-900">Rupture de stock</span>
       </div>
     </div>

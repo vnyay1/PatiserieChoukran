@@ -167,7 +167,7 @@ File: src/views/Checkout.vue
               <div class="space-y-3">
                 <label v-for="method in paymentMethods" :key="method.value" class="carte-radio">
                   <input v-model="formData.moyen_paiement" type="radio" name="moyen_paiement" :value="method.value" class="sr-only" />
-                  <span class="flex h-11 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-white p-1 ring-1 ring-gray-200">
+                  <span class="flex h-11 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-plaque p-1 ring-1 ring-gray-200">
                     <img :src="method.logo" alt="" class="max-h-full w-auto object-contain" />
                   </span>
                   <span class="min-w-0 flex-1">

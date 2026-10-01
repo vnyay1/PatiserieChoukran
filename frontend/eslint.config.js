@@ -36,6 +36,11 @@ export default [
         argsIgnorePattern: '^_',
         caughtErrors: 'none',
       }],
+      // Design system : blanc et noir ne suivent pas le thème sombre. Fond des logos tiers :
+      // bg-plaque ; voile sur une image ou derrière une modale : bg-voile ; texte : gray-900.
+      'vue/no-restricted-class': ['error', 'bg-white', 'bg-black', 'text-black', 'text-white/90', '/^bg-(white|black)\\/\\d+$/'],
+      // Messages via le store toast, confirmations via useConfirm() (BaseModal accessible)
+      'no-alert': 'error',
     },
   },
 

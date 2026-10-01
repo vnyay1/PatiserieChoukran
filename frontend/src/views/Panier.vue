@@ -170,7 +170,7 @@ File: src/views/Panier.vue
         <div class="mt-4 rounded-elegant border border-gray-200 bg-surface p-4">
           <p class="mb-3 text-center text-xs font-semibold text-gray-600">Moyens de paiement acceptés</p>
           <ul class="flex items-center justify-center gap-3">
-            <li v-for="moyen in MOYENS" :key="moyen.nom" class="flex h-12 w-16 items-center justify-center rounded-lg bg-white p-1.5 ring-1 ring-gray-200">
+            <li v-for="moyen in MOYENS" :key="moyen.nom" class="flex h-12 w-16 items-center justify-center rounded-lg bg-plaque p-1.5 ring-1 ring-gray-200">
               <img :src="moyen.logo" :alt="moyen.nom" class="max-h-full w-auto object-contain" loading="lazy" />
             </li>
           </ul>

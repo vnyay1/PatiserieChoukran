@@ -29,7 +29,7 @@ File: src/views/VendeurProfil.vue
         <div class="h-20 bg-gradient-peach sm:h-24" aria-hidden="true"></div>
         <div class="px-5 pb-6 sm:px-8">
           <div class="-mt-12 flex flex-col items-center gap-5 sm:flex-row sm:items-end">
-            <div class="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-surface bg-white shadow-card sm:h-28 sm:w-28">
+            <div class="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-surface bg-plaque shadow-card sm:h-28 sm:w-28">
               <img
                 v-if="vendeur.logo_boutique"
                 :src="resolveImageUrl(vendeur.logo_boutique, { placeholder: false })"

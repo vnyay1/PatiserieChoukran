@@ -46,6 +46,9 @@ export default {
         // Aplats qui gardent un texte blanc dans les deux thèmes
         danger: jeton('danger'),
         success: jeton('success'),
+        // Fixes dans les deux thèmes : fond des logos tiers, voile sur image ou derrière une modale
+        plaque: jeton('plaque'),
+        voile: jeton('voile'),
       },
       fontFamily: {
         display: ['"Playfair Display"', 'Georgia', 'Cambria', 'serif'],

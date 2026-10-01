@@ -20,7 +20,7 @@ File: src/components/common/BaseModal.vue
         :class="POSITIONS[variante]"
         :style="{ zIndex: 70 + profondeur }"
       >
-        <div class="modale-fond absolute inset-0 bg-black/55" aria-hidden="true" @click="fermerParFond"></div>
+        <div class="modale-fond absolute inset-0 bg-voile/55" aria-hidden="true" @click="fermerParFond"></div>
 
         <div
           ref="panneau"

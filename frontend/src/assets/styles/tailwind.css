@@ -26,6 +26,10 @@
     --primaire-actif: 184 148 30;
     --hero-debut: 255 232 220;
     --hero-fin: 255 251 245;
+    /* Identiques dans les deux thèmes : fond blanc des logos tiers (Orange Money, MoMo,
+       logos des vendeurs) et voile sombre posé sur une image ou derrière une modale */
+    --plaque: 255 255 255;
+    --voile: 26 19 11;
 
     --gray-50: 250 246 241; --gray-100: 243 236 228; --gray-200: 231 221 210; --gray-300: 211 197 183; --gray-400: 148 132 115; --gray-500: 118 102 90; --gray-600: 94 79 67; --gray-700: 74 61 51; --gray-800: 52 42 34; --gray-900: 35 27 21;
     --gold-50: 255 250 235; --gold-100: 253 240 200; --gold-200: 248 224 154; --gold-300: 237 203 102; --gold-400: 224 186 69; --gold-500: 212 175 55; --gold-600: 138 106 18; --gold-700: 115 88 16; --gold-800: 92 70 13; --gold-900: 70 53 10;
