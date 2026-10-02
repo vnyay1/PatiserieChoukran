@@ -33,7 +33,7 @@ File: src/views/admin/AdminParametres.vue
                 id="admin-parametres-1"
                 v-model="filters.search"
                 type="search"
-                placeholder="Clé, description, groupe..."
+                placeholder="Clé, description, groupe…"
                 class="input pl-10"
                 @input="handleSearch"
               />
@@ -67,7 +67,7 @@ File: src/views/admin/AdminParametres.vue
           <h2 class="font-display text-xl font-bold text-gray-800">
             {{ isEditing ? 'Modifier le paramètre' : 'Ajouter un paramètre' }}
           </h2>
-          <button class="text-sm text-gray-500 hover:text-gray-700" @click="closeForm">
+          <button type="button" class="btn-ghost btn-sm" @click="closeForm">
             Fermer
           </button>
         </div>
@@ -80,7 +80,7 @@ File: src/views/admin/AdminParametres.vue
 
           <div>
             <label for="admin-parametres-4" class="block text-sm font-medium text-gray-700 mb-2">Groupe</label>
-            <input id="admin-parametres-4" v-model="form.groupe" type="text" class="input" placeholder="general, contact..." />
+            <input id="admin-parametres-4" v-model="form.groupe" type="text" class="input" placeholder="general, contact…" />
           </div>
 
           <div>
@@ -110,8 +110,9 @@ File: src/views/admin/AdminParametres.vue
               type="number"
               class="input"
             />
-            <label v-else-if="form.type === 'boolean'" class="inline-flex items-center gap-2 mt-2">
+            <label v-else-if="form.type === 'boolean'" class="inline-flex min-h-11 cursor-pointer items-center gap-2">
               <input
+                id="admin-parametres-6"
                 v-model="form.valeur"
                 type="checkbox"
                 class="h-5 w-5 rounded"
@@ -171,7 +172,7 @@ File: src/views/admin/AdminParametres.vue
             </thead>
             <tbody v-if="loading">
               <tr>
-                <td colspan="5" class="p-6 text-center text-gray-500">Chargement...</td>
+                <td colspan="5" class="p-6 text-center text-gray-500">Chargement…</td>
               </tr>
             </tbody>
             <tbody v-else-if="parametres.length === 0">
@@ -268,7 +269,7 @@ const formatValeur = (valeur, type) => {
   if (valeur === null || valeur === undefined || valeur === '') return '-'
   if (type === 'boolean') return valeur === '1' || valeur === true ? 'Oui' : 'Non'
   // Textes longs (ex. conditions des vendeurs) : aperçu, la valeur complète est dans le formulaire
-  if (type === 'json' || type === 'string') return valeur.length > 60 ? `${valeur.slice(0, 60)}...` : valeur
+  if (type === 'json' || type === 'string') return valeur.length > 60 ? `${valeur.slice(0, 60)}…` : valeur
   return valeur
 }
 

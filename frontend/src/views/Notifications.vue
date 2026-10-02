@@ -105,6 +105,12 @@ File: src/views/Notifications.vue
       </li>
     </ul>
 
+    <!-- Erreur de chargement : distincte d'une liste vide -->
+    <AlertMessage v-else-if="erreurChargement" type="error">
+      {{ erreurChargement }}
+      <button type="button" class="lien ml-1" @click="fetchNotifications">Réessayer</button>
+    </AlertMessage>
+
     <EmptyState
       v-else
       :icone="BellOff"
@@ -142,6 +148,7 @@ import { useRouter } from 'vue-router'
 import { Bell, BellOff, Package, Trash2, CheckCheck, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import Button from '@/components/common/Button.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
@@ -199,10 +206,12 @@ const buildFetchParams = () => {
   return params
 }
 
+const erreurChargement = ref('')
 const fetchNotifications = async () => {
+  erreurChargement.value = ''
   const result = await notificationsStore.fetchNotifications(buildFetchParams())
   if (!result.success) {
-    console.error(result.message || 'Erreur chargement notifications')
+    erreurChargement.value = result.message || 'Impossible de charger vos notifications.'
   }
 }
 

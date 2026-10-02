@@ -60,7 +60,7 @@ File: src/components/panier/PanierItem.vue
         </p>
       </div>
 
-      <p v-if="item.produit.stock_disponible < 5" class="mt-2 flex items-center gap-1.5 text-xs font-medium text-orange-700">
+      <p v-if="item.produit.stock_disponible <= SEUIL_STOCK_FAIBLE" class="mt-2 flex items-center gap-1.5 text-xs font-medium text-orange-700">
         <AlertTriangle :size="14" aria-hidden="true" />
         Plus que {{ item.produit.stock_disponible }} en stock
       </p>
@@ -77,7 +77,7 @@ File: src/components/panier/PanierItem.vue
 import QuantiteStepper from '@/components/common/QuantiteStepper.vue'
 import { Trash2, AlertTriangle } from 'lucide-vue-next'
 import { resolveImageUrl, onImageError } from '@/utils/images'
-import { formatPrice } from '@/utils/format'
+import { formatPrice, SEUIL_STOCK_FAIBLE } from '@/utils/format'
 
 defineProps({
   item: {

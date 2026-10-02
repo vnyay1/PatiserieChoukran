@@ -8,7 +8,7 @@ File: src/views/ProduitDetail.vue
   Mobile : barre d'achat fixée au-dessus de la navigation, le contenu garde une marge pour elle.
 -->
 <template>
-  <div :class="afficherBarreMobile ? 'pb-28 md:pb-6' : 'pb-6'">
+  <div :class="barreMobilePossible ? 'pb-28 md:pb-6' : 'pb-6'">
     <!-- Chargement -->
     <div v-if="loading" class="container mx-auto py-6" aria-busy="true">
       <div class="skeleton mb-6 h-4 w-64"></div>
@@ -157,7 +157,7 @@ File: src/views/ProduitDetail.vue
           </ul>
 
           <!-- Achat (desktop et tablette) -->
-          <div v-if="!isRestrictedRole" class="mt-7 rounded-2xl border border-gray-200 bg-surface p-4 shadow-card sm:p-5">
+          <div v-if="!isRestrictedRole" ref="blocAchat" class="mt-7 rounded-2xl border border-gray-200 bg-surface p-4 shadow-card sm:p-5">
             <div class="flex flex-wrap items-center gap-4">
               <QuantiteStepper
                 v-model="quantite"
@@ -211,27 +211,38 @@ File: src/views/ProduitDetail.vue
         </ul>
       </section>
 
-      <!-- Barre d'achat mobile -->
-      <div
-        v-if="afficherBarreMobile"
-        class="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-gray-200 bg-surface/95 px-4 py-3 backdrop-blur-md md:hidden"
-      >
-        <div class="flex items-center gap-3">
-          <div class="min-w-0 flex-1">
-            <p class="text-xs text-gray-600">{{ quantite }} × {{ formatPrice(prixUnitaire) }} FCFA</p>
-            <p class="price truncate text-lg">{{ formatPrice(sousTotal) }} FCFA</p>
+      <!-- Barre d'achat mobile : seulement quand le bloc d'achat est sorti de l'écran -->
+      <Transition name="barre-achat">
+        <div
+          v-if="afficherBarreMobile"
+          class="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-gray-200 bg-surface/95 px-4 py-3 backdrop-blur-md md:hidden"
+        >
+          <div class="flex items-center gap-3">
+            <div class="min-w-0 flex-1">
+              <p class="text-xs text-gray-600">{{ quantite }} × {{ formatPrice(prixUnitaire) }} FCFA</p>
+              <p class="price truncate text-lg">{{ formatPrice(sousTotal) }} FCFA</p>
+            </div>
+            <Button
+              variant="primary"
+              :icon="ShoppingCart"
+              :loading="addingToCart"
+              @click="addToCart"
+            >
+              Ajouter
+            </Button>
           </div>
-          <Button
-            variant="primary"
-            :icon="ShoppingCart"
-            :loading="addingToCart"
-            @click="addToCart"
-          >
-            Ajouter
-          </Button>
         </div>
-      </div>
+      </Transition>
     </article>
+
+    <!-- Erreur réseau ou serveur : distincte d'un produit introuvable -->
+    <div v-else-if="erreurChargement" class="container mx-auto py-10">
+      <h1 class="sr-only">Fiche produit</h1>
+      <AlertMessage type="error">
+        Impossible de charger ce produit pour le moment.
+        <button type="button" class="lien ml-1" @click="fetchProduit">Réessayer</button>
+      </AlertMessage>
+    </div>
 
     <!-- Introuvable -->
     <EmptyState
@@ -247,7 +258,7 @@ File: src/views/ProduitDetail.vue
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
@@ -260,7 +271,7 @@ import AlertMessage from '@/components/common/AlertMessage.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import QuantiteStepper from '@/components/common/QuantiteStepper.vue'
 import { resolveImageUrl, onImageError } from '@/utils/images'
-import { formatPrice } from '@/utils/format'
+import { formatPrice, SEUIL_STOCK_FAIBLE } from '@/utils/format'
 import {
   Star, ShoppingCart, AlertTriangle, Truck, ChevronRight, Store, CheckCircle2, XCircle, PackageOpen,
 } from 'lucide-vue-next'
@@ -293,12 +304,38 @@ const fetchLivraisonVendeur = async (vendeurId) => {
 const produit = ref(null)
 const produitsSimilaires = ref([])
 const loading = ref(true)
+const erreurChargement = ref(false)
 const addingToCart = ref(false)
 const quantite = ref(1)
 const currentImage = ref('')
 const isRestrictedRole = computed(() => authStore.isAdmin || authStore.isVendeur)
 const indisponible = computed(() => !produit.value?.est_disponible || produit.value?.stock_disponible === 0)
-const afficherBarreMobile = computed(() => Boolean(produit.value) && !indisponible.value && !isRestrictedRole.value)
+const barreMobilePossible = computed(() => Boolean(produit.value) && !indisponible.value && !isRestrictedRole.value)
+
+// Sur mobile, la barre d'achat collante n'apparaît que lorsque le bloc d'achat (et son
+// sélecteur de quantité) est sorti de l'écran : jamais deux boutons « Ajouter » à la fois
+const blocAchat = ref(null)
+const blocAchatVisible = ref(true)
+const afficherBarreMobile = computed(() => barreMobilePossible.value && !blocAchatVisible.value)
+let observateurBlocAchat = null
+watch(blocAchat, (element) => {
+  observateurBlocAchat?.disconnect()
+  if (!element || typeof IntersectionObserver === 'undefined') return
+  // Marges : la partie cachée sous l'en-tête (56 px) ou la barre du bas (64 px) ne compte pas comme visible
+  observateurBlocAchat = new IntersectionObserver(([entree]) => {
+    blocAchatVisible.value = entree.isIntersecting
+  }, { rootMargin: '-56px 0px -64px 0px' })
+  observateurBlocAchat.observe(element)
+})
+
+// Les messages (toasts) remontent au-dessus de la barre quand elle est affichée
+watch(afficherBarreMobile, (affichee) => {
+  document.documentElement.style.setProperty('--decalage-toasts', affichee ? '5rem' : '0px')
+})
+onBeforeUnmount(() => {
+  observateurBlocAchat?.disconnect()
+  document.documentElement.style.removeProperty('--decalage-toasts')
+})
 
 const allImages = computed(() => {
   if (!produit.value) return []
@@ -323,18 +360,20 @@ const sousTotal = computed(() => prixUnitaire.value * quantite.value)
 const libelleStock = computed(() => {
   const stock = produit.value?.stock_disponible || 0
   if (indisponible.value) return 'Rupture de stock'
-  if (stock <= 5) return `Plus que ${stock} en stock`
+  if (stock <= SEUIL_STOCK_FAIBLE) return `Plus que ${stock} en stock`
   return 'En stock'
 })
 
 const classeStock = computed(() => {
   if (indisponible.value) return 'text-red-700'
-  if ((produit.value?.stock_disponible || 0) <= 5) return 'text-orange-700'
+  if ((produit.value?.stock_disponible || 0) <= SEUIL_STOCK_FAIBLE) return 'text-orange-700'
   return 'text-green-700'
 })
 
 const fetchProduit = async () => {
   loading.value = true
+  erreurChargement.value = false
+  produit.value = null
   produitsSimilaires.value = []
   quantite.value = 1
   currentImage.value = ''
@@ -352,8 +391,11 @@ const fetchProduit = async () => {
       fetchLivraisonVendeur(produit.value.createur?.id)
     }
   } catch (error) {
-    produit.value = null
-    console.error('Erreur chargement produit:', error)
+    // 404 : produit absent ou masqué ; toute autre erreur (réseau, serveur) peut se réessayer
+    if (error.response?.status !== 404) {
+      erreurChargement.value = true
+      console.error('Erreur chargement produit:', error)
+    }
   } finally {
     loading.value = false
   }
@@ -411,3 +453,17 @@ watch(
   }
 )
 </script>
+
+<style scoped>
+/* Barre d'achat mobile : glisse depuis le bas quand le bloc d'achat quitte l'écran */
+.barre-achat-enter-active,
+.barre-achat-leave-active {
+  transition: transform 220ms cubic-bezier(0.2, 0, 0, 1), opacity 220ms;
+}
+
+.barre-achat-enter-from,
+.barre-achat-leave-to {
+  transform: translateY(100%);
+  opacity: 0;
+}
+</style>

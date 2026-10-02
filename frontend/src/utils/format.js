@@ -36,6 +36,9 @@ export const dateIso = (date) => {
   return `${date.getFullYear()}-${mois}-${jour}`
 }
 
+// Stock à partir duquel un produit est signalé « bientôt épuisé » (même seuil que le tableau de bord)
+export const SEUIL_STOCK_FAIBLE = 5
+
 export const STATUTS_COMMANDE = {
   en_attente: { label: 'En attente', classe: 'bg-yellow-100 text-yellow-700' },
   confirmee: { label: 'Confirmée', classe: 'bg-blue-100 text-blue-700' },

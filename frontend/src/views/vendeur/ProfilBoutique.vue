@@ -20,7 +20,7 @@ File: src/views/vendeur/ProfilBoutique.vue
           :to="{ name: 'vendeur-profil', params: { id: authStore.user.id } }"
           class="btn-outline py-2 px-4 text-sm inline-flex items-center gap-2"
         >
-          <ExternalLink :size="16" />
+          <ExternalLink :size="16" aria-hidden="true" />
           Voir ma page publique
         </router-link>
       </div>
@@ -75,7 +75,7 @@ File: src/views/vendeur/ProfilBoutique.vue
                   class="h-full w-full object-contain"
                   @error="onImageError"
                 />
-                <Store v-else :size="32" class="text-gray-500" />
+                <Store v-else :size="32" class="text-gray-500" aria-hidden="true" />
               </div>
               <div class="flex-1 min-w-0">
                 <input
@@ -102,7 +102,7 @@ File: src/views/vendeur/ProfilBoutique.vue
               rows="5"
               maxlength="2000"
               class="input resize-y"
-              placeholder="Votre histoire, vos spécialités, votre quartier, vos horaires..."
+              placeholder="Votre histoire, vos spécialités, votre quartier, vos horaires…"
               required
             ></textarea>
             <p class="text-xs mt-1" :class="descriptionTropCourte ? 'text-orange-600' : 'text-gray-500'">
@@ -138,10 +138,10 @@ File: src/views/vendeur/ProfilBoutique.vue
             <button
               v-if="!complet"
               type="button"
-              class="inline-flex items-center gap-2 text-sm text-red-500 hover:text-red-600"
+              class="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-red-700 hover:text-red-800"
               @click="deconnexion"
             >
-              <LogOut :size="16" />
+              <LogOut :size="16" aria-hidden="true" />
               Se déconnecter
             </button>
           </div>

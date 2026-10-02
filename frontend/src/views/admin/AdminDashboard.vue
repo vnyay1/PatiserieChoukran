@@ -64,9 +64,11 @@ File: src/views/admin/AdminDashboard.vue
       </div>
 
       <!-- Loading -->
-      <div v-if="loading" class="space-y-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-          <div v-for="n in 10" :key="n" class="skeleton h-24 rounded-elegant"></div>
+      <!-- Squelette calqué sur la grille réelle : pas de saut de mise en page à l'affichage -->
+      <div v-if="loading" class="space-y-6" aria-busy="true">
+        <span class="sr-only">Chargement du tableau de bord…</span>
+        <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+          <div v-for="n in 10" :key="n" class="skeleton h-[5.5rem] rounded-elegant"></div>
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div class="skeleton h-72 rounded-elegant lg:col-span-2"></div>

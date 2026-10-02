@@ -13,6 +13,15 @@ File: src/views/VendeurProfil.vue
       <span class="sr-only">Chargement de la boutique…</span>
     </div>
 
+    <!-- Erreur réseau ou serveur : distincte d'une boutique introuvable -->
+    <div v-else-if="erreurBoutique">
+      <h1 class="sr-only">Boutique</h1>
+      <AlertMessage type="error">
+        Impossible de charger cette boutique pour le moment.
+        <button type="button" class="lien ml-1" @click="charger">Réessayer</button>
+      </AlertMessage>
+    </div>
+
     <EmptyState
       v-else-if="!vendeur"
       :icone="Store"
@@ -79,12 +88,17 @@ File: src/views/VendeurProfil.vue
       <section aria-labelledby="titre-produits-vendeur">
         <h2 id="titre-produits-vendeur" class="mb-5">
           Ses créations
-          <span class="font-body text-base font-normal text-gray-600">({{ totalProduits }})</span>
+          <span v-if="produits.length || !erreurProduits" class="font-body text-base font-normal text-gray-600">({{ totalProduits }})</span>
         </h2>
 
         <ul v-if="loadingProduits && produits.length === 0" class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4" aria-hidden="true">
           <li v-for="n in 4" :key="n" class="skeleton aspect-square rounded-elegant"></li>
         </ul>
+
+        <AlertMessage v-else-if="erreurProduits && produits.length === 0" type="error">
+          Impossible de charger les créations de ce vendeur.
+          <button type="button" class="lien ml-1" @click="chargerProduits(1)">Réessayer</button>
+        </AlertMessage>
 
         <EmptyState
           v-else-if="produits.length === 0"
@@ -100,7 +114,11 @@ File: src/views/VendeurProfil.vue
               <ProduitCard :produit="produit" />
             </li>
           </ul>
-          <div v-if="page < dernierePage" class="mt-8 text-center">
+          <AlertMessage v-if="erreurProduits" type="error" class="mt-8">
+            Impossible de charger la suite des créations.
+            <button type="button" class="lien ml-1" @click="chargerProduits(page + 1)">Réessayer</button>
+          </AlertMessage>
+          <div v-else-if="page < dernierePage" class="mt-8 text-center">
             <Button variant="outline" :loading="loadingProduits" @click="chargerProduits(page + 1)">
               Voir plus de produits
             </Button>
@@ -116,6 +134,7 @@ import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/services/api'
 import Button from '@/components/common/Button.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ProduitCard from '@/components/produits/ProduitCard.vue'
 import { resolveImageUrl } from '@/utils/images'
@@ -129,12 +148,15 @@ const loading = ref(true)
 const vendeur = ref(null)
 const produits = ref([])
 const loadingProduits = ref(false)
+const erreurBoutique = ref(false)
+const erreurProduits = ref(false)
 const page = ref(1)
 const dernierePage = ref(1)
 const totalProduits = ref(0)
 
 const chargerProduits = async (numeroPage = 1) => {
   loadingProduits.value = true
+  erreurProduits.value = false
   try {
     // ville: undefined -> la ville choisie ne filtre pas la vitrine du vendeur (ses villes sont affichées)
     const response = await api.produits.getAll({ vendeur_id: route.params.id, ville: undefined, page: numeroPage, per_page: 12 })
@@ -144,6 +166,7 @@ const chargerProduits = async (numeroPage = 1) => {
     dernierePage.value = pagination.last_page
     totalProduits.value = pagination.total
   } catch (error) {
+    erreurProduits.value = true
     console.error('Erreur chargement produits du vendeur:', error)
   } finally {
     loadingProduits.value = false
@@ -152,6 +175,7 @@ const chargerProduits = async (numeroPage = 1) => {
 
 const charger = async () => {
   loading.value = true
+  erreurBoutique.value = false
   vendeur.value = null
   produits.value = []
 
@@ -160,8 +184,10 @@ const charger = async () => {
     vendeur.value = response.data.data
     document.title = `${vendeur.value.nom_complet} - Pâtisserie`
     await chargerProduits(1)
-  } catch {
+  } catch (error) {
     vendeur.value = null
+    // 404 : vendeur inconnu, inactif ou profil incomplet ; toute autre erreur peut se réessayer
+    erreurBoutique.value = error.response?.status !== 404
   } finally {
     loading.value = false
   }

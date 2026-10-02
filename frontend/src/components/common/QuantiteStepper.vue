@@ -3,7 +3,7 @@ COMPOSANT SÉLECTEUR DE QUANTITÉ
 File: src/components/common/QuantiteStepper.vue
 =================================== -->
 <!--
-  − [ 3 ] + : boutons de 44 px (36 px en taille sm), saisie directe au clavier,
+  − [ 3 ] + : boutons de 44 px (taille sm : 36 px à la souris, 44 px au doigt), saisie directe au clavier,
   valeur toujours entière et bornée. La nouvelle quantité est annoncée aux lecteurs d'écran.
   Émet update:modelValue à chaque changement validé.
 -->

@@ -63,6 +63,7 @@ File: src/views/Produits.vue
               <h1>Nos produits</h1>
               <p class="mt-1 text-sm text-gray-600" aria-live="polite" aria-atomic="true">
                 <template v-if="loading">Recherche en cours…</template>
+                <template v-else-if="erreurChargement">Liste indisponible</template>
                 <template v-else>
                   {{ totalProduits }} produit{{ totalProduits > 1 ? 's' : '' }}
                   <template v-if="villeStore.ville"> livrable{{ totalProduits > 1 ? 's' : '' }} à {{ villeStore.libelle }}</template>
@@ -112,6 +113,12 @@ File: src/views/Produits.vue
               <ProduitCard :produit="produit" />
             </li>
           </ul>
+
+          <!-- Erreur de chargement : distincte d'une recherche sans résultat -->
+          <AlertMessage v-else-if="erreurChargement" type="error">
+            {{ erreurChargement }}
+            <button type="button" class="lien ml-1" @click="fetchProduits">Réessayer</button>
+          </AlertMessage>
 
           <!-- Aucun résultat -->
           <EmptyState
@@ -203,19 +210,18 @@ File: src/views/Produits.vue
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api, { messageErreur } from '@/services/api'
-import { useToastStore } from '@/stores/toast'
 import { useVilleStore } from '@/stores/ville'
 import ProduitCard from '@/components/produits/ProduitCard.vue'
 import FiltersSidebar from '@/components/produits/FiltersSidebar.vue'
 import Button from '@/components/common/Button.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
 import { formatPrice } from '@/utils/format'
 import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight, SearchX } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
-const toastStore = useToastStore()
 const villeStore = useVilleStore()
 
 const TRIS = {
@@ -236,6 +242,7 @@ const LIBELLES_TRI = {
 const produits = ref([])
 const categories = ref([])
 const loading = ref(false)
+const erreurChargement = ref('')
 const showFilters = ref(false)
 
 // Filtres (reflétés dans l'URL : partage, rafraîchissement et bouton retour conservent la recherche)
@@ -335,6 +342,7 @@ const mettreAJourUrl = (page = 1) => {
 
 const fetchProduits = async () => {
   loading.value = true
+  erreurChargement.value = ''
 
   try {
     const params = {
@@ -359,7 +367,7 @@ const fetchProduits = async () => {
   } catch (error) {
     produits.value = []
     totalProduits.value = 0
-    toastStore.erreur(messageErreur(error, 'Impossible de charger les produits.'))
+    erreurChargement.value = messageErreur(error, 'Impossible de charger les produits.')
   } finally {
     loading.value = false
   }

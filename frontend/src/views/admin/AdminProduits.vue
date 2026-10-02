@@ -30,7 +30,7 @@ File: src/views/admin/AdminProduits.vue
                 id="admin-produits-1"
                 v-model="filters.search"
                 type="search"
-                placeholder="Nom ou description..."
+                placeholder="Nom ou description…"
                 class="input pl-10"
                 @input="handleSearch"
               />
@@ -72,7 +72,7 @@ File: src/views/admin/AdminProduits.vue
           <h2 class="font-display text-xl font-bold text-gray-800">
             {{ isEditing ? 'Modifier le produit' : 'Ajouter un produit' }}
           </h2>
-          <button class="text-sm text-gray-500 hover:text-gray-700" @click="closeForm">
+          <button type="button" class="btn-ghost btn-sm" @click="closeForm">
             Fermer
           </button>
         </div>
@@ -86,7 +86,7 @@ File: src/views/admin/AdminProduits.vue
           <div>
             <label for="admin-produits-5" class="block text-sm font-medium text-gray-700 mb-2">Catégorie *</label>
             <select id="admin-produits-5" v-model="form.categorie_id" class="input" required>
-              <option value="">Sélectionner...</option>
+              <option value="">Sélectionner…</option>
               <option v-for="cat in categories" :key="cat.id" :value="cat.id">
                 {{ cat.nom }}
               </option>
@@ -119,7 +119,7 @@ File: src/views/admin/AdminProduits.vue
           </div>
 
           <div class="md:col-span-2">
-            <label class="inline-flex items-center gap-2">
+            <label class="inline-flex min-h-11 cursor-pointer items-center gap-2">
               <input
                 v-model="form.promo_active"
                 type="checkbox"
@@ -180,7 +180,7 @@ File: src/views/admin/AdminProduits.vue
           </p>
 
           <div class="md:col-span-2 flex flex-wrap gap-4">
-            <label class="inline-flex items-center gap-2">
+            <label class="inline-flex min-h-11 cursor-pointer items-center gap-2">
               <input
                 v-model="form.est_disponible"
                 type="checkbox"
@@ -228,7 +228,7 @@ File: src/views/admin/AdminProduits.vue
             </thead>
             <tbody v-if="loading">
               <tr>
-                <td colspan="5" class="p-6 text-center text-gray-500">Chargement...</td>
+                <td colspan="5" class="p-6 text-center text-gray-500">Chargement…</td>
               </tr>
             </tbody>
             <tbody v-else-if="produits.length === 0">
@@ -242,7 +242,7 @@ File: src/views/admin/AdminProduits.vue
                   <div class="flex items-center gap-3">
                     <img
                       loading="lazy"
-                      :src="resolveImageUrl(produit.image_principale)" :alt="produit.nom"
+                      :src="resolveImageUrl(produit.image_principale)" alt=""
                       class="h-12 w-12 rounded-lg object-cover border"
                       @error="onImageError"
                     />

@@ -40,7 +40,7 @@ File: src/views/vendeur/MaLivraison.vue
                 :value="ville.valeur"
                 class="h-5 w-5 flex-shrink-0 rounded"
               />
-              <MapPin :size="20" class="text-gold-600" />
+              <MapPin :size="20" class="text-gold-600" aria-hidden="true" />
               <span class="font-semibold text-gray-800">{{ ville.libelle }}</span>
             </label>
           </div>

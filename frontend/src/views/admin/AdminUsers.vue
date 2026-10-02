@@ -32,7 +32,7 @@ File: src/views/admin/AdminUsers.vue
                 id="admin-users-1"
                 v-model="filters.search"
                 type="search"
-                placeholder="Nom, email ou téléphone..."
+                placeholder="Nom, email ou téléphone…"
                 class="input pl-10"
                 @input="handleSearch"
               />
@@ -60,7 +60,7 @@ File: src/views/admin/AdminUsers.vue
           </div>
 
           <div class="md:col-span-4 flex flex-wrap items-center gap-3">
-            <label class="inline-flex items-center gap-2 mr-auto">
+            <label class="mr-auto inline-flex min-h-11 cursor-pointer items-center gap-2">
               <input
                 v-model="filters.vedette"
                 type="checkbox"
@@ -107,7 +107,7 @@ File: src/views/admin/AdminUsers.vue
             </thead>
             <tbody v-if="loading">
               <tr>
-                <td colspan="6" class="p-6 text-center text-gray-500">Chargement...</td>
+                <td colspan="6" class="p-6 text-center text-gray-500">Chargement…</td>
               </tr>
             </tbody>
             <tbody v-else-if="users.length === 0">
@@ -352,8 +352,8 @@ File: src/views/admin/AdminUsers.vue
                   <div class="text-xs text-gray-500">{{ formatDate(commande.created_at) }}</div>
                 </div>
                 <div class="flex items-center gap-2">
-                  <span class="badge" :class="getStatutClass(commande.statut)">
-                    {{ getStatutLabel(commande.statut) }}
+                  <span class="badge" :class="classeStatut(commande.statut)">
+                    {{ libelleStatut(commande.statut) }}
                   </span>
                   <span class="price text-base">{{ formatPrice(commande.montant_total) }} FCFA</span>
                 </div>
@@ -372,7 +372,7 @@ import api, { messageErreur } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
-import { formatPrice, formatPrice as formatNumber, formatDate } from '@/utils/format'
+import { formatPrice, formatPrice as formatNumber, formatDate, classeStatut, libelleStatut } from '@/utils/format'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import BaseModal from '@/components/common/BaseModal.vue'

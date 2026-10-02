@@ -43,7 +43,7 @@ File: src/views/admin/AdminCommandes.vue
               id="filtre-recherche"
               v-model="filters.search"
               type="search"
-              placeholder="Numéro, client, téléphone..."
+              placeholder="Numéro, client, téléphone…"
               class="input"
               @input="handleSearch"
             />
@@ -105,7 +105,7 @@ File: src/views/admin/AdminCommandes.vue
           </div>
         </div>
 
-        <div v-if="loading" class="p-6 text-center text-gray-500">Chargement...</div>
+        <div v-if="loading" class="p-6 text-center text-gray-500">Chargement…</div>
         <div v-else-if="commandes.length === 0" class="p-6 text-center text-gray-500">
           {{ isHistoriqueMode ? 'Aucune commande archivée.' : 'Aucune commande à traiter : tout est à jour.' }}
         </div>
@@ -409,7 +409,7 @@ File: src/views/admin/AdminCommandes.vue
                   <img
                     loading="lazy"
                     :src="resolveImageUrl(ligne.produit?.image_principale)"
-                    :alt="ligne.nom_produit"
+                    alt=""
                     class="h-12 w-12 rounded-lg object-cover border"
                     @error="onImageError"
                   />

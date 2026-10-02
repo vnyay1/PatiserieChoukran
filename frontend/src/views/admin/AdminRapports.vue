@@ -81,7 +81,10 @@ File: src/views/admin/AdminRapports.vue
                   <td class="px-4 py-3">
                     <div class="font-semibold text-gray-800 flex items-center gap-1">
                       {{ ligne.nom_complet }}
-                      <Star v-if="ligne.vedette === 'Oui'" :size="14" class="text-gold-500" fill="currentColor" />
+                      <template v-if="ligne.vedette === 'Oui'">
+                        <Star :size="14" class="text-gold-500" fill="currentColor" aria-hidden="true" />
+                        <span class="sr-only">(vendeur vedette)</span>
+                      </template>
                     </div>
                     <div class="text-xs text-gray-500">{{ ligne.telephone }}<template v-if="ligne.email"> · {{ ligne.email }}</template></div>
                   </td>

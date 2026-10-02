@@ -50,6 +50,12 @@ File: src/views/MesCommandes.vue
       </div>
     </div>
 
+    <!-- Erreur de chargement : distincte d'une liste vide -->
+    <AlertMessage v-else-if="erreurChargement" type="error">
+      {{ erreurChargement }}
+      <button type="button" class="lien ml-1" @click="fetchCommandes()">Réessayer</button>
+    </AlertMessage>
+
     <!-- Aucune commande -->
     <EmptyState
       v-else
@@ -69,6 +75,7 @@ import api, { messageErreur } from '@/services/api'
 import { useToastStore } from '@/stores/toast'
 import Button from '@/components/common/Button.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
 import CommandeCard from '@/components/commande/CommandeCard.vue'
 import { Package } from 'lucide-vue-next'
 
@@ -77,6 +84,7 @@ const toastStore = useToastStore()
 const commandes = ref([])
 const loading = ref(true)
 const loadingMore = ref(false)
+const erreurChargement = ref('')
 const filtreActif = ref('tous')
 const page = ref(1)
 const lastPage = ref(1)
@@ -95,6 +103,7 @@ const fetchCommandes = async ({ ajouter = false } = {}) => {
   } else {
     loading.value = true
     page.value = 1
+    erreurChargement.value = ''
   }
 
   try {
@@ -111,7 +120,14 @@ const fetchCommandes = async ({ ajouter = false } = {}) => {
       total.value = pagination.total || 0
     }
   } catch (error) {
-    toastStore.erreur(messageErreur(error, 'Impossible de charger vos commandes.'))
+    const message = messageErreur(error, 'Impossible de charger vos commandes.')
+    // « Voir plus » raté : la liste déjà affichée reste, un message suffit
+    if (ajouter) {
+      toastStore.erreur(message)
+    } else {
+      commandes.value = []
+      erreurChargement.value = message
+    }
   } finally {
     loading.value = false
     loadingMore.value = false

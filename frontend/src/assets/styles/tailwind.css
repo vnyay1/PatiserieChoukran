@@ -222,6 +222,17 @@
            disabled:cursor-not-allowed disabled:opacity-55;
   }
 
+  /* Écran tactile : les variantes compactes (btn-sm, icônes de 36 px) retrouvent 44 px au doigt */
+  @media (pointer: coarse) {
+    .btn-sm {
+      @apply min-h-11;
+    }
+
+    .btn-icone {
+      @apply min-h-11 min-w-11;
+    }
+  }
+
   .card {
     @apply overflow-hidden rounded-elegant border border-gray-200/70 bg-surface shadow-card;
   }

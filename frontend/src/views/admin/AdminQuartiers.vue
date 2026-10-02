@@ -33,7 +33,7 @@ File: src/views/admin/AdminQuartiers.vue
               <option v-for="ville in VILLES" :key="ville.valeur" :value="ville.valeur">{{ ville.libelle }}</option>
             </select>
           </div>
-          <label class="inline-flex items-center gap-2 md:col-span-3">
+          <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 md:col-span-3">
             <input v-model="form.actif" type="checkbox" class="h-5 w-5 flex-shrink-0 rounded" />
             <span class="text-sm text-gray-700">Proposé aux clients</span>
           </label>
@@ -78,7 +78,7 @@ File: src/views/admin/AdminQuartiers.vue
               </tr>
             </thead>
             <tbody v-if="loading">
-              <tr><td colspan="5" class="p-6 text-center text-gray-500">Chargement...</td></tr>
+              <tr><td colspan="5" class="p-6 text-center text-gray-500">Chargement…</td></tr>
             </tbody>
             <tbody v-else-if="quartiers.length === 0">
               <tr><td colspan="5" class="p-6 text-center text-gray-500">Aucun quartier.</td></tr>

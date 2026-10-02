@@ -11,7 +11,7 @@ File: src/components/common/ToastContainer.vue
 <template>
   <Teleport to="body">
     <div
-      class="pointer-events-none fixed inset-x-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-[90] flex flex-col gap-2
+      class="pointer-events-none fixed inset-x-4 bottom-[calc(5rem+var(--decalage-toasts,0px)+env(safe-area-inset-bottom))] z-[90] flex flex-col gap-2
              md:bottom-auto md:left-auto md:right-6 md:top-24 md:w-96"
     >
       <div
@@ -36,7 +36,7 @@ File: src/components/common/ToastContainer.vue
             <p class="flex-1 break-words py-px">{{ toast.message }}</p>
             <button
               type="button"
-              class="-my-1.5 inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full opacity-75 transition hover:bg-gray-900/5 hover:opacity-100"
+              class="-my-2.5 -mr-1.5 inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full opacity-75 transition hover:bg-gray-900/5 hover:opacity-100"
               aria-label="Fermer le message"
               @click="toastStore.retirer(toast.id)"
             >

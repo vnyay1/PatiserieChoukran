@@ -30,7 +30,7 @@ File: src/views/admin/AdminCategories.vue
                 id="admin-categories-1"
                 v-model="filters.search"
                 type="search"
-                placeholder="Nom de catégorie..."
+                placeholder="Nom de catégorie…"
                 class="input pl-10"
                 @input="handleSearch"
               />
@@ -62,7 +62,7 @@ File: src/views/admin/AdminCategories.vue
           <h2 class="font-display text-xl font-bold text-gray-800">
             {{ isEditing ? 'Modifier la catégorie' : 'Ajouter une catégorie' }}
           </h2>
-          <button class="text-sm text-gray-500 hover:text-gray-700" @click="closeForm">
+          <button type="button" class="btn-ghost btn-sm" @click="closeForm">
             Fermer
           </button>
         </div>
@@ -109,7 +109,7 @@ File: src/views/admin/AdminCategories.vue
           </div>
 
           <div class="md:col-span-2 flex flex-wrap gap-4">
-            <label class="inline-flex items-center gap-2">
+            <label class="inline-flex min-h-11 cursor-pointer items-center gap-2">
               <input
                 v-model="form.est_actif"
                 type="checkbox"
@@ -156,7 +156,7 @@ File: src/views/admin/AdminCategories.vue
             </thead>
             <tbody v-if="loading">
               <tr>
-                <td colspan="4" class="p-6 text-center text-gray-500">Chargement...</td>
+                <td colspan="4" class="p-6 text-center text-gray-500">Chargement…</td>
               </tr>
             </tbody>
             <tbody v-else-if="categories.length === 0">
@@ -170,7 +170,7 @@ File: src/views/admin/AdminCategories.vue
                   <div class="flex items-center gap-3">
                     <img
                       loading="lazy"
-                      :src="resolveImageUrl(categorie.image)" :alt="categorie.nom"
+                      :src="resolveImageUrl(categorie.image)" alt=""
                       class="h-12 w-12 rounded-lg object-cover border"
                       @error="onImageError"
                     />
