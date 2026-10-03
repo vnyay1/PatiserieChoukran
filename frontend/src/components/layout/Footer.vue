@@ -35,7 +35,7 @@ File: src/components/layout/Footer.vue
             <ChevronDown :size="18" class="text-gray-500 transition-transform duration-200 group-open:rotate-180 md:hidden" aria-hidden="true" />
           </component>
 
-          <div class="max-md:px-4 max-md:pb-4">
+          <div class="max-md:px-4 max-md:pb-4 max-md:group-open:animate-deroule">
             <ul v-if="section.type === 'liens'" class="space-y-1">
               <li v-for="item in footerNavItems" :key="item.to">
                 <router-link :to="item.to" class="lien-pied">{{ item.label }}</router-link>

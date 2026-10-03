@@ -65,8 +65,42 @@ export default {
         // Échelle : 8 px (vignettes), 12 px (champs, puces), 20 px (cartes), full (boutons)
         elegant: '20px',
       },
+      // Mouvement : réponses aux actions (transform et opacity seulement), coupées par
+      // prefers-reduced-motion (règle globale de tailwind.css)
+      transitionDuration: {
+        rapide: '150ms',
+        base: '250ms',
+        lente: '450ms',
+      },
       transitionTimingFunction: {
         douce: 'cubic-bezier(0.2, 0, 0, 1)',
+        // Léger dépassement : confirmation d'une action (pastille du panier)
+        emphase: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+      },
+      keyframes: {
+        rebond: {
+          '0%': { transform: 'scale(1)' },
+          '40%': { transform: 'scale(1.3)' },
+          '100%': { transform: 'scale(1)' },
+        },
+        apparition: {
+          from: { opacity: '0', transform: 'translateY(10px) scale(0.98)' },
+          to: { opacity: '1', transform: 'none' },
+        },
+        reflet: {
+          from: { backgroundPosition: '-100% 0' },
+          to: { backgroundPosition: '200% 0' },
+        },
+        deroule: {
+          from: { opacity: '0', transform: 'translateY(-4px)' },
+          to: { opacity: '1', transform: 'none' },
+        },
+      },
+      animation: {
+        rebond: 'rebond 450ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+        apparition: 'apparition 550ms cubic-bezier(0.2, 0, 0, 1) both',
+        reflet: 'reflet 1.6s ease-in-out infinite',
+        deroule: 'deroule 200ms cubic-bezier(0.2, 0, 0, 1)',
       },
     },
   },

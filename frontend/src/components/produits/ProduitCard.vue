@@ -67,14 +67,14 @@ File: src/components/produits/ProduitCard.vue
         size="sm"
         full-width
         class="relative z-10"
-        :icon="indisponible ? null : ShoppingCart"
+        :icon="indisponible ? null : ajoute ? Check : ShoppingCart"
         :icon-size="16"
         :disabled="indisponible"
         :loading="ajoutEnCours"
         :aria-label="indisponible ? `${produit.nom} : indisponible` : `Ajouter ${produit.nom} au panier`"
         @click="ajouter(produit)"
       >
-        {{ indisponible ? 'Indisponible' : 'Ajouter' }}
+        {{ indisponible ? 'Indisponible' : ajoute ? 'Ajouté' : 'Ajouter' }}
       </Button>
     </div>
   </Card>
@@ -85,7 +85,7 @@ import { computed } from 'vue'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import BadgesProduit from '@/components/produits/BadgesProduit.vue'
-import { ShoppingCart } from 'lucide-vue-next'
+import { ShoppingCart, Check } from 'lucide-vue-next'
 import { useAjoutPanier } from '@/composables/useAjoutPanier'
 import { resolveImageUrl, onImageError } from '@/utils/images'
 import { formatPrice } from '@/utils/format'
@@ -104,6 +104,6 @@ const props = defineProps({
   }
 })
 
-const { ajouter, ajoutEnCours, estEquipe } = useAjoutPanier()
+const { ajouter, ajoutEnCours, ajoute, estEquipe } = useAjoutPanier()
 const indisponible = computed(() => estIndisponible(props.produit))
 </script>

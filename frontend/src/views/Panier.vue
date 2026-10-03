@@ -94,7 +94,11 @@ File: src/views/Panier.vue
                 :aria-label="`Minimum de livraison chez ${groupe.vendeurNom}`"
                 :aria-valuetext="`${formatPrice(groupe.sousTotal)} sur ${formatPrice(groupe.minimum)} FCFA`"
               >
-                <div class="h-full rounded-full bg-gold-600 transition-[width] duration-500" :style="{ width: `${Math.min(100, (groupe.sousTotal / groupe.minimum) * 100)}%` }"></div>
+                <!-- Remplissage en scaleX ; la piste arrondie le découpe -->
+                <div
+                  class="h-full origin-left bg-gold-600 transition-transform duration-lente ease-douce"
+                  :style="{ transform: `scaleX(${Math.min(1, groupe.sousTotal / groupe.minimum)})` }"
+                ></div>
               </div>
             </div>
           </header>

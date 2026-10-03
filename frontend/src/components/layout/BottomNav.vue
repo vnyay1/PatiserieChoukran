@@ -24,7 +24,12 @@ File: src/components/layout/BottomNav.vue
                    group-hover:bg-gray-100 group-aria-[current=page]:bg-gold-100 group-aria-[current=page]:text-gold-800"
           >
             <component :is="lien.icone" :size="22" :stroke-width="estActif(lien) ? 2.4 : 1.9" aria-hidden="true" />
-            <span v-if="compteur(lien) > 0" class="badge-compteur absolute -top-1 right-1.5">
+            <span
+              v-if="compteur(lien) > 0"
+              class="badge-compteur absolute -top-1 right-1.5"
+              :class="{ 'animate-rebond': lien.name === 'panier' && rebond }"
+              @animationend="finRebond"
+            >
               {{ compteur(lien) > 99 ? '99+' : compteur(lien) }}
               <span class="sr-only">{{ lien.name === 'panier' ? 'articles' : 'à traiter' }}</span>
             </span>
@@ -41,11 +46,13 @@ import { usePanierStore } from '@/stores/panier'
 import { useAuthStore } from '@/stores/auth'
 import { useVendeurCommandesBadge } from '@/composables/useVendeurCommandesBadge'
 import { useNavigation } from '@/composables/useNavigation'
+import { useRebondPanier } from '@/composables/useAjoutPanier'
 
 const panierStore = usePanierStore()
 const authStore = useAuthStore()
 const { vendeurCommandesCount, showVendeurCommandesBadge } = useVendeurCommandesBadge()
 const { liensBarreBas, estActif } = useNavigation()
+const { rebond, finRebond } = useRebondPanier()
 
 const compteur = (lien) => {
   if (lien.name === 'panier' && authStore.isAuthenticated) return panierStore.itemCount

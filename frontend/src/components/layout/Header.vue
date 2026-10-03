@@ -106,7 +106,13 @@ File: src/components/layout/Header.vue
             :aria-current="route.name === 'panier' ? 'page' : undefined"
           >
             <ShoppingCart :size="22" aria-hidden="true" />
-            <span v-if="panierCount > 0" class="badge-compteur absolute -right-0.5 -top-0.5" aria-hidden="true">
+            <span
+              v-if="panierCount > 0"
+              class="badge-compteur absolute -right-0.5 -top-0.5"
+              :class="{ 'animate-rebond': rebond }"
+              aria-hidden="true"
+              @animationend="finRebond"
+            >
               {{ formatCompteur(panierCount) }}
             </span>
           </router-link>
@@ -223,6 +229,7 @@ import { useNotificationsStore } from '@/stores/notifications'
 import { useVendeurCommandesBadge } from '@/composables/useVendeurCommandesBadge'
 import { useNavigation } from '@/composables/useNavigation'
 import { useMenuDeroulant } from '@/composables/useMenuDeroulant'
+import { useRebondPanier } from '@/composables/useAjoutPanier'
 import VilleSelecteur from '@/components/layout/VilleSelecteur.vue'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
@@ -237,6 +244,7 @@ const { vendeurCommandesCount, formatBadgeCount, showVendeurCommandesBadge } = u
 const { liensPrincipaux, menuGestion, estActif, gestionActive } = useNavigation()
 
 const mobileOpen = ref(false)
+const { rebond, finRebond } = useRebondPanier()
 const {
   ouvert: menuOuvert,
   racine: menuRacine,

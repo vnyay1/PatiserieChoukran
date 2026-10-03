@@ -133,7 +133,8 @@ File: src/views/Profil.vue
           texte="Ajoutez votre adresse une fois pour toutes : elle sera proposée à chaque commande."
         />
 
-        <ul v-else class="mt-5 space-y-3">
+        <!-- Une adresse supprimée glisse et s'efface -->
+        <TransitionGroup v-else tag="ul" name="liste" class="mt-5 space-y-3">
           <li
             v-for="adresse in adresses"
             :key="adresse.id"
@@ -173,7 +174,7 @@ File: src/views/Profil.vue
               </button>
             </div>
           </li>
-        </ul>
+        </TransitionGroup>
       </section>
 
       <!-- Sécurité -->

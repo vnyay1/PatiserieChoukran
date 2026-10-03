@@ -39,11 +39,13 @@ File: src/views/Home.vue
             class="grid h-[21rem] grid-cols-2 grid-rows-2 gap-3 sm:h-[26rem] sm:gap-4 lg:h-[30rem]"
             aria-label="Créations à la une"
           >
+            <!-- Le seul mouvement non demandé du site : la vitrine se pose à l'arrivée, photo après photo -->
             <li
               v-for="(produit, index) in photosVitrine"
               :key="produit.id"
-              class="group relative overflow-hidden rounded-elegant bg-gray-100 shadow-card"
+              class="group relative animate-apparition overflow-hidden rounded-elegant bg-gray-100 shadow-card"
               :class="{ 'row-span-2': index === 0 }"
+              :style="{ animationDelay: `${index * 110}ms` }"
             >
               <img
                 :src="resolveImageUrl(produit.image_principale)"

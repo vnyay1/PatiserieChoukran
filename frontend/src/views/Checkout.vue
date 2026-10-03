@@ -20,11 +20,13 @@ File: src/views/Checkout.vue
         class="flex flex-col gap-2"
         :aria-current="currentStep === index + 1 ? 'step' : undefined"
       >
-        <span
-          class="h-1.5 rounded-full transition-colors duration-300"
-          :class="currentStep > index ? 'bg-gold-500' : 'bg-gray-200'"
-          aria-hidden="true"
-        ></span>
+        <!-- Barre d'étape : se remplit (scaleX) quand l'étape est atteinte -->
+        <span class="relative h-1.5 overflow-hidden rounded-full bg-gray-200" aria-hidden="true">
+          <span
+            class="absolute inset-0 origin-left bg-gold-500 transition-transform duration-lente ease-douce"
+            :class="currentStep > index ? 'scale-x-100' : 'scale-x-0'"
+          ></span>
+        </span>
         <span class="flex items-center gap-2 text-sm font-semibold" :class="currentStep >= index + 1 ? 'text-gray-900' : 'text-gray-500'">
           <span
             class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs"
@@ -42,212 +44,215 @@ File: src/views/Checkout.vue
 
     <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-8">
       <div class="min-w-0">
-        <!-- Étape 1 : livraison -->
-        <section v-if="currentStep === 1" class="card p-5 sm:p-7" aria-labelledby="titre-etape">
-          <h2 id="titre-etape" ref="titreEtape" tabindex="-1" class="text-xl sm:text-2xl">Livraison</h2>
+        <!-- Changement d'étape en fondu ; le focus va au titre une fois la nouvelle étape affichée -->
+        <Transition name="etape" mode="out-in" @after-enter="focusTitreEtape">
+          <!-- Étape 1 : livraison -->
+          <section v-if="currentStep === 1" class="card p-5 sm:p-7" aria-labelledby="titre-etape">
+            <h2 id="titre-etape" ref="titreEtape" tabindex="-1" class="text-xl sm:text-2xl">Livraison</h2>
 
-          <form class="mt-6 space-y-7" novalidate @submit.prevent="goToStep2">
-            <!-- Mode de réception -->
-            <fieldset>
-              <legend class="label mb-3">Mode de réception</legend>
-              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <CarteRadio
-                  v-for="mode in MODES"
-                  :key="mode.valeur"
-                  v-model="formData.type_livraison"
-                  name="type_livraison"
-                  :value="mode.valeur"
-                  :titre="mode.libelle"
-                  :description="mode.description"
-                >
-                  <template #visuel>
-                    <span class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gold-100 text-gold-700">
-                      <component :is="mode.icone" :size="22" aria-hidden="true" />
-                    </span>
-                  </template>
-                </CarteRadio>
-              </div>
-            </fieldset>
-
-            <!-- Adresse -->
-            <fieldset v-if="estLivraison">
-              <legend class="label mb-3">Adresse de livraison</legend>
-
-              <AlertMessage v-if="adresses.length === 0 && !chargementAdresses" type="info" class="mb-3">
-                Ajoutez une adresse de livraison pour continuer.
-              </AlertMessage>
-
-              <!-- Squelette : pas de saut quand les adresses arrivent -->
-              <div v-if="chargementAdresses" class="space-y-3" aria-busy="true">
-                <div v-for="n in 2" :key="n" class="skeleton h-[4.5rem] rounded-2xl"></div>
-                <span class="sr-only">Chargement de vos adresses…</span>
-              </div>
-
-              <div v-else class="space-y-3">
-                <div v-for="adresse in adresses" :key="adresse.id" class="relative">
+            <form class="mt-6 space-y-7" novalidate @submit.prevent="goToStep2">
+              <!-- Mode de réception -->
+              <fieldset>
+                <legend class="label mb-3">Mode de réception</legend>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <CarteRadio
-                    v-model="formData.adresse_livraison_id"
-                    name="adresse_livraison_id"
-                    :value="adresse.id"
-                    :coche="false"
-                    class="items-start pr-16"
+                    v-for="mode in MODES"
+                    :key="mode.valeur"
+                    v-model="formData.type_livraison"
+                    name="type_livraison"
+                    :value="mode.valeur"
+                    :titre="mode.libelle"
+                    :description="mode.description"
                   >
                     <template #visuel>
-                      <MapPin :size="20" class="mt-0.5 flex-shrink-0 text-gold-600" aria-hidden="true" />
+                      <span class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gold-100 text-gold-700">
+                        <component :is="mode.icone" :size="22" aria-hidden="true" />
+                      </span>
                     </template>
-                    <span class="flex flex-wrap items-center gap-2 font-semibold text-gray-900">
-                      {{ adresse.libelle || adresse.quartier || 'Adresse' }}
-                      <span v-if="adresse.est_principale" class="badge badge-neutral">Principale</span>
-                    </span>
-                    <span class="block text-sm text-gray-600">{{ lieuAdresse(adresse) }}</span>
-                    <span v-if="adresse.telephone_contact" class="block text-sm text-gray-600">{{ adresse.telephone_contact }}</span>
-                    <span v-if="!adresse.quartier_id" class="mt-1 flex items-center gap-1.5 text-sm font-medium text-orange-700">
-                      <AlertTriangle :size="14" aria-hidden="true" />
-                      Quartier à préciser pour être livré
-                    </span>
                   </CarteRadio>
-                  <button
-                    type="button"
-                    class="btn-ghost btn-sm absolute right-2 top-2 px-3"
-                    :aria-label="`Modifier l'adresse ${adresse.libelle || lieuAdresse(adresse)}`"
-                    @click="openEditAddress(adresse)"
-                  >
-                    <Pencil :size="15" aria-hidden="true" />
-                    <span class="hidden sm:inline">Modifier</span>
-                  </button>
+                </div>
+              </fieldset>
+
+              <!-- Adresse -->
+              <fieldset v-if="estLivraison">
+                <legend class="label mb-3">Adresse de livraison</legend>
+
+                <AlertMessage v-if="adresses.length === 0 && !chargementAdresses" type="info" class="mb-3">
+                  Ajoutez une adresse de livraison pour continuer.
+                </AlertMessage>
+
+                <!-- Squelette : pas de saut quand les adresses arrivent -->
+                <div v-if="chargementAdresses" class="space-y-3" aria-busy="true">
+                  <div v-for="n in 2" :key="n" class="skeleton h-[4.5rem] rounded-2xl"></div>
+                  <span class="sr-only">Chargement de vos adresses…</span>
                 </div>
 
-                <button
-                  type="button"
-                  class="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 px-4 font-semibold text-gray-700 transition-colors hover:border-gold-500 hover:bg-gold-50 hover:text-gray-900"
-                  @click="openAddAddress"
-                >
-                  <Plus :size="18" aria-hidden="true" />
-                  Ajouter une adresse
-                </button>
-              </div>
-            </fieldset>
+                <div v-else class="space-y-3">
+                  <div v-for="adresse in adresses" :key="adresse.id" class="relative">
+                    <CarteRadio
+                      v-model="formData.adresse_livraison_id"
+                      name="adresse_livraison_id"
+                      :value="adresse.id"
+                      :coche="false"
+                      class="items-start pr-16"
+                    >
+                      <template #visuel>
+                        <MapPin :size="20" class="mt-0.5 flex-shrink-0 text-gold-600" aria-hidden="true" />
+                      </template>
+                      <span class="flex flex-wrap items-center gap-2 font-semibold text-gray-900">
+                        {{ adresse.libelle || adresse.quartier || 'Adresse' }}
+                        <span v-if="adresse.est_principale" class="badge badge-neutral">Principale</span>
+                      </span>
+                      <span class="block text-sm text-gray-600">{{ lieuAdresse(adresse) }}</span>
+                      <span v-if="adresse.telephone_contact" class="block text-sm text-gray-600">{{ adresse.telephone_contact }}</span>
+                      <span v-if="!adresse.quartier_id" class="mt-1 flex items-center gap-1.5 text-sm font-medium text-orange-700">
+                        <AlertTriangle :size="14" aria-hidden="true" />
+                        Quartier à préciser pour être livré
+                      </span>
+                    </CarteRadio>
+                    <button
+                      type="button"
+                      class="btn-ghost btn-sm absolute right-2 top-2 px-3"
+                      :aria-label="`Modifier l'adresse ${adresse.libelle || lieuAdresse(adresse)}`"
+                      @click="openEditAddress(adresse)"
+                    >
+                      <Pencil :size="15" aria-hidden="true" />
+                      <span class="hidden sm:inline">Modifier</span>
+                    </button>
+                  </div>
 
-            <FormField
-              v-if="estLivraison"
-              v-slot="{ attrs }"
-              label="Téléphone pour la livraison"
-              requis
-              aide="Le vendeur vous appelle à ce numéro pour convenir du passage."
-              :erreur="erreurs.telephone_livraison"
-            >
-              <TelephoneInput v-model="formData.telephone_livraison" v-bind="attrs" />
-            </FormField>
+                  <button
+                    type="button"
+                    class="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 px-4 font-semibold text-gray-700 transition-colors hover:border-gold-500 hover:bg-gold-50 hover:text-gray-900"
+                    @click="openAddAddress"
+                  >
+                    <Plus :size="18" aria-hidden="true" />
+                    Ajouter une adresse
+                  </button>
+                </div>
+              </fieldset>
 
-            <FormField v-slot="{ attrs }" label="Instructions pour le vendeur" facultatif>
-              <textarea
-                v-model="formData.instructions_speciales"
-                v-bind="attrs"
-                rows="3"
-                placeholder="Ex. Sonner à l'interphone, appeler en arrivant, message à écrire sur le gâteau…"
-                class="input resize-y"
-              ></textarea>
-            </FormField>
+              <FormField
+                v-if="estLivraison"
+                v-slot="{ attrs }"
+                label="Téléphone pour la livraison"
+                requis
+                aide="Le vendeur vous appelle à ce numéro pour convenir du passage."
+                :erreur="erreurs.telephone_livraison"
+              >
+                <TelephoneInput v-model="formData.telephone_livraison" v-bind="attrs" />
+              </FormField>
 
-            <AlertMessage v-if="blocageEtape1" type="warning">{{ blocageEtape1 }}</AlertMessage>
+              <FormField v-slot="{ attrs }" label="Instructions pour le vendeur" facultatif>
+                <textarea
+                  v-model="formData.instructions_speciales"
+                  v-bind="attrs"
+                  rows="3"
+                  placeholder="Ex. Sonner à l'interphone, appeler en arrivant, message à écrire sur le gâteau…"
+                  class="input resize-y"
+                ></textarea>
+              </FormField>
 
-            <Button type="submit" variant="primary" size="lg" full-width :disabled="isStep1Blocked">
-              Continuer vers le paiement
-              <ArrowRight :size="18" aria-hidden="true" />
-            </Button>
-          </form>
-        </section>
+              <AlertMessage v-if="blocageEtape1" type="warning">{{ blocageEtape1 }}</AlertMessage>
 
-        <!-- Étape 2 : paiement -->
-        <section v-if="currentStep === 2" class="card p-5 sm:p-7" aria-labelledby="titre-etape">
-          <h2 id="titre-etape" ref="titreEtape" tabindex="-1" class="text-xl sm:text-2xl">Paiement</h2>
-
-          <form class="mt-6 space-y-7" novalidate @submit.prevent="submitOrder">
-            <fieldset>
-              <legend class="label mb-3">Moyen de paiement</legend>
-              <div class="space-y-3">
-                <CarteRadio
-                  v-for="method in paymentMethods"
-                  :key="method.valeur"
-                  v-model="formData.moyen_paiement"
-                  name="moyen_paiement"
-                  :value="method.valeur"
-                  :titre="method.libelle"
-                  :description="method.description"
-                >
-                  <template #visuel>
-                    <span class="flex h-11 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-plaque p-1 ring-1 ring-gray-200">
-                      <img :src="method.logo" alt="" class="max-h-full w-auto object-contain" />
-                    </span>
-                  </template>
-                </CarteRadio>
-              </div>
-            </fieldset>
-
-            <FormField
-              v-if="formData.moyen_paiement !== 'especes'"
-              v-slot="{ attrs }"
-              label="Numéro Mobile Money"
-              requis
-              aide="Vous serez redirigé vers la page de paiement sécurisée NotchPay pour valider sur votre téléphone."
-              :erreur="erreurs.telephone_paiement"
-            >
-              <TelephoneInput v-model="formData.telephone_paiement" v-bind="attrs" />
-            </FormField>
-
-            <AlertMessage v-if="orderError" type="error">{{ orderError }}</AlertMessage>
-
-            <div class="flex flex-col-reverse gap-3 sm:flex-row">
-              <Button type="button" variant="outline" :icon="ArrowLeft" @click="allerEtape(1)">
-                Retour
+              <Button type="submit" variant="primary" size="lg" full-width :disabled="isStep1Blocked">
+                Continuer vers le paiement
+                <ArrowRight :size="18" aria-hidden="true" />
               </Button>
-              <Button type="submit" variant="primary" size="lg" :loading="submitting" class="flex-1">
-                <Lock :size="17" aria-hidden="true" />
-                {{ formData.moyen_paiement === 'especes' ? 'Confirmer la commande' : `Payer ${formatPrice(totalGeneral)} FCFA` }}
-              </Button>
+            </form>
+          </section>
+
+          <!-- Étape 2 : paiement -->
+          <section v-else-if="currentStep === 2" class="card p-5 sm:p-7" aria-labelledby="titre-etape">
+            <h2 id="titre-etape" ref="titreEtape" tabindex="-1" class="text-xl sm:text-2xl">Paiement</h2>
+
+            <form class="mt-6 space-y-7" novalidate @submit.prevent="submitOrder">
+              <fieldset>
+                <legend class="label mb-3">Moyen de paiement</legend>
+                <div class="space-y-3">
+                  <CarteRadio
+                    v-for="method in paymentMethods"
+                    :key="method.valeur"
+                    v-model="formData.moyen_paiement"
+                    name="moyen_paiement"
+                    :value="method.valeur"
+                    :titre="method.libelle"
+                    :description="method.description"
+                  >
+                    <template #visuel>
+                      <span class="flex h-11 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-plaque p-1 ring-1 ring-gray-200">
+                        <img :src="method.logo" alt="" class="max-h-full w-auto object-contain" />
+                      </span>
+                    </template>
+                  </CarteRadio>
+                </div>
+              </fieldset>
+
+              <FormField
+                v-if="formData.moyen_paiement !== 'especes'"
+                v-slot="{ attrs }"
+                label="Numéro Mobile Money"
+                requis
+                aide="Vous serez redirigé vers la page de paiement sécurisée NotchPay pour valider sur votre téléphone."
+                :erreur="erreurs.telephone_paiement"
+              >
+                <TelephoneInput v-model="formData.telephone_paiement" v-bind="attrs" />
+              </FormField>
+
+              <AlertMessage v-if="orderError" type="error">{{ orderError }}</AlertMessage>
+
+              <div class="flex flex-col-reverse gap-3 sm:flex-row">
+                <Button type="button" variant="outline" :icon="ArrowLeft" @click="allerEtape(1)">
+                  Retour
+                </Button>
+                <Button type="submit" variant="primary" size="lg" :loading="submitting" class="flex-1">
+                  <Lock :size="17" aria-hidden="true" />
+                  {{ formData.moyen_paiement === 'especes' ? 'Confirmer la commande' : `Payer ${formatPrice(totalGeneral)} FCFA` }}
+                </Button>
+              </div>
+            </form>
+          </section>
+
+          <!-- Étape 3 : confirmation (une commande par vendeur) -->
+          <section v-else-if="currentStep === 3" class="card p-5 text-center sm:p-8" aria-labelledby="titre-etape">
+            <span class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-700">
+              <CheckCircle2 :size="34" aria-hidden="true" />
+            </span>
+            <h2 id="titre-etape" ref="titreEtape" tabindex="-1" class="text-2xl">
+              {{ commandesCreees.length > 1 ? `${commandesCreees.length} commandes confirmées` : 'Commande confirmée' }}
+            </h2>
+            <p class="mx-auto mt-2 max-w-md text-gray-600">
+              <template v-if="commandesCreees.length > 1">Votre panier a été réparti en une commande par vendeur. </template>
+              Suivez leur avancement dans « Mes commandes ».
+            </p>
+
+            <AlertMessage v-if="erreurPaiement" type="warning" class="mt-6 text-left">{{ erreurPaiement }}</AlertMessage>
+
+            <ul class="mt-6 space-y-3 text-left">
+              <li
+                v-for="commande in commandesCreees"
+                :key="commande.id"
+                class="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 p-4"
+              >
+                <div class="min-w-0">
+                  <p class="font-semibold text-gray-900">{{ commande.numero_commande }}</p>
+                  <p class="text-sm text-gray-600">{{ commande.vendeur?.nom_complet || 'Vendeur' }}</p>
+                </div>
+                <div class="text-right">
+                  <p class="price">{{ formatPrice(commande.montant_total) }} FCFA</p>
+                  <router-link :to="`/mes-commandes/${commande.id}`" class="lien text-sm">
+                    Voir le détail<span class="sr-only"> de la commande {{ commande.numero_commande }}</span>
+                  </router-link>
+                </div>
+              </li>
+            </ul>
+
+            <div class="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Button to="/mes-commandes" variant="primary" class="flex-1">Voir mes commandes</Button>
+              <Button to="/produits" variant="outline" class="flex-1">Continuer mes achats</Button>
             </div>
-          </form>
-        </section>
-
-        <!-- Étape 3 : confirmation (une commande par vendeur) -->
-        <section v-if="currentStep === 3" class="card p-5 text-center sm:p-8" aria-labelledby="titre-etape">
-          <span class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-700">
-            <CheckCircle2 :size="34" aria-hidden="true" />
-          </span>
-          <h2 id="titre-etape" ref="titreEtape" tabindex="-1" class="text-2xl">
-            {{ commandesCreees.length > 1 ? `${commandesCreees.length} commandes confirmées` : 'Commande confirmée' }}
-          </h2>
-          <p class="mx-auto mt-2 max-w-md text-gray-600">
-            <template v-if="commandesCreees.length > 1">Votre panier a été réparti en une commande par vendeur. </template>
-            Suivez leur avancement dans « Mes commandes ».
-          </p>
-
-          <AlertMessage v-if="erreurPaiement" type="warning" class="mt-6 text-left">{{ erreurPaiement }}</AlertMessage>
-
-          <ul class="mt-6 space-y-3 text-left">
-            <li
-              v-for="commande in commandesCreees"
-              :key="commande.id"
-              class="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 p-4"
-            >
-              <div class="min-w-0">
-                <p class="font-semibold text-gray-900">{{ commande.numero_commande }}</p>
-                <p class="text-sm text-gray-600">{{ commande.vendeur?.nom_complet || 'Vendeur' }}</p>
-              </div>
-              <div class="text-right">
-                <p class="price">{{ formatPrice(commande.montant_total) }} FCFA</p>
-                <router-link :to="`/mes-commandes/${commande.id}`" class="lien text-sm">
-                  Voir le détail<span class="sr-only"> de la commande {{ commande.numero_commande }}</span>
-                </router-link>
-              </div>
-            </li>
-          </ul>
-
-          <div class="mt-6 flex flex-col gap-3 sm:flex-row">
-            <Button to="/mes-commandes" variant="primary" class="flex-1">Voir mes commandes</Button>
-            <Button to="/produits" variant="outline" class="flex-1">Continuer mes achats</Button>
-          </div>
-        </section>
+          </section>
+        </Transition>
       </div>
 
       <!-- Récapitulatif -->
@@ -453,10 +458,13 @@ const isStep1Blocked = computed(() => {
 })
 
 // Change d'étape, remonte en haut et place le focus sur le titre de l'étape
-const allerEtape = async (etape) => {
+const allerEtape = (etape) => {
   currentStep.value = etape
-  await nextTick()
   window.scrollTo({ top: 0 })
+}
+
+// Appelé quand la nouvelle étape a fini d'apparaître (Transition mode out-in)
+const focusTitreEtape = () => {
   titreEtape.value?.focus({ preventScroll: true })
 }
 

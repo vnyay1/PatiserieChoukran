@@ -161,12 +161,12 @@ File: src/views/ProduitDetail.vue
               size="lg"
               full-width
               class="mt-4"
-              :icon="indisponible ? null : ShoppingCart"
+              :icon="indisponible ? null : ajoute ? Check : ShoppingCart"
               :disabled="indisponible"
               :loading="ajoutEnCours"
               @click="ajouterAuPanier"
             >
-              {{ indisponible ? 'Indisponible' : 'Ajouter au panier' }}
+              {{ indisponible ? 'Indisponible' : ajoute ? 'Ajouté au panier' : 'Ajouter au panier' }}
             </Button>
           </div>
 
@@ -210,11 +210,11 @@ File: src/views/ProduitDetail.vue
             </div>
             <Button
               variant="primary"
-              :icon="ShoppingCart"
+              :icon="ajoute ? Check : ShoppingCart"
               :loading="ajoutEnCours"
               @click="ajouterAuPanier"
             >
-              Ajouter
+              {{ ajoute ? 'Ajouté' : 'Ajouter' }}
             </Button>
           </div>
         </div>
@@ -259,7 +259,7 @@ import { resolveImageUrl, onImageError } from '@/utils/images'
 import { formatPrice, SEUIL_STOCK_FAIBLE } from '@/utils/format'
 import { estIndisponible } from '@/utils/produit'
 import {
-  ShoppingCart, AlertTriangle, Truck, ChevronRight, Store, CheckCircle2, XCircle, PackageOpen,
+  ShoppingCart, Check, AlertTriangle, Truck, ChevronRight, Store, CheckCircle2, XCircle, PackageOpen,
 } from 'lucide-vue-next'
 import { formatVille } from '@/utils/villes'
 
@@ -289,7 +289,7 @@ const loading = ref(true)
 const erreurChargement = ref(false)
 const quantite = ref(1)
 const currentImage = ref('')
-const { ajouter, ajoutEnCours, estEquipe } = useAjoutPanier()
+const { ajouter, ajoutEnCours, ajoute, estEquipe } = useAjoutPanier()
 const indisponible = computed(() => estIndisponible(produit.value))
 const barreMobilePossible = computed(() => Boolean(produit.value) && !indisponible.value && !estEquipe.value)
 

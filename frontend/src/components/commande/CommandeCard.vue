@@ -65,9 +65,10 @@ File: src/components/commande/CommandeCard.vue
         aria-valuemax="100"
         :aria-valuenow="getProgressPercent(commande.statut)"
       >
+        <!-- Remplissage en scaleX (transform seulement) ; la piste arrondie le découpe -->
         <div
-          class="h-full rounded-full bg-gold-600 transition-[width] duration-500"
-          :style="{ width: `${getProgressPercent(commande.statut)}%` }"
+          class="h-full origin-left bg-gold-600 transition-transform duration-lente ease-douce"
+          :style="{ transform: `scaleX(${getProgressPercent(commande.statut) / 100})` }"
         ></div>
       </div>
     </div>
