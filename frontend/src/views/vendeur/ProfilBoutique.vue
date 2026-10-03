@@ -5,25 +5,20 @@ File: src/views/vendeur/ProfilBoutique.vue
 
 <template>
   <div class="profil-boutique-page pb-6">
-    <div class="container mx-auto px-4 py-6 max-w-3xl">
-      <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
-        <div>
-          <h1>
-            Ma boutique
-          </h1>
-          <p class="text-gray-600 text-sm">
-            Ces informations sont affichées sur votre page vendeur, visible par tous les clients.
-          </p>
-        </div>
-        <router-link
-          v-if="complet"
-          :to="{ name: 'vendeur-profil', params: { id: authStore.user.id } }"
-          class="btn-outline py-2 px-4 text-sm inline-flex items-center gap-2"
-        >
-          <ExternalLink :size="16" aria-hidden="true" />
-          Voir ma page publique
-        </router-link>
-      </div>
+    <div class="container mx-auto max-w-3xl pt-6 md:pt-8">
+      <EnTetePage titre="Ma boutique" sous-titre="Ces informations sont affichées sur votre page vendeur, visible par tous les clients.">
+        <template v-if="complet" #actions>
+          <Button
+            :to="{ name: 'vendeur-profil', params: { id: authStore.user.id } }"
+            variant="outline"
+            size="sm"
+            :icon="ExternalLink"
+            :icon-size="16"
+          >
+            Voir ma page publique
+          </Button>
+        </template>
+      </EnTetePage>
 
       <!-- Premier passage : le vendeur ne peut rien faire d'autre avant d'avoir complété son profil -->
       <div
@@ -45,13 +40,13 @@ File: src/views/vendeur/ProfilBoutique.vue
       <Card v-else padding="lg">
         <form class="space-y-6" @submit.prevent="enregistrer">
           <div>
-            <label for="profil-boutique-1" class="block text-sm font-medium text-gray-700 mb-2">Nom affiché</label>
+            <label for="profil-boutique-1" class="label">Nom affiché</label>
             <input id="profil-boutique-1" :value="authStore.user?.nom_complet" type="text" class="input bg-gray-100 text-gray-500" disabled />
-            <p class="text-xs text-gray-500 mt-1">Modifiable depuis « Mon profil » une fois la boutique complétée.</p>
+            <p class="aide">Modifiable depuis « Mon profil » une fois la boutique complétée.</p>
           </div>
 
           <div>
-            <label for="profil-boutique-2" class="block text-sm font-medium text-gray-700 mb-2">Adresse e-mail de l'entreprise *</label>
+            <label for="profil-boutique-2" class="label">Adresse e-mail de l'entreprise *</label>
             <input
               id="profil-boutique-2"
               v-model="form.email"
@@ -61,11 +56,11 @@ File: src/views/vendeur/ProfilBoutique.vue
               autocomplete="email"
               required
             />
-            <p class="text-xs text-gray-500 mt-1">Vous y recevez les nouvelles commandes ; elle est affichée sur votre page.</p>
+            <p class="aide">Vous y recevez les nouvelles commandes ; elle est affichée sur votre page.</p>
           </div>
 
           <div>
-            <label for="profil-boutique-3" class="block text-sm font-medium text-gray-700 mb-2">Logo de l'entreprise *</label>
+            <label for="profil-boutique-3" class="label">Logo de l'entreprise *</label>
             <TeleversementImage
               id="profil-boutique-3"
               v-model="fichierLogo"
@@ -79,7 +74,7 @@ File: src/views/vendeur/ProfilBoutique.vue
           </div>
 
           <div>
-            <label for="profil-boutique-4" class="block text-sm font-medium text-gray-700 mb-2">Description de l'entreprise *</label>
+            <label for="profil-boutique-4" class="label">Description de l'entreprise *</label>
             <textarea
               id="profil-boutique-4"
               v-model="form.description_boutique"
@@ -95,7 +90,7 @@ File: src/views/vendeur/ProfilBoutique.vue
           </div>
 
           <div>
-            <p class="block text-sm font-medium text-gray-700 mb-2">Conditions des vendeurs *</p>
+            <p class="label">Conditions des vendeurs *</p>
             <div class="max-h-56 overflow-y-auto whitespace-pre-line text-sm text-gray-700 p-4 rounded-xl border border-gray-200 bg-gray-50">
               {{ conditions || 'Conditions indisponibles pour le moment.' }}
             </div>
@@ -143,6 +138,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import EnTetePage from '@/components/common/EnTetePage.vue'
 import TeleversementImage from '@/components/common/TeleversementImage.vue'
 import { formatDateLongue } from '@/utils/format'
 import { Store, LogOut, ExternalLink } from 'lucide-vue-next'

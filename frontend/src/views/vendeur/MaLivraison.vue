@@ -5,18 +5,15 @@ File: src/views/vendeur/MaLivraison.vue
 
 <template>
   <div class="ma-livraison-page pb-6">
-    <div class="container mx-auto px-4 py-6 max-w-3xl">
-      <div class="mb-6">
-        <h1>
-          Ma livraison
-        </h1>
-        <p class="text-gray-600 text-sm">
+    <div class="container mx-auto max-w-3xl pt-6 md:pt-8">
+      <EnTetePage titre="Ma livraison">
+        <template #sous-titre>
           Vos produits ne sont proposés qu'aux clients des villes que vous livrez. Le retrait en
           boutique reste toujours possible.
-        </p>
-      </div>
+        </template>
+      </EnTetePage>
 
-      <p v-if="erreur" role="alert" class="text-sm font-medium text-red-700 mb-4">{{ erreur }}</p>
+      <AlertMessage v-if="erreur" type="error" class="mb-4">{{ erreur }}</AlertMessage>
 
       <div v-if="loading" class="space-y-4">
         <div v-for="n in 2" :key="n" class="skeleton h-40 rounded-elegant"></div>
@@ -96,6 +93,8 @@ import api, { messageErreur } from '@/services/api'
 import { useToastStore } from '@/stores/toast'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import EnTetePage from '@/components/common/EnTetePage.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
 import { formatPrice } from '@/utils/format'
 import { VILLES, formatVille } from '@/utils/villes'
 import { MapPin } from 'lucide-vue-next'

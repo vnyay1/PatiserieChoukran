@@ -2,380 +2,402 @@
 ADMIN - GESTION DES UTILISATEURS
 File: src/views/admin/AdminUsers.vue
 =================================== -->
-
+<!--
+  Filtres et page dans l'URL, TableauDonnees (cartes sur mobile). Rôle et statut se changent dans
+  la ligne (confirmation par useConfirm) ; l'admin connecté ne peut pas modifier son propre compte.
+-->
 <template>
-  <div class="admin-users-page pb-6">
-    <div class="container mx-auto px-4 py-6 max-w-6xl">
-      <EnTetePage titre="Utilisateurs">
-        <template #sous-titre>
-          Gérer les rôles, statuts et consulter les informations clients.
-        </template>
-        <template #actions>
-          <Button variant="outline" size="sm" :loading="loading" @click="fetchUsers">
-            Actualiser
+  <div class="container mx-auto max-w-6xl pb-6 pt-6 md:pt-8">
+    <EnTetePage titre="Utilisateurs" sous-titre="Gérer les rôles et les statuts, consulter les informations des clients.">
+      <template #actions>
+        <Button variant="outline" size="sm" :icon="RefreshCw" :icon-size="16" :loading="loading" @click="fetchUsers">
+          Actualiser
+        </Button>
+      </template>
+    </EnTetePage>
+
+    <Card padding="md" class="mb-6">
+      <div class="grid grid-cols-1 items-end gap-4 md:grid-cols-4">
+        <ChampRecherche
+          id="filtre-utilisateurs-recherche"
+          v-model="filtres.search"
+          libelle="Recherche"
+          libelle-visible
+          placeholder="Nom, e-mail ou téléphone…"
+          class="md:col-span-2"
+          @rechercher="mettreAJour({ page: 1 })"
+        />
+        <div>
+          <label for="filtre-utilisateurs-role" class="label">Rôle</label>
+          <select id="filtre-utilisateurs-role" v-model="filtres.role" class="input" @change="mettreAJour({ page: 1 })">
+            <option value="">Tous</option>
+            <option v-for="(libelle, valeur) in ROLES" :key="valeur" :value="valeur">{{ libelle }}</option>
+          </select>
+        </div>
+        <div>
+          <label for="filtre-utilisateurs-statut" class="label">Statut</label>
+          <select id="filtre-utilisateurs-statut" v-model="filtres.statut" class="input" @change="mettreAJour({ page: 1 })">
+            <option value="">Tous</option>
+            <option v-for="(infos, valeur) in STATUTS_COMPTE" :key="valeur" :value="valeur">{{ infos.label }}</option>
+          </select>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 md:col-span-4">
+          <label class="mr-auto inline-flex min-h-11 cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              class="h-5 w-5 flex-shrink-0 rounded"
+              :checked="filtres.vedette === '1'"
+              @change="mettreAJour({ vedette: $event.target.checked ? '1' : '', page: 1 })"
+            />
+            <span class="text-sm text-gray-800">Vendeurs en vedette uniquement</span>
+          </label>
+          <Button variant="outline" size="sm" :disabled="!filtresActifs" @click="reinitialiserFiltres">
+            Réinitialiser les filtres
           </Button>
-        </template>
-      </EnTetePage>
+        </div>
+      </div>
+    </Card>
 
-      <Card padding="md" class="mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          <div class="md:col-span-2">
-            <label for="admin-users-1" class="block text-sm font-medium text-gray-700 mb-2">Recherche</label>
-            <div class="relative">
-              <Search class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" :size="18" aria-hidden="true" />
-              <input
-                id="admin-users-1"
-                v-model="filters.search"
-                type="search"
-                placeholder="Nom, email ou téléphone…"
-                class="input pl-10"
-                @input="handleSearch"
-              />
+    <TableauDonnees
+      libelle="Utilisateurs"
+      :chargement="loading"
+      :erreur="error"
+      :vide="users.length === 0"
+      :icone="Users"
+      :titre-vide="filtresActifs ? 'Aucun utilisateur trouvé' : 'Aucun utilisateur'"
+      :texte-vide="filtresActifs ? 'Aucun utilisateur ne correspond à ces filtres.' : ''"
+      @reessayer="fetchUsers"
+    >
+      <template #barre>
+        <p class="text-sm text-gray-600">{{ totalUsers }} utilisateur{{ totalUsers > 1 ? 's' : '' }}</p>
+      </template>
+
+      <!-- Mobile : une carte par utilisateur -->
+      <template #cartes>
+        <li v-for="user in users" :key="user.id" class="space-y-3 p-4">
+          <div class="flex items-start gap-3">
+            <Avatar :nom="user.nom_complet" />
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold text-gray-900">{{ user.nom_complet }}</p>
+              <p class="break-all text-sm text-gray-600">{{ user.email }}</p>
+              <p v-if="user.telephone" class="text-sm text-gray-600">{{ user.telephone }}</p>
             </div>
           </div>
-
-          <div>
-            <label for="admin-users-2" class="block text-sm font-medium text-gray-700 mb-2">Rôle</label>
-            <select id="admin-users-2" v-model="filters.role" class="input">
-              <option value="">Tous</option>
-              <option value="client">Client</option>
-              <option value="admin">Admin</option>
-              <option value="vendeur">Vendeur</option>
-            </select>
+          <div class="flex flex-wrap items-center gap-2">
+            <BadgeStatut :statut="user.statut" type="compte" />
+            <span v-if="user.role === 'vendeur' && user.est_vendeur_vedette" class="badge badge-primary">Vedette</span>
+            <span v-if="user.role === 'vendeur' && !user.profil_vendeur_complet" class="badge badge-orange">Profil boutique à compléter</span>
+            <span class="text-sm text-gray-600">
+              {{ formatNumber(user.commandes_count || 0) }} commande{{ (user.commandes_count || 0) > 1 ? 's' : '' }}, inscrit le {{ formatDate(user.created_at) }}
+            </span>
           </div>
-
-          <div>
-            <label for="admin-users-3" class="block text-sm font-medium text-gray-700 mb-2">Statut</label>
-            <select id="admin-users-3" v-model="filters.statut" class="input">
-              <option value="">Tous</option>
-              <option value="actif">Actif</option>
-              <option value="inactif">Inactif</option>
-              <option value="suspendu">Suspendu</option>
-            </select>
-          </div>
-
-          <div class="md:col-span-4 flex flex-wrap items-center gap-3">
-            <label class="mr-auto inline-flex min-h-11 cursor-pointer items-center gap-2">
-              <input
-                v-model="filters.vedette"
-                type="checkbox"
-                class="h-5 w-5 flex-shrink-0 rounded"
-                @change="applyFilters"
-              />
-              <span class="text-sm text-gray-700">Vendeurs en vedette uniquement</span>
-            </label>
-            <Button variant="outline" @click="resetFilters">
-              Réinitialiser
-            </Button>
-            <Button variant="primary" @click="applyFilters">
-              Appliquer
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      <Card v-if="error" padding="md" class="mb-6 border border-red-200 bg-red-50" role="alert">
-        <p class="text-red-600 text-sm">{{ error }}</p>
-      </Card>
-
-      <Card padding="none">
-        <div class="p-4 border-b border-gray-100 flex items-center justify-between">
-          <div class="text-sm text-gray-600">
-            {{ totalUsers }} utilisateur{{ totalUsers > 1 ? 's' : '' }}
-          </div>
-          <div class="text-xs text-gray-500">
-            Page {{ currentPage }} / {{ totalPages }}
-          </div>
-        </div>
-
-        <div class="overflow-x-auto" role="region" aria-label="Liste des utilisateurs" tabindex="0">
-          <table class="min-w-full text-sm">
-            <thead class="bg-gray-50 text-gray-600">
-              <tr>
-                <th scope="col" class="text-left font-semibold px-4 py-3">Utilisateur</th>
-                <th scope="col" class="text-left font-semibold px-4 py-3">Rôle</th>
-                <th scope="col" class="text-left font-semibold px-4 py-3">Statut</th>
-                <th scope="col" class="text-left font-semibold px-4 py-3">Commandes</th>
-                <th scope="col" class="text-left font-semibold px-4 py-3">Inscription</th>
-                <th scope="col" class="text-right font-semibold px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody v-if="loading">
-              <tr>
-                <td colspan="6" class="p-6 text-center text-gray-500">Chargement…</td>
-              </tr>
-            </tbody>
-            <tbody v-else-if="users.length === 0">
-              <tr>
-                <td colspan="6" class="p-6 text-center text-gray-500">Aucun utilisateur trouvé.</td>
-              </tr>
-            </tbody>
-            <tbody v-else>
-              <tr v-for="user in users" :key="user.id" class="border-t border-gray-100">
-                <td class="px-4 py-3">
-                  <div class="font-semibold text-gray-800">{{ user.nom_complet }}</div>
-                  <div class="text-xs text-gray-500">{{ user.email }}</div>
-                  <div v-if="user.telephone" class="text-xs text-gray-500">{{ user.telephone }}</div>
-                </td>
-                <td class="px-4 py-3">
-                  <div class="flex items-center gap-2">
-                    <span class="badge bg-gray-100 text-gray-700">
-                      {{ getRoleLabel(user.role) }}
-                    </span>
-                    <select
-                      class="input min-h-9 w-auto py-1 pl-3 pr-8 text-sm"
-                      :aria-label="`Rôle de ${user.nom_complet}`"
-                      :disabled="updatingRoleId === user.id || user.id === authStore.user?.id"
-                      :value="user.role"
-                      @change="onRoleChange(user, $event)"
-                    >
-                      <option value="client">Client</option>
-                      <option value="admin">Admin</option>
-                      <option value="vendeur">Vendeur</option>
-                    </select>
-                    <!-- Vedette : les produits du vendeur passent en tête du catalogue -->
-                    <button
-                      v-if="user.role === 'vendeur'"
-                      type="button"
-                      class="btn-icone h-9 w-9"
-                      :class="user.est_vendeur_vedette ? 'text-gold-600' : 'text-gray-500 hover:text-gold-600'"
-                      :aria-pressed="user.est_vendeur_vedette"
-                      :title="user.est_vendeur_vedette ? 'En vedette : cliquer pour retirer' : 'Mettre en vedette'"
-                      :aria-label="`Vendeur vedette : ${user.nom_complet}`"
-                      :disabled="updatingVedetteId === user.id"
-                      @click="toggleVedette(user)"
-                    >
-                      <Star :size="18" :fill="user.est_vendeur_vedette ? 'currentColor' : 'none'" aria-hidden="true" />
-                    </button>
-                  </div>
-                  <div v-if="user.role === 'vendeur' && !user.profil_vendeur_complet" class="text-xs text-orange-600 mt-1">
-                    Profil boutique à compléter
-                  </div>
-                </td>
-                <td class="px-4 py-3">
-                  <div class="flex items-center gap-2">
-                    <BadgeStatut :statut="user.statut" type="compte" />
-                    <select
-                      class="input min-h-9 w-auto py-1 pl-3 pr-8 text-sm"
-                      :aria-label="`Statut de ${user.nom_complet}`"
-                      :disabled="updatingStatusId === user.id || user.id === authStore.user?.id"
-                      :title="user.id === authStore.user?.id ? 'Vous ne pouvez pas modifier votre propre statut' : undefined"
-                      :value="user.statut"
-                      @change="onStatusChange(user, $event)"
-                    >
-                      <option value="actif">Actif</option>
-                      <option value="inactif">Inactif</option>
-                      <option value="suspendu">Suspendu</option>
-                    </select>
-                  </div>
-                </td>
-                <td class="px-4 py-3">
-                  {{ formatNumber(user.commandes_count || 0) }}
-                </td>
-                <td class="px-4 py-3">
-                  {{ formatDate(user.created_at) }}
-                </td>
-                <td class="px-4 py-3 text-right">
-                  <Button variant="outline" size="sm" @click="openDetail(user)">
-                    Détails
-                  </Button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="p-4 border-t border-gray-100 flex items-center justify-between">
-          <div class="text-xs text-gray-500">
-            Page {{ currentPage }} / {{ totalPages }}
-          </div>
-          <div class="flex gap-2">
-            <Button variant="outline" size="sm" :disabled="currentPage <= 1" @click="changePage(currentPage - 1)">
-              Précédent
-            </Button>
-            <Button variant="outline" size="sm" :disabled="currentPage >= totalPages" @click="changePage(currentPage + 1)">
-              Suivant
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      <!-- Détail utilisateur -->
-      <BaseModal
-        :ouvert="showDetail"
-        :titre="selectedUser?.nom_complet || 'Détail de l\'utilisateur'"
-        variante="feuille"
-        taille="lg"
-        @fermer="closeDetail"
-      >
-        <div v-if="detailLoading" class="space-y-4" aria-busy="true">
-          <div class="skeleton h-6 w-1/2"></div>
-          <div class="skeleton h-24"></div>
-          <div class="skeleton h-32"></div>
-        </div>
-
-        <AlertMessage v-else-if="detailError" type="error">{{ detailError }}</AlertMessage>
-
-        <div v-else-if="selectedUser" class="space-y-6">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card padding="md">
-              <div class="text-xs text-gray-500 mb-2">Informations</div>
-              <div class="text-lg font-semibold text-gray-800">{{ selectedUser.nom_complet }}</div>
-              <div class="text-sm text-gray-600">{{ selectedUser.email }}</div>
-              <div v-if="selectedUser.telephone" class="text-sm text-gray-600">
-                {{ selectedUser.telephone }}
-              </div>
-              <div class="mt-3 flex flex-wrap gap-2">
-                <span class="badge bg-gray-100 text-gray-700">
-                  {{ getRoleLabel(selectedUser.role) }}
-                </span>
-                <BadgeStatut :statut="selectedUser.statut" type="compte" />
-                <span v-if="selectedUser.role === 'vendeur' && selectedUser.est_vendeur_vedette" class="badge badge-primary">
-                  Vedette
-                </span>
-                <span v-if="selectedUser.role === 'vendeur' && !selectedUser.profil_vendeur_complet" class="badge bg-orange-100 text-orange-700">
-                  Profil boutique incomplet
-                </span>
-              </div>
-              <div class="text-xs text-gray-500 mt-3">
-                Inscrit le {{ formatDate(selectedUser.created_at) }}
-              </div>
-              <div v-if="selectedUser.role === 'vendeur'" class="mt-4 flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  :icon="Star"
-                  :icon-size="16"
-                  :loading="updatingVedetteId === selectedUser.id"
-                  @click="toggleVedette(selectedUser)"
-                >
-                  {{ selectedUser.est_vendeur_vedette ? 'Retirer de la vedette' : 'Mettre en vedette' }}
-                </Button>
-                <router-link
-                  v-if="selectedUser.profil_vendeur_complet"
-                  :to="{ name: 'vendeur-profil', params: { id: selectedUser.id } }"
-                  class="btn-outline btn-sm"
-                >
-                  Page publique
-                </router-link>
-              </div>
-            </Card>
-
-            <Card v-if="selectedUser.stats && selectedUser.role === 'client'" padding="md">
-              <div class="text-xs text-gray-500 mb-2">Statistiques client</div>
-              <div class="space-y-2 text-sm text-gray-700">
-                <div class="flex items-center justify-between">
-                  <span>Total dépensé</span>
-                  <span class="font-semibold">{{ formatPrice(selectedUser.stats.total_depense) }} FCFA</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span>Commandes livrées</span>
-                  <span class="font-semibold">{{ formatNumber(selectedUser.stats.commandes_livrees) }}</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span>Commande moyenne</span>
-                  <span class="font-semibold">{{ formatPrice(selectedUser.stats.commande_moyenne) }} FCFA</span>
-                </div>
-              </div>
-            </Card>
-
-            <Card v-if="selectedUser.stats && selectedUser.role === 'vendeur'" padding="md">
-              <div class="text-xs text-gray-500 mb-2">Statistiques vendeur</div>
-              <div class="space-y-2 text-sm text-gray-700">
-                <div class="flex items-center justify-between">
-                  <span>Produits au catalogue</span>
-                  <span class="font-semibold">{{ formatNumber(selectedUser.stats.produits) }}</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span>Commandes reçues</span>
-                  <span class="font-semibold">{{ formatNumber(selectedUser.stats.commandes_recues) }}</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span>En cours</span>
-                  <span class="font-semibold">{{ formatNumber(selectedUser.stats.commandes_en_cours) }}</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span>Encaissé</span>
-                  <span class="font-semibold">{{ formatPrice(selectedUser.stats.chiffre_affaires) }} FCFA</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span>Villes livrées</span>
-                  <span class="font-semibold">{{ selectedUser.stats.villes_livraison?.map(formatVille).join(', ') || 'Aucune' }}</span>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          <div v-if="selectedUser.adresses?.length" class="space-y-3">
-            <div class="text-xs text-gray-500">Adresses</div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Card v-for="adresse in selectedUser.adresses" :key="adresse.id" padding="md">
-                <div class="flex items-center justify-between mb-2">
-                  <div class="font-semibold text-gray-800">{{ adresse.libelle || 'Adresse' }}</div>
-                  <span v-if="adresse.est_principale" class="badge badge-primary">Principale</span>
-                </div>
-                <div class="text-sm text-gray-600">
-                  {{ formatAdresse(adresse) }}
-                </div>
-                <div v-if="adresse.telephone_contact" class="text-xs text-gray-500 mt-1">
-                  {{ adresse.telephone_contact }}
-                </div>
-                <div v-if="adresse.point_repere" class="text-xs text-gray-500 mt-1">
-                  Repère: {{ adresse.point_repere }}
-                </div>
-              </Card>
-            </div>
-          </div>
-
-          <div class="space-y-3">
-            <div class="text-xs text-gray-500">Dernières commandes</div>
-            <div v-if="lastCommandes.length === 0" class="text-sm text-gray-500">
-              Aucune commande.
-            </div>
-            <div v-else class="space-y-2">
-              <div
-                v-for="commande in lastCommandes"
-                :key="commande.id"
-                class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-3 rounded-lg border border-gray-100 bg-surface"
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label :for="`role-carte-${user.id}`" class="label">Rôle</label>
+              <select
+                :id="`role-carte-${user.id}`"
+                class="input py-2 text-sm"
+                :disabled="updatingRoleId === user.id || user.id === authStore.user?.id"
+                :value="user.role"
+                @change="onRoleChange(user, $event)"
               >
-                <div>
-                  <div class="font-semibold text-gray-800">{{ commande.numero_commande }}</div>
-                  <div class="text-xs text-gray-500">{{ formatDate(commande.created_at) }}</div>
-                </div>
-                <div class="flex items-center gap-2">
-                  <BadgeStatut :statut="commande.statut" />
-                  <span class="price text-base">{{ formatPrice(commande.montant_total) }} FCFA</span>
-                </div>
+                <option v-for="(libelle, valeur) in ROLES" :key="valeur" :value="valeur">{{ libelle }}</option>
+              </select>
+            </div>
+            <div>
+              <label :for="`statut-carte-${user.id}`" class="label">Statut</label>
+              <select
+                :id="`statut-carte-${user.id}`"
+                class="input py-2 text-sm"
+                :disabled="updatingStatusId === user.id || user.id === authStore.user?.id"
+                :value="user.statut"
+                @change="onStatusChange(user, $event)"
+              >
+                <option v-for="(infos, valeur) in STATUTS_COMPTE" :key="valeur" :value="valeur">{{ infos.label }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <Button
+              v-if="user.role === 'vendeur'"
+              variant="ghost"
+              size="sm"
+              :icon="Star"
+              :icon-size="16"
+              :loading="updatingVedetteId === user.id"
+              @click="toggleVedette(user)"
+            >
+              {{ user.est_vendeur_vedette ? 'Retirer de la vedette' : 'Mettre en vedette' }}
+            </Button>
+            <Button variant="secondary" size="sm" @click="openDetail(user)">
+              Détails<span class="sr-only"> de {{ user.nom_complet }}</span>
+            </Button>
+          </div>
+        </li>
+      </template>
+
+      <!-- Desktop : tableau -->
+      <template #entete>
+        <th scope="col" class="px-4 py-3 font-semibold">Utilisateur</th>
+        <th scope="col" class="px-4 py-3 font-semibold">Rôle</th>
+        <th scope="col" class="px-4 py-3 font-semibold">Statut</th>
+        <th scope="col" class="px-4 py-3 text-right font-semibold">Commandes</th>
+        <th scope="col" class="px-4 py-3 font-semibold">Inscription</th>
+        <th scope="col" class="px-4 py-3 text-right font-semibold">Actions</th>
+      </template>
+      <template #lignes>
+        <tr v-for="user in users" :key="user.id">
+          <td class="px-4 py-3">
+            <p class="font-semibold text-gray-900">{{ user.nom_complet }}</p>
+            <p class="text-xs text-gray-600">{{ user.email }}</p>
+            <p v-if="user.telephone" class="text-xs text-gray-600">{{ user.telephone }}</p>
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-2">
+              <select
+                class="input w-auto py-2 text-sm"
+                :aria-label="`Rôle de ${user.nom_complet}`"
+                :disabled="updatingRoleId === user.id || user.id === authStore.user?.id"
+                :value="user.role"
+                @change="onRoleChange(user, $event)"
+              >
+                <option v-for="(libelle, valeur) in ROLES" :key="valeur" :value="valeur">{{ libelle }}</option>
+              </select>
+              <!-- Vedette : les produits du vendeur passent en tête du catalogue -->
+              <button
+                v-if="user.role === 'vendeur'"
+                type="button"
+                class="btn-icone"
+                :class="user.est_vendeur_vedette ? 'text-gold-600' : 'text-gray-600 hover:text-gold-600'"
+                :aria-pressed="user.est_vendeur_vedette"
+                :aria-label="`Vendeur vedette : ${user.nom_complet}`"
+                :disabled="updatingVedetteId === user.id"
+                @click="toggleVedette(user)"
+              >
+                <Star :size="18" :fill="user.est_vendeur_vedette ? 'currentColor' : 'none'" aria-hidden="true" />
+              </button>
+            </div>
+            <p v-if="user.role === 'vendeur' && !user.profil_vendeur_complet" class="mt-1 text-xs font-medium text-orange-700">
+              Profil boutique à compléter
+            </p>
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-2">
+              <BadgeStatut :statut="user.statut" type="compte" />
+              <select
+                class="input w-auto py-2 text-sm"
+                :aria-label="`Statut de ${user.nom_complet}`"
+                :disabled="updatingStatusId === user.id || user.id === authStore.user?.id"
+                :value="user.statut"
+                @change="onStatusChange(user, $event)"
+              >
+                <option v-for="(infos, valeur) in STATUTS_COMPTE" :key="valeur" :value="valeur">{{ infos.label }}</option>
+              </select>
+            </div>
+          </td>
+          <td class="px-4 py-3 text-right tabular-nums">{{ formatNumber(user.commandes_count || 0) }}</td>
+          <td class="whitespace-nowrap px-4 py-3 text-gray-700">{{ formatDate(user.created_at) }}</td>
+          <td class="px-4 py-3 text-right">
+            <Button variant="outline" size="sm" @click="openDetail(user)">
+              Détails<span class="sr-only"> de {{ user.nom_complet }}</span>
+            </Button>
+          </td>
+        </tr>
+      </template>
+
+      <template v-if="totalPages > 1" #pied>
+        <Pagination
+          :page="filtres.page"
+          :derniere="totalPages"
+          :desactive="loading"
+          libelle="Pages d'utilisateurs"
+          @update:page="(page) => mettreAJour({ page })"
+        />
+      </template>
+    </TableauDonnees>
+
+    <!-- Détail utilisateur -->
+    <BaseModal
+      :ouvert="showDetail"
+      :titre="selectedUser?.nom_complet || 'Détail de l\'utilisateur'"
+      variante="feuille"
+      taille="lg"
+      @fermer="closeDetail"
+    >
+      <div v-if="detailLoading" class="space-y-4" aria-busy="true">
+        <div class="skeleton h-6 w-1/2"></div>
+        <div class="skeleton h-24"></div>
+        <div class="skeleton h-32"></div>
+      </div>
+
+      <AlertMessage v-else-if="detailError" type="error">{{ detailError }}</AlertMessage>
+
+      <div v-else-if="selectedUser" class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card padding="md">
+            <h3 class="mb-2 font-body text-sm font-semibold text-gray-600">Informations</h3>
+            <div class="text-lg font-semibold text-gray-800">{{ selectedUser.nom_complet }}</div>
+            <div class="text-sm text-gray-600">{{ selectedUser.email }}</div>
+            <div v-if="selectedUser.telephone" class="text-sm text-gray-600">
+              {{ selectedUser.telephone }}
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <span class="badge badge-neutral">
+                {{ getRoleLabel(selectedUser.role) }}
+              </span>
+              <BadgeStatut :statut="selectedUser.statut" type="compte" />
+              <span v-if="selectedUser.role === 'vendeur' && selectedUser.est_vendeur_vedette" class="badge badge-primary">
+                Vedette
+              </span>
+              <span v-if="selectedUser.role === 'vendeur' && !selectedUser.profil_vendeur_complet" class="badge badge-orange">
+                Profil boutique incomplet
+              </span>
+            </div>
+            <div class="text-xs text-gray-500 mt-3">
+              Inscrit le {{ formatDate(selectedUser.created_at) }}
+            </div>
+            <div v-if="selectedUser.role === 'vendeur'" class="mt-4 flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                :icon="Star"
+                :icon-size="16"
+                :loading="updatingVedetteId === selectedUser.id"
+                @click="toggleVedette(selectedUser)"
+              >
+                {{ selectedUser.est_vendeur_vedette ? 'Retirer de la vedette' : 'Mettre en vedette' }}
+              </Button>
+              <router-link
+                v-if="selectedUser.profil_vendeur_complet"
+                :to="{ name: 'vendeur-profil', params: { id: selectedUser.id } }"
+                class="btn-outline btn-sm"
+              >
+                Page publique
+              </router-link>
+            </div>
+          </Card>
+
+          <Card v-if="selectedUser.stats && selectedUser.role === 'client'" padding="md">
+            <h3 class="mb-2 font-body text-sm font-semibold text-gray-600">Statistiques client</h3>
+            <div class="space-y-2 text-sm text-gray-700">
+              <div class="flex items-center justify-between">
+                <span>Total dépensé</span>
+                <span class="font-semibold">{{ formatPrice(selectedUser.stats.total_depense) }} FCFA</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>Commandes livrées</span>
+                <span class="font-semibold">{{ formatNumber(selectedUser.stats.commandes_livrees) }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>Commande moyenne</span>
+                <span class="font-semibold">{{ formatPrice(selectedUser.stats.commande_moyenne) }} FCFA</span>
+              </div>
+            </div>
+          </Card>
+
+          <Card v-if="selectedUser.stats && selectedUser.role === 'vendeur'" padding="md">
+            <h3 class="mb-2 font-body text-sm font-semibold text-gray-600">Statistiques vendeur</h3>
+            <div class="space-y-2 text-sm text-gray-700">
+              <div class="flex items-center justify-between">
+                <span>Produits au catalogue</span>
+                <span class="font-semibold">{{ formatNumber(selectedUser.stats.produits) }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>Commandes reçues</span>
+                <span class="font-semibold">{{ formatNumber(selectedUser.stats.commandes_recues) }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>En cours</span>
+                <span class="font-semibold">{{ formatNumber(selectedUser.stats.commandes_en_cours) }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>Encaissé</span>
+                <span class="font-semibold">{{ formatPrice(selectedUser.stats.chiffre_affaires) }} FCFA</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>Villes livrées</span>
+                <span class="font-semibold">{{ selectedUser.stats.villes_livraison?.map(formatVille).join(', ') || 'Aucune' }}</span>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <div v-if="selectedUser.adresses?.length" class="space-y-3">
+          <h3 class="font-body text-sm font-semibold text-gray-600">Adresses</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Card v-for="adresse in selectedUser.adresses" :key="adresse.id" padding="md">
+              <div class="flex items-center justify-between mb-2">
+                <div class="font-semibold text-gray-800">{{ adresse.libelle || 'Adresse' }}</div>
+                <span v-if="adresse.est_principale" class="badge badge-primary">Principale</span>
+              </div>
+              <div class="text-sm text-gray-600">
+                {{ formatAdresse(adresse) }}
+              </div>
+              <div v-if="adresse.telephone_contact" class="text-xs text-gray-500 mt-1">
+                {{ adresse.telephone_contact }}
+              </div>
+              <div v-if="adresse.point_repere" class="text-xs text-gray-500 mt-1">
+                Repère : {{ adresse.point_repere }}
+              </div>
+            </Card>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <h3 class="font-body text-sm font-semibold text-gray-600">Dernières commandes</h3>
+          <div v-if="lastCommandes.length === 0" class="text-sm text-gray-500">
+            Aucune commande.
+          </div>
+          <div v-else class="space-y-2">
+            <div
+              v-for="commande in lastCommandes"
+              :key="commande.id"
+              class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-3 rounded-lg border border-gray-100 bg-surface"
+            >
+              <div>
+                <div class="font-semibold text-gray-800">{{ commande.numero_commande }}</div>
+                <p class="text-xs text-gray-600">{{ formatDate(commande.created_at) }}</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <BadgeStatut :statut="commande.statut" />
+                <span class="price text-base">{{ formatPrice(commande.montant_total) }} FCFA</span>
               </div>
             </div>
           </div>
         </div>
-      </BaseModal>
-    </div>
+      </div>
+    </BaseModal>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import api, { messageErreur } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
-import { formatPrice, formatPrice as formatNumber, formatDate, libelleCompte } from '@/utils/format'
+import { useFiltresUrl } from '@/composables/useFiltresUrl'
+import { formatPrice, formatPrice as formatNumber, formatDate, libelleCompte, STATUTS_COMPTE } from '@/utils/format'
 import BadgeStatut from '@/components/common/BadgeStatut.vue'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import EnTetePage from '@/components/common/EnTetePage.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import AlertMessage from '@/components/common/AlertMessage.vue'
-import { Search, Star } from 'lucide-vue-next'
+import TableauDonnees from '@/components/common/TableauDonnees.vue'
+import Pagination from '@/components/common/Pagination.vue'
+import ChampRecherche from '@/components/common/ChampRecherche.vue'
+import Avatar from '@/components/common/Avatar.vue'
+import { Star, RefreshCw, Users } from 'lucide-vue-next'
 import { formatVille } from '@/utils/villes'
+
+const PAR_PAGE = 15
+const FILTRES_VIDES = { search: '', role: '', statut: '', vedette: '' }
+const ROLES = { client: 'Client', vendeur: 'Vendeur', admin: 'Admin' }
 
 const users = ref([])
 const loading = ref(false)
 const error = ref('')
-const currentPage = ref(1)
-const perPage = ref(15)
 const totalUsers = ref(0)
 const updatingStatusId = ref(null)
 const updatingRoleId = ref(null)
@@ -385,22 +407,18 @@ const authStore = useAuthStore()
 const toastStore = useToastStore()
 const { confirmer } = useConfirm()
 
-const filters = ref({
-  search: '',
-  role: '',
-  statut: '',
-  vedette: false,
-})
-
-const totalPages = computed(() => {
-  return Math.max(1, Math.ceil(totalUsers.value / perPage.value))
-})
+// Filtres (vedette=1) et page dans l'URL
+const { filtres, mettreAJour } = useFiltresUrl({ ...FILTRES_VIDES, page: 1 }, () => fetchUsers())
+const filtresActifs = computed(() => Object.keys(FILTRES_VIDES).some((cle) => filtres[cle] !== ''))
+const reinitialiserFiltres = () => mettreAJour({ ...FILTRES_VIDES, page: 1 })
+const totalPages = computed(() => Math.max(1, Math.ceil(totalUsers.value / PAR_PAGE)))
 
 const showDetail = ref(false)
 const detailLoading = ref(false)
 const detailError = ref('')
 const selectedUser = ref(null)
 
+// Le serveur ne renvoie que les 5 dernières commandes ; tri gardé par sécurité
 const lastCommandes = computed(() => {
   if (!selectedUser.value?.commandes) return []
   return [...selectedUser.value.commandes]
@@ -408,14 +426,7 @@ const lastCommandes = computed(() => {
     .slice(0, 5)
 })
 
-const getRoleLabel = (role) => {
-  const labels = {
-    admin: 'Admin',
-    client: 'Client',
-    vendeur: 'Vendeur',
-  }
-  return labels[role] || role
-}
+const getRoleLabel = (role) => ROLES[role] || role
 
 const formatAdresse = (adresse) => {
   return [adresse.zone, adresse.quartier, formatVille(adresse.ville), adresse.complement_adresse].filter(Boolean).join(', ')
@@ -426,55 +437,29 @@ const fetchUsers = async () => {
   error.value = ''
 
   try {
-    const params = {
-      page: currentPage.value,
-      per_page: perPage.value,
-    }
-
-    if (filters.value.search) params.search = filters.value.search
-    if (filters.value.role) params.role = filters.value.role
-    if (filters.value.statut) params.statut = filters.value.statut
-    if (filters.value.vedette) params.vedette = 1
+    const params = { page: filtres.page, per_page: PAR_PAGE }
+    if (filtres.search) params.search = filtres.search
+    if (filtres.role) params.role = filtres.role
+    if (filtres.statut) params.statut = filtres.statut
+    if (filtres.vedette === '1') params.vedette = 1
 
     const response = await api.admin.users.getAll(params)
     if (response.data.success) {
       users.value = response.data.data.data
       totalUsers.value = response.data.data.total
+
+      // Lien vers une page trop loin : dernière page remplie
+      if (users.value.length === 0 && filtres.page > 1 && totalUsers.value > 0) {
+        mettreAJour({ page: Math.max(1, Number(response.data.data.last_page) || filtres.page - 1) })
+      }
     } else {
       error.value = 'Impossible de charger les utilisateurs.'
     }
   } catch (err) {
-    error.value = err.response?.data?.message || 'Erreur lors du chargement des utilisateurs.'
+    error.value = messageErreur(err, 'Erreur lors du chargement des utilisateurs.')
   } finally {
     loading.value = false
   }
-}
-
-const applyFilters = () => {
-  currentPage.value = 1
-  fetchUsers()
-}
-
-const resetFilters = () => {
-  filters.value.search = ''
-  filters.value.role = ''
-  filters.value.statut = ''
-  filters.value.vedette = false
-  applyFilters()
-}
-
-let searchTimeout = null
-const handleSearch = () => {
-  clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => {
-    applyFilters()
-  }, 400)
-}
-
-const changePage = (page) => {
-  if (page < 1 || page > totalPages.value) return
-  currentPage.value = page
-  fetchUsers()
 }
 
 const onStatusChange = async (user, event) => {
@@ -569,7 +554,7 @@ const toggleVedette = async (user) => {
     if (ligne) ligne.est_vendeur_vedette = vedette
     if (selectedUser.value?.id === user.id) selectedUser.value.est_vendeur_vedette = vedette
     toastStore.succes(response.data.message || 'Mise en avant mise à jour.')
-    if (filters.value.vedette && !vedette) {
+    if (filtres.vedette === '1' && !vedette) {
       fetchUsers()
     }
   } catch (err) {
@@ -593,7 +578,7 @@ const openDetail = async (user) => {
       detailError.value = 'Impossible de charger les détails.'
     }
   } catch (err) {
-    detailError.value = err.response?.data?.message || 'Erreur lors du chargement des détails.'
+    detailError.value = messageErreur(err, 'Erreur lors du chargement des détails.')
   } finally {
     detailLoading.value = false
   }
@@ -603,8 +588,4 @@ const closeDetail = () => {
   showDetail.value = false
   selectedUser.value = null
 }
-
-onMounted(() => {
-  fetchUsers()
-})
 </script>

@@ -49,6 +49,8 @@ export default {
         // Fixes dans les deux thèmes : fond des logos tiers, voile sur image ou derrière une modale
         plaque: jeton('plaque'),
         voile: jeton('voile'),
+        // Barres des graphiques (tableau de bord), un pas par thème
+        graphique: jeton('graphique'),
       },
       fontFamily: {
         display: ['"Playfair Display"', 'Georgia', 'Cambria', 'serif'],

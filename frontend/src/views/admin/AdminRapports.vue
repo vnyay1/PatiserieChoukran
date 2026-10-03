@@ -5,7 +5,7 @@ File: src/views/admin/AdminRapports.vue
 
 <template>
   <div class="admin-rapports-page pb-6">
-    <div class="container mx-auto px-4 py-6 max-w-7xl">
+    <div class="container mx-auto max-w-7xl pt-6 md:pt-8">
       <EnTetePage titre="Rapports mensuels">
         <template #sous-titre>
           Activité de tous les vendeurs sur les commandes créées dans le mois.
@@ -14,7 +14,7 @@ File: src/views/admin/AdminRapports.vue
         <template #actions>
           <div class="flex flex-col sm:flex-row gap-3 sm:items-end">
             <div>
-              <label for="admin-rapports-1" class="block text-sm font-medium text-gray-700 mb-1">Mois</label>
+              <label for="admin-rapports-1" class="label">Mois</label>
               <select id="admin-rapports-1" v-model="moisChoisi" class="input min-w-48" :disabled="loadingMois">
                 <option v-for="mois in listeMois" :key="mois.mois" :value="mois.mois">
                   {{ capitaliser(mois.libelle) }}{{ mois.clos ? '' : ' (en cours)' }}
@@ -31,26 +31,23 @@ File: src/views/admin/AdminRapports.vue
         </template>
       </EnTetePage>
 
-      <p v-if="erreur" role="alert" class="text-sm font-medium text-red-700 mb-4">{{ erreur }}</p>
+      <AlertMessage v-if="erreur" type="error" class="mb-4">{{ erreur }}</AlertMessage>
 
       <div v-if="loading" class="space-y-4">
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div v-for="n in 5" :key="n" class="skeleton h-20 rounded-elegant"></div>
+        <div class="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-5">
+          <div v-for="n in 5" :key="n" class="skeleton h-[5.5rem] rounded-elegant"></div>
         </div>
         <div class="skeleton h-64 rounded-elegant"></div>
       </div>
 
       <template v-else-if="rapport">
-        <p v-if="!rapport.clos" class="text-sm text-orange-700 mb-3">
+        <AlertMessage v-if="!rapport.clos" type="info" class="mb-4">
           Mois en cours : chiffres provisoires.
-        </p>
+        </AlertMessage>
 
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <Card v-for="indicateur in indicateurs" :key="indicateur.libelle" padding="sm">
-            <div class="text-xs uppercase tracking-wide text-gray-500">{{ indicateur.libelle }}</div>
-            <div class="font-display text-xl font-bold text-gold-700 mt-1">{{ indicateur.valeur }}</div>
-          </Card>
-        </div>
+        <dl class="mb-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-5">
+          <TuileStat v-for="indicateur in indicateurs" :key="indicateur.libelle" :libelle="indicateur.libelle" :valeur="indicateur.valeur" />
+        </dl>
 
         <Card padding="none">
           <div class="overflow-x-auto" role="region" aria-label="Rapport par vendeur" tabindex="0">
@@ -71,7 +68,7 @@ File: src/views/admin/AdminRapports.vue
               </thead>
               <tbody>
                 <tr v-if="rapport.vendeurs.length === 0">
-                  <td colspan="10" class="p-6 text-center text-gray-500">Aucun vendeur.</td>
+                  <td colspan="10" class="p-6 text-center text-gray-600">Aucun vendeur.</td>
                 </tr>
                 <tr v-for="ligne in rapport.vendeurs" :key="ligne.vendeur_id" class="border-t border-gray-100">
                   <td class="px-4 py-3">
@@ -82,7 +79,7 @@ File: src/views/admin/AdminRapports.vue
                         <span class="sr-only">(vendeur vedette)</span>
                       </template>
                     </div>
-                    <div class="text-xs text-gray-500">{{ ligne.telephone }}<template v-if="ligne.email"> · {{ ligne.email }}</template></div>
+                    <div class="text-xs text-gray-600">{{ ligne.telephone }}<template v-if="ligne.email">, {{ ligne.email }}</template></div>
                   </td>
                   <td class="px-3 py-3 text-right">{{ ligne.commandes }}</td>
                   <td class="px-3 py-3 text-right">{{ ligne.livrees }}</td>
@@ -111,7 +108,7 @@ File: src/views/admin/AdminRapports.vue
               </tfoot>
             </table>
           </div>
-          <p class="px-4 py-3 text-xs text-gray-500 border-t border-gray-100">
+          <p class="border-t border-gray-100 px-4 py-3 text-xs text-gray-600">
             Montants en FCFA, hors commandes annulées. « Encaissé » : paiements confirmés.
           </p>
         </Card>
@@ -128,6 +125,8 @@ import { useToastStore } from '@/stores/toast'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import EnTetePage from '@/components/common/EnTetePage.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
+import TuileStat from '@/components/common/TuileStat.vue'
 import { formatPrice } from '@/utils/format'
 import { telechargerBlob } from '@/utils/telechargement'
 import { FileText, Sheet, Star } from 'lucide-vue-next'

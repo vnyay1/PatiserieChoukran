@@ -2,188 +2,248 @@
 ADMIN - QUARTIERS (liste proposée dans les adresses)
 File: src/views/admin/AdminQuartiers.vue
 =================================== -->
-
+<!--
+  Filtres et page dans l'URL, TableauDonnees (cartes sur mobile), formulaire dans un tiroir.
+  Un quartier utilisé par des adresses ne se supprime pas : il se désactive (bouton dédié,
+  le statut n'est plus un badge cliquable).
+-->
 <template>
-  <div class="admin-quartiers-page pb-6">
-    <div class="container mx-auto px-4 py-6 max-w-5xl">
-      <EnTetePage titre="Quartiers">
-        <template #sous-titre>
-          Quartiers proposés aux clients dans leurs adresses, par ville. Un quartier désactivé
-          n'est plus proposé mais les adresses existantes le conservent.
-        </template>
-        <template #actions>
-          <Button variant="primary" :icon="Plus" :icon-size="18" @click="ouvrirCreation">
-            Nouveau quartier
-          </Button>
-        </template>
-      </EnTetePage>
+  <div class="container mx-auto max-w-5xl pb-6 pt-6 md:pt-8">
+    <EnTetePage titre="Quartiers">
+      <template #sous-titre>
+        Quartiers proposés aux clients dans leurs adresses, par ville. Un quartier désactivé
+        n'est plus proposé mais les adresses existantes le conservent.
+      </template>
+      <template #actions>
+        <Button variant="primary" :icon="Plus" :icon-size="18" @click="ouvrirCreation">
+          Nouveau quartier
+        </Button>
+      </template>
+    </EnTetePage>
 
-      <Card v-if="formulaireOuvert" padding="lg" class="mb-6">
-        <form class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end" @submit.prevent="enregistrer">
-          <div class="md:col-span-2">
-            <label for="admin-quartiers-1" class="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
-            <input id="admin-quartiers-1" v-model="form.nom" type="text" maxlength="150" class="input" required />
-          </div>
-          <div>
-            <label for="admin-quartiers-2" class="block text-sm font-medium text-gray-700 mb-2">Ville *</label>
-            <select id="admin-quartiers-2" v-model="form.ville" class="input" required>
-              <option v-for="ville in VILLES" :key="ville.valeur" :value="ville.valeur">{{ ville.libelle }}</option>
-            </select>
-          </div>
-          <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 md:col-span-3">
-            <input v-model="form.actif" type="checkbox" class="h-5 w-5 flex-shrink-0 rounded" />
-            <span class="text-sm text-gray-700">Proposé aux clients</span>
-          </label>
-          <p v-if="erreurFormulaire" role="alert" class="text-sm font-medium text-red-700 md:col-span-3">{{ erreurFormulaire }}</p>
-          <div class="md:col-span-3 flex gap-3">
-            <Button type="submit" variant="primary" :loading="saving">
-              {{ form.id ? 'Enregistrer' : 'Ajouter le quartier' }}
-            </Button>
-            <Button type="button" variant="outline" @click="formulaireOuvert = false">Annuler</Button>
-          </div>
-        </form>
-      </Card>
-
-      <Card padding="none">
-        <div class="p-4 border-b border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div class="relative md:col-span-2">
-            <Search class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" :size="18" aria-hidden="true" />
-            <input
-              v-model="filtres.search"
-              type="search"
-              aria-label="Rechercher un quartier"
-              placeholder="Rechercher un quartier…"
-              class="input pl-10"
-              @input="rechercherPlusTard"
-            />
-          </div>
-          <select v-model="filtres.ville" class="input" aria-label="Filtrer par ville" @change="charger(1)">
+    <Card padding="md" class="mb-6">
+      <div class="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
+        <ChampRecherche
+          id="filtre-quartiers-recherche"
+          v-model="filtres.search"
+          libelle="Recherche"
+          libelle-visible
+          placeholder="Nom du quartier…"
+          class="md:col-span-2"
+          @rechercher="mettreAJour({ page: 1 })"
+        />
+        <div>
+          <label for="filtre-quartiers-ville" class="label">Ville</label>
+          <select id="filtre-quartiers-ville" v-model="filtres.ville" class="input" @change="mettreAJour({ page: 1 })">
             <option value="">Toutes les villes</option>
             <option v-for="ville in VILLES" :key="ville.valeur" :value="ville.valeur">{{ ville.libelle }}</option>
           </select>
         </div>
+      </div>
+    </Card>
 
-        <div class="overflow-x-auto" role="region" aria-label="Liste des quartiers" tabindex="0">
-          <table class="min-w-full text-sm">
-            <thead class="bg-gray-50 text-gray-600">
-              <tr>
-                <th scope="col" class="text-left font-semibold px-4 py-3">Quartier</th>
-                <th scope="col" class="text-left font-semibold px-4 py-3">Ville</th>
-                <th scope="col" class="text-left font-semibold px-4 py-3">Adresses</th>
-                <th scope="col" class="text-left font-semibold px-4 py-3">Statut</th>
-                <th scope="col" class="text-right font-semibold px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody v-if="loading">
-              <tr><td colspan="5" class="p-6 text-center text-gray-500">Chargement…</td></tr>
-            </tbody>
-            <tbody v-else-if="quartiers.length === 0">
-              <tr><td colspan="5" class="p-6 text-center text-gray-500">Aucun quartier.</td></tr>
-            </tbody>
-            <tbody v-else>
-              <tr v-for="quartier in quartiers" :key="quartier.id" class="border-t border-gray-100">
-                <td class="px-4 py-3 font-semibold text-gray-800">{{ quartier.nom }}</td>
-                <td class="px-4 py-3">{{ formatVille(quartier.ville) }}</td>
-                <td class="px-4 py-3">{{ quartier.adresses_count }}</td>
-                <td class="px-4 py-3">
-                  <button
-                    type="button"
-                    class="badge"
-                    :class="quartier.actif ? 'badge-success' : 'badge-danger'"
-                    :title="quartier.actif ? 'Cliquer pour désactiver' : 'Cliquer pour réactiver'"
-                    @click="basculerActif(quartier)"
-                  >
-                    {{ quartier.actif ? 'Actif' : 'Désactivé' }}
-                  </button>
-                </td>
-                <td class="px-4 py-3">
-                  <div class="flex items-center justify-end gap-2">
-                    <Button variant="outline" size="sm" :icon="Pencil" :icon-size="16" @click="ouvrirModification(quartier)">
-                      Modifier
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      :icon="Trash2"
-                      :icon-size="16"
-                      :disabled="quartier.adresses_count > 0"
-                      :title="quartier.adresses_count > 0 ? 'Des adresses utilisent ce quartier : désactivez-le plutôt' : undefined"
-                      @click="supprimer(quartier)"
-                    >
-                      Supprimer
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+    <TableauDonnees
+      libelle="Quartiers"
+      :chargement="loading"
+      :erreur="erreurListe"
+      :vide="quartiers.length === 0"
+      :icone="MapPinned"
+      :titre-vide="filtresActifs ? 'Aucun quartier trouvé' : 'Aucun quartier'"
+      :texte-vide="filtresActifs ? 'Aucun quartier ne correspond à ces filtres.' : ''"
+      @reessayer="charger"
+    >
+      <template #barre>
+        <p class="text-sm text-gray-600">{{ total }} quartier{{ total > 1 ? 's' : '' }}</p>
+      </template>
 
-        <div class="p-4 border-t border-gray-100 flex items-center justify-between">
-          <div class="text-xs text-gray-500">{{ total }} quartier{{ total > 1 ? 's' : '' }} · page {{ page }} / {{ dernierePage }}</div>
-          <div class="flex gap-2">
-            <Button variant="outline" size="sm" :disabled="page <= 1" @click="charger(page - 1)">Précédent</Button>
-            <Button variant="outline" size="sm" :disabled="page >= dernierePage" @click="charger(page + 1)">Suivant</Button>
+      <!-- Mobile : une carte par quartier -->
+      <template #cartes>
+        <li v-for="quartier in quartiers" :key="quartier.id" class="space-y-2 p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-semibold text-gray-900">{{ quartier.nom }}</p>
+              <p class="text-sm text-gray-600">
+                {{ formatVille(quartier.ville) }}, {{ quartier.adresses_count }} adresse{{ quartier.adresses_count > 1 ? 's' : '' }}
+              </p>
+            </div>
+            <span class="badge flex-shrink-0" :class="quartier.actif ? 'badge-success' : 'badge-neutral'">
+              {{ quartier.actif ? 'Proposé' : 'Désactivé' }}
+            </span>
           </div>
-        </div>
-      </Card>
-    </div>
+          <div class="flex flex-wrap gap-2 pt-1">
+            <Button variant="outline" size="sm" :icon="Pencil" :icon-size="16" @click="ouvrirModification(quartier)">
+              Modifier<span class="sr-only"> {{ quartier.nom }}</span>
+            </Button>
+            <Button variant="ghost" size="sm" :loading="bascule === quartier.id" @click="basculerActif(quartier)">
+              {{ quartier.actif ? 'Désactiver' : 'Réactiver' }}<span class="sr-only"> {{ quartier.nom }}</span>
+            </Button>
+            <Button
+              v-if="!quartier.adresses_count"
+              variant="ghost"
+              size="sm"
+              :icon="Trash2"
+              :icon-size="16"
+              class="text-red-700 hover:bg-red-50"
+              @click="supprimer(quartier)"
+            >
+              Supprimer<span class="sr-only"> {{ quartier.nom }}</span>
+            </Button>
+          </div>
+        </li>
+      </template>
+
+      <!-- Desktop : tableau -->
+      <template #entete>
+        <th scope="col" class="px-4 py-3 font-semibold">Quartier</th>
+        <th scope="col" class="px-4 py-3 font-semibold">Ville</th>
+        <th scope="col" class="px-4 py-3 text-right font-semibold">Adresses</th>
+        <th scope="col" class="px-4 py-3 font-semibold">Statut</th>
+        <th scope="col" class="px-4 py-3 text-right font-semibold">Actions</th>
+      </template>
+      <template #lignes>
+        <tr v-for="quartier in quartiers" :key="quartier.id">
+          <td class="px-4 py-3 font-semibold text-gray-900">{{ quartier.nom }}</td>
+          <td class="px-4 py-3 text-gray-700">{{ formatVille(quartier.ville) }}</td>
+          <td class="px-4 py-3 text-right tabular-nums">{{ quartier.adresses_count }}</td>
+          <td class="px-4 py-3">
+            <span class="badge" :class="quartier.actif ? 'badge-success' : 'badge-neutral'">
+              {{ quartier.actif ? 'Proposé' : 'Désactivé' }}
+            </span>
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex items-center justify-end gap-2">
+              <Button variant="outline" size="sm" :icon="Pencil" :icon-size="16" @click="ouvrirModification(quartier)">
+                Modifier<span class="sr-only"> {{ quartier.nom }}</span>
+              </Button>
+              <Button variant="ghost" size="sm" :loading="bascule === quartier.id" @click="basculerActif(quartier)">
+                {{ quartier.actif ? 'Désactiver' : 'Réactiver' }}<span class="sr-only"> {{ quartier.nom }}</span>
+              </Button>
+              <!-- Utilisé par des adresses : on le désactive au lieu de le supprimer -->
+              <Button
+                v-if="!quartier.adresses_count"
+                variant="ghost"
+                size="sm"
+                :icon="Trash2"
+                :icon-size="16"
+                class="text-red-700 hover:bg-red-50"
+                @click="supprimer(quartier)"
+              >
+                Supprimer<span class="sr-only"> {{ quartier.nom }}</span>
+              </Button>
+            </div>
+          </td>
+        </tr>
+      </template>
+
+      <template v-if="dernierePage > 1" #pied>
+        <Pagination
+          :page="filtres.page"
+          :derniere="dernierePage"
+          :desactive="loading"
+          libelle="Pages de quartiers"
+          @update:page="(page) => mettreAJour({ page })"
+        />
+      </template>
+    </TableauDonnees>
+
+    <!-- Création / modification : tiroir, focus sur le nom -->
+    <BaseModal
+      :ouvert="formulaireOuvert"
+      :titre="form.id ? 'Modifier le quartier' : 'Nouveau quartier'"
+      variante="tiroir"
+      @fermer="formulaireOuvert = false"
+    >
+      <form id="formulaire-quartier" class="space-y-5" novalidate @submit.prevent="enregistrer">
+        <FormField v-slot="{ attrs }" label="Nom" requis>
+          <input v-model="form.nom" v-bind="attrs" type="text" maxlength="150" class="input" data-autofocus />
+        </FormField>
+        <FormField v-slot="{ attrs }" label="Ville" requis>
+          <select v-model="form.ville" v-bind="attrs" class="input">
+            <option v-for="ville in VILLES" :key="ville.valeur" :value="ville.valeur">{{ ville.libelle }}</option>
+          </select>
+        </FormField>
+        <label class="inline-flex min-h-11 cursor-pointer items-center gap-2">
+          <input v-model="form.actif" type="checkbox" class="h-5 w-5 flex-shrink-0 rounded" />
+          <span class="text-sm text-gray-800">Proposé aux clients</span>
+        </label>
+        <AlertMessage v-if="erreurFormulaire" type="error">{{ erreurFormulaire }}</AlertMessage>
+      </form>
+
+      <template #actions>
+        <Button type="button" variant="outline" @click="formulaireOuvert = false">Annuler</Button>
+        <Button type="submit" form="formulaire-quartier" variant="primary" :loading="saving">
+          {{ form.id ? 'Enregistrer' : 'Ajouter le quartier' }}
+        </Button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import api, { messageErreur } from '@/services/api'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
+import { useFiltresUrl } from '@/composables/useFiltresUrl'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import EnTetePage from '@/components/common/EnTetePage.vue'
+import BaseModal from '@/components/common/BaseModal.vue'
+import FormField from '@/components/common/FormField.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
+import TableauDonnees from '@/components/common/TableauDonnees.vue'
+import Pagination from '@/components/common/Pagination.vue'
+import ChampRecherche from '@/components/common/ChampRecherche.vue'
 import { VILLES, formatVille } from '@/utils/villes'
-import { Plus, Search, Pencil, Trash2 } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, MapPinned } from 'lucide-vue-next'
+
+const PAR_PAGE = 30
 
 const toastStore = useToastStore()
 const { confirmer } = useConfirm()
 
 const quartiers = ref([])
 const loading = ref(false)
+const erreurListe = ref('')
 const saving = ref(false)
-const page = ref(1)
+const bascule = ref(null)
 const dernierePage = ref(1)
 const total = ref(0)
-const filtres = ref({ search: '', ville: '' })
 const formulaireOuvert = ref(false)
 const erreurFormulaire = ref('')
 const form = ref({ id: null, nom: '', ville: VILLES[0].valeur, actif: true })
 
-const charger = async (numeroPage = page.value) => {
+// Filtres et page dans l'URL
+const { filtres, mettreAJour } = useFiltresUrl({ search: '', ville: '', page: 1 }, () => charger())
+const filtresActifs = computed(() => Boolean(filtres.search || filtres.ville))
+
+const charger = async () => {
   loading.value = true
+  erreurListe.value = ''
   try {
-    const params = { page: numeroPage, per_page: 30 }
-    if (filtres.value.search) params.search = filtres.value.search
-    if (filtres.value.ville) params.ville = filtres.value.ville
+    const params = { page: filtres.page, per_page: PAR_PAGE }
+    if (filtres.search) params.search = filtres.search
+    if (filtres.ville) params.ville = filtres.ville
 
     const response = await api.admin.quartiers.getAll(params)
     const pagination = response.data.data
     quartiers.value = pagination.data
-    page.value = pagination.current_page
     dernierePage.value = pagination.last_page
     total.value = pagination.total
+
+    // Page vidée (dernier quartier supprimé, lien trop loin) : dernière page remplie
+    if (quartiers.value.length === 0 && filtres.page > 1 && total.value > 0) {
+      mettreAJour({ page: Math.max(1, Number(pagination.last_page) || filtres.page - 1) })
+    }
   } catch (error) {
-    toastStore.erreur(messageErreur(error, 'Impossible de charger les quartiers.'))
+    erreurListe.value = messageErreur(error, 'Impossible de charger les quartiers.')
   } finally {
     loading.value = false
   }
 }
 
-let minuterieRecherche = null
-const rechercherPlusTard = () => {
-  clearTimeout(minuterieRecherche)
-  minuterieRecherche = setTimeout(() => charger(1), 400)
-}
-
 const ouvrirCreation = () => {
-  form.value = { id: null, nom: '', ville: filtres.value.ville || VILLES[0].valeur, actif: true }
+  form.value = { id: null, nom: '', ville: filtres.ville || VILLES[0].valeur, actif: true }
   erreurFormulaire.value = ''
   formulaireOuvert.value = true
 }
@@ -195,8 +255,13 @@ const ouvrirModification = (quartier) => {
 }
 
 const enregistrer = async () => {
-  saving.value = true
   erreurFormulaire.value = ''
+  if (!form.value.nom.trim()) {
+    erreurFormulaire.value = 'Indiquez le nom du quartier.'
+    return
+  }
+
+  saving.value = true
   const donnees = { nom: form.value.nom.trim(), ville: form.value.ville, actif: form.value.actif }
 
   try {
@@ -216,11 +281,15 @@ const enregistrer = async () => {
 }
 
 const basculerActif = async (quartier) => {
+  bascule.value = quartier.id
   try {
     await api.admin.quartiers.update(quartier.id, { actif: !quartier.actif })
     quartier.actif = !quartier.actif
+    toastStore.succes(quartier.actif ? `« ${quartier.nom} » est de nouveau proposé.` : `« ${quartier.nom} » n'est plus proposé.`)
   } catch (error) {
     toastStore.erreur(messageErreur(error, 'Impossible de modifier le quartier.'))
+  } finally {
+    bascule.value = null
   }
 }
 
@@ -241,6 +310,4 @@ const supprimer = async (quartier) => {
     toastStore.erreur(messageErreur(error, 'Impossible de supprimer le quartier.'))
   }
 }
-
-onMounted(() => charger(1))
 </script>
