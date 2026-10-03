@@ -194,53 +194,109 @@ File: src/views/CommandeDetail.vue
       <section v-if="editing" ref="formulaireModif" class="card p-5 sm:p-7" aria-labelledby="titre-modification">
         <h2 id="titre-modification" ref="titreModif" tabindex="-1" class="text-xl">Modifier la commande</h2>
 
-        <form class="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2" novalidate @submit.prevent="submitUpdate">
-          <p v-if="estPayee" class="text-sm text-gray-600 md:col-span-2">
+        <!-- Mêmes cartes qu'au checkout : le client retrouve les choix qu'il a faits -->
+        <form class="mt-6 space-y-7" novalidate @submit.prevent="submitUpdate">
+          <p v-if="estPayee" class="text-sm text-gray-600">
             Commande payée : le mode de réception, l'adresse et le paiement ne changent plus. Pour cela, contactez le vendeur.
           </p>
-          <FormField v-if="!estPayee" v-slot="{ attrs }" label="Mode de réception">
-            <select v-model="form.type_livraison" v-bind="attrs" class="input">
-              <option value="livraison">Livraison à domicile</option>
-              <option value="retrait_boutique">Retrait en boutique</option>
-            </select>
+
+          <fieldset v-if="!estPayee">
+            <legend class="label mb-3">Mode de réception</legend>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <CarteRadio
+                v-for="mode in MODES_RECEPTION"
+                :key="mode.valeur"
+                v-model="form.type_livraison"
+                name="modif_type_livraison"
+                :value="mode.valeur"
+                :titre="mode.libelle"
+                :description="mode.description"
+              >
+                <template #visuel>
+                  <span class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gold-100 text-gold-700">
+                    <component :is="mode.icone" :size="22" aria-hidden="true" />
+                  </span>
+                </template>
+              </CarteRadio>
+            </div>
+          </fieldset>
+
+          <fieldset v-if="!estPayee && form.type_livraison === 'livraison'">
+            <legend class="label mb-3">Adresse de livraison</legend>
+            <AlertMessage v-if="adresses.length === 0" type="info">
+              Ajoutez d'abord une adresse depuis <router-link to="/profil" class="lien">votre compte</router-link>.
+            </AlertMessage>
+            <div v-else class="space-y-3">
+              <CarteRadio
+                v-for="adresse in adresses"
+                :key="adresse.id"
+                v-model="form.adresse_livraison_id"
+                name="modif_adresse_livraison_id"
+                :value="adresse.id"
+                :titre="adresse.libelle || adresse.quartier || 'Adresse'"
+                :description="libelleAdresse(adresse)"
+              >
+                <template #visuel>
+                  <MapPin :size="20" class="flex-shrink-0 text-gold-600" aria-hidden="true" />
+                </template>
+              </CarteRadio>
+            </div>
+          </fieldset>
+
+          <FormField
+            v-if="form.type_livraison === 'livraison'"
+            v-slot="{ attrs }"
+            label="Téléphone pour la livraison"
+            requis
+            :erreur="erreursModif.telephone_livraison"
+            class="max-w-sm"
+          >
+            <TelephoneInput v-model="form.telephone_livraison" v-bind="attrs" />
           </FormField>
 
-          <FormField v-if="!estPayee && form.type_livraison === 'livraison'" v-slot="{ attrs }" label="Adresse de livraison" requis>
-            <select v-model="form.adresse_livraison_id" v-bind="attrs" class="input">
-              <option value="" disabled>Sélectionner une adresse</option>
-              <option v-for="adresse in adresses" :key="adresse.id" :value="adresse.id">
-                {{ libelleAdresse(adresse) }}
-              </option>
-            </select>
+          <fieldset v-if="!estPayee">
+            <legend class="label mb-3">Moyen de paiement</legend>
+            <div class="space-y-3">
+              <CarteRadio
+                v-for="moyen in MOYENS_PAIEMENT_CHOIX"
+                :key="moyen.valeur"
+                v-model="form.moyen_paiement"
+                name="modif_moyen_paiement"
+                :value="moyen.valeur"
+                :titre="moyen.libelle"
+                :description="moyen.description"
+              >
+                <template #visuel>
+                  <span class="flex h-11 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-plaque p-1 ring-1 ring-gray-200">
+                    <img :src="moyen.logo" alt="" class="max-h-full w-auto object-contain" />
+                  </span>
+                </template>
+              </CarteRadio>
+            </div>
+          </fieldset>
+
+          <FormField
+            v-if="!estPayee && form.moyen_paiement !== 'especes'"
+            v-slot="{ attrs }"
+            label="Numéro Mobile Money"
+            requis
+            :erreur="erreursModif.telephone_paiement"
+            class="max-w-sm"
+          >
+            <TelephoneInput v-model="form.telephone_paiement" v-bind="attrs" />
           </FormField>
 
-          <FormField v-if="form.type_livraison === 'livraison'" v-slot="{ attrs }" label="Téléphone pour la livraison" requis>
-            <input v-model="form.telephone_livraison" v-bind="attrs" type="tel" autocomplete="tel" class="input" />
-          </FormField>
-
-          <FormField v-if="!estPayee" v-slot="{ attrs }" label="Moyen de paiement">
-            <select v-model="form.moyen_paiement" v-bind="attrs" class="input">
-              <option value="orange_money">Orange Money</option>
-              <option value="mtn_momo">MTN Mobile Money</option>
-              <option value="especes">Espèces</option>
-            </select>
-          </FormField>
-
-          <FormField v-if="!estPayee && form.moyen_paiement !== 'especes'" v-slot="{ attrs }" label="Numéro Mobile Money" requis>
-            <input v-model="form.telephone_paiement" v-bind="attrs" type="tel" autocomplete="tel" class="input" />
-          </FormField>
-
-          <FormField v-slot="{ attrs }" label="Instructions pour le vendeur" facultatif class="md:col-span-2">
+          <FormField v-slot="{ attrs }" label="Instructions pour le vendeur" facultatif>
             <textarea v-model="form.instructions_speciales" v-bind="attrs" rows="3" class="input resize-y"></textarea>
           </FormField>
 
-          <p v-if="!estPayee && form.type_livraison === 'livraison' && livraisonPossible" class="flex items-center gap-2 text-sm text-gray-700 md:col-span-2">
+          <p v-if="!estPayee && form.type_livraison === 'livraison' && livraisonPossible" class="flex items-center gap-2 text-sm text-gray-700">
             <Truck :size="16" aria-hidden="true" />
             Frais de livraison : {{ formatPrice(fraisLivraison) }} FCFA
           </p>
-          <AlertMessage v-if="!estPayee && shippingError" type="warning" class="md:col-span-2">{{ shippingError }}</AlertMessage>
+          <AlertMessage v-if="!estPayee && shippingError" type="warning">{{ shippingError }}</AlertMessage>
 
-          <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end md:col-span-2">
+          <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" @click="toggleEdit">Abandonner</Button>
             <Button type="submit" variant="primary" :loading="updating">Enregistrer les modifications</Button>
           </div>
@@ -269,13 +325,17 @@ import BadgeStatut from '@/components/common/BadgeStatut.vue'
 import FormField from '@/components/common/FormField.vue'
 import AlertMessage from '@/components/common/AlertMessage.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import CarteRadio from '@/components/common/CarteRadio.vue'
+import TelephoneInput from '@/components/common/TelephoneInput.vue'
 import LignesCommande from '@/components/commande/LignesCommande.vue'
 import ChronologieCommande from '@/components/commande/ChronologieCommande.vue'
 import RecapMontants from '@/components/commande/RecapMontants.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useLivraisonVendeurs } from '@/composables/useLivraisonVendeurs'
 import { formatVille, libelleAdresse, villeAdresse } from '@/utils/villes'
-import { ArrowLeft, Phone, Pencil, Truck, Store, FileDown, Lock, XCircle, PackageOpen } from 'lucide-vue-next'
+import { ArrowLeft, Phone, Pencil, Truck, Store, FileDown, Lock, XCircle, PackageOpen, MapPin } from 'lucide-vue-next'
+import { chiffresLocaux, estTelephoneComplet, telephoneComplet } from '@/utils/telephone'
+import { MODES_RECEPTION, MOYENS_PAIEMENT_CHOIX } from '@/utils/choixCommande'
 
 const route = useRoute()
 const toastStore = useToastStore()
@@ -286,6 +346,7 @@ const error = ref('')
 const commande = ref(null)
 
 const editing = ref(false)
+const erreursModif = ref({})
 const updating = ref(false)
 const canceling = ref(false)
 const titreModif = ref(null)
@@ -357,10 +418,11 @@ const initFormFromCommande = () => {
   form.value = {
     type_livraison: commande.value.type_livraison || 'livraison',
     adresse_livraison_id: commande.value.adresse_livraison_id || '',
-    telephone_livraison: commande.value.telephone_livraison || '',
+    // 9 chiffres locaux dans les champs, « +237… » à l'envoi
+    telephone_livraison: chiffresLocaux(commande.value.telephone_livraison),
     instructions_speciales: commande.value.instructions_speciales || '',
     moyen_paiement: commande.value.moyen_paiement || 'orange_money',
-    telephone_paiement: commande.value.telephone_paiement || '',
+    telephone_paiement: chiffresLocaux(commande.value.telephone_paiement),
   }
 }
 
@@ -457,8 +519,25 @@ const toggleEdit = async () => {
   }
 }
 
+const focusPremiereErreur = async () => {
+  await nextTick()
+  document.querySelector('[aria-invalid="true"]')?.focus()
+}
+
 const submitUpdate = async () => {
-  if (form.value.type_livraison === 'livraison' && !livraisonPossible.value) {
+  erreursModif.value = {}
+  if (form.value.type_livraison === 'livraison' && !estTelephoneComplet(form.value.telephone_livraison)) {
+    erreursModif.value.telephone_livraison = 'Indiquez les 9 chiffres du numéro auquel le vendeur peut vous joindre.'
+  }
+  if (!estPayee.value && form.value.moyen_paiement !== 'especes' && !estTelephoneComplet(form.value.telephone_paiement)) {
+    erreursModif.value.telephone_paiement = 'Indiquez les 9 chiffres du numéro Mobile Money qui va payer.'
+  }
+  if (Object.keys(erreursModif.value).length) {
+    focusPremiereErreur()
+    return
+  }
+
+  if (!estPayee.value && form.value.type_livraison === 'livraison' && !livraisonPossible.value) {
     if (!shippingError.value) {
       shippingError.value = 'Veuillez sélectionner une adresse de livraison valide.'
     }
@@ -467,7 +546,11 @@ const submitUpdate = async () => {
 
   updating.value = true
   try {
-    const payload = { ...form.value }
+    const payload = {
+      ...form.value,
+      telephone_livraison: telephoneComplet(form.value.telephone_livraison),
+      telephone_paiement: telephoneComplet(form.value.telephone_paiement),
+    }
     if (payload.type_livraison !== 'livraison') {
       payload.adresse_livraison_id = null
       payload.telephone_livraison = null

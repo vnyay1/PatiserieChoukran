@@ -94,15 +94,7 @@ File: src/components/adresse/AdresseFormModal.vue
         :erreur="erreurs.telephone_contact"
         aide="Le vendeur vous appelle à ce numéro pour la livraison."
       >
-        <input
-          v-model="form.telephone_contact"
-          v-bind="attrs"
-          type="tel"
-          inputmode="tel"
-          autocomplete="tel"
-          class="input"
-          placeholder="+237 6XX XX XX XX"
-        />
+        <TelephoneInput v-model="form.telephone_contact" v-bind="attrs" />
       </FormField>
 
       <FormField v-slot="{ attrs }" label="Point de repère" facultatif>
@@ -143,7 +135,9 @@ import BaseModal from '@/components/common/BaseModal.vue'
 import Button from '@/components/common/Button.vue'
 import FormField from '@/components/common/FormField.vue'
 import AlertMessage from '@/components/common/AlertMessage.vue'
+import TelephoneInput from '@/components/common/TelephoneInput.vue'
 import { useVilleStore } from '@/stores/ville'
+import { chiffresLocaux, estTelephoneComplet, telephoneComplet } from '@/utils/telephone'
 import { normaliserTexte } from '@/utils/format'
 import { VILLES, formatVille, villeAdresse } from '@/utils/villes'
 import { Search } from 'lucide-vue-next'
@@ -176,7 +170,8 @@ const form = ref({
   ville: villeAdresse(props.adresse) || (isEditing.value ? '' : villeStore.ville || ''),
   quartier_id: props.adresse?.quartier_id || '',
   zone: props.adresse?.zone || '',
-  telephone_contact: props.adresse?.telephone_contact || props.telephoneParDefaut || '',
+  // 9 chiffres locaux dans le champ, « +237… » à l'envoi
+  telephone_contact: chiffresLocaux(props.adresse?.telephone_contact || props.telephoneParDefaut),
   point_repere: props.adresse?.point_repere || '',
   complement_adresse: props.adresse?.complement_adresse || '',
   est_principale: Boolean(props.adresse?.est_principale),
@@ -224,7 +219,9 @@ const valider = () => {
   const manquants = {}
   if (!form.value.ville) manquants.ville = 'Choisissez la ville de livraison.'
   if (!form.value.quartier_id) manquants.quartier_id = 'Choisissez le quartier.'
-  if (!form.value.telephone_contact.trim()) manquants.telephone_contact = 'Indiquez un numéro pour joindre le destinataire.'
+  if (!estTelephoneComplet(form.value.telephone_contact)) {
+    manquants.telephone_contact = 'Indiquez les 9 chiffres du numéro qui recevra l\'appel du vendeur.'
+  }
   erreurs.value = manquants
   return Object.keys(manquants).length === 0
 }
@@ -246,7 +243,7 @@ const submit = async () => {
     ville: form.value.ville,
     quartier_id: form.value.quartier_id,
     zone: form.value.zone.trim() || null,
-    telephone_contact: form.value.telephone_contact.trim(),
+    telephone_contact: telephoneComplet(form.value.telephone_contact),
     point_repere: form.value.point_repere.trim() || null,
     complement_adresse: form.value.complement_adresse.trim() || null,
     est_principale: form.value.est_principale,

@@ -7,7 +7,7 @@ File: src/views/MesCommandes.vue
   Le nombre de commandes est annoncé quand le filtre change.
 -->
 <template>
-  <div class="container mx-auto pb-6 pt-6 md:pt-8">
+  <div class="container mx-auto max-w-4xl pb-6 pt-6 md:pt-8">
     <h1>Mes commandes</h1>
 
     <div class="-mx-4 mb-6 mt-5 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide" role="group" aria-label="Filtrer les commandes">

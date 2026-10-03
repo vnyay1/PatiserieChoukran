@@ -77,7 +77,13 @@ File: src/views/Checkout.vue
                 Ajoutez une adresse de livraison pour continuer.
               </AlertMessage>
 
-              <div class="space-y-3">
+              <!-- Squelette : pas de saut quand les adresses arrivent -->
+              <div v-if="chargementAdresses" class="space-y-3" aria-busy="true">
+                <div v-for="n in 2" :key="n" class="skeleton h-[4.5rem] rounded-2xl"></div>
+                <span class="sr-only">Chargement de vos adresses…</span>
+              </div>
+
+              <div v-else class="space-y-3">
                 <div v-for="adresse in adresses" :key="adresse.id" class="relative">
                   <CarteRadio
                     v-model="formData.adresse_livraison_id"
@@ -130,15 +136,7 @@ File: src/views/Checkout.vue
               aide="Le vendeur vous appelle à ce numéro pour convenir du passage."
               :erreur="erreurs.telephone_livraison"
             >
-              <input
-                v-model="formData.telephone_livraison"
-                v-bind="attrs"
-                type="tel"
-                inputmode="tel"
-                autocomplete="tel"
-                placeholder="+237 6XX XX XX XX"
-                class="input"
-              />
+              <TelephoneInput v-model="formData.telephone_livraison" v-bind="attrs" />
             </FormField>
 
             <FormField v-slot="{ attrs }" label="Instructions pour le vendeur" facultatif>
@@ -170,11 +168,11 @@ File: src/views/Checkout.vue
               <div class="space-y-3">
                 <CarteRadio
                   v-for="method in paymentMethods"
-                  :key="method.value"
+                  :key="method.valeur"
                   v-model="formData.moyen_paiement"
                   name="moyen_paiement"
-                  :value="method.value"
-                  :titre="method.label"
+                  :value="method.valeur"
+                  :titre="method.libelle"
                   :description="method.description"
                 >
                   <template #visuel>
@@ -194,15 +192,7 @@ File: src/views/Checkout.vue
               aide="Vous serez redirigé vers la page de paiement sécurisée NotchPay pour valider sur votre téléphone."
               :erreur="erreurs.telephone_paiement"
             >
-              <input
-                v-model="formData.telephone_paiement"
-                v-bind="attrs"
-                type="tel"
-                inputmode="tel"
-                autocomplete="tel"
-                placeholder="+237 6XX XX XX XX"
-                class="input"
-              />
+              <TelephoneInput v-model="formData.telephone_paiement" v-bind="attrs" />
             </FormField>
 
             <AlertMessage v-if="orderError" type="error">{{ orderError }}</AlertMessage>
@@ -338,6 +328,7 @@ import Button from '@/components/common/Button.vue'
 import FormField from '@/components/common/FormField.vue'
 import AlertMessage from '@/components/common/AlertMessage.vue'
 import CarteRadio from '@/components/common/CarteRadio.vue'
+import TelephoneInput from '@/components/common/TelephoneInput.vue'
 import RecapMontants from '@/components/commande/RecapMontants.vue'
 import AdresseFormModal from '@/components/adresse/AdresseFormModal.vue'
 import { useLivraisonVendeurs, grouperParVendeur } from '@/composables/useLivraisonVendeurs'
@@ -346,8 +337,10 @@ import { formatVille, villeAdresse } from '@/utils/villes'
 import { memoriserReferencePaiement } from '@/utils/paiement'
 import { estUrlPaiementSure } from '@/utils/url'
 import { formatPrice } from '@/utils/format'
+import { chiffresLocaux, estTelephoneComplet, telephoneComplet } from '@/utils/telephone'
+import { MODES_RECEPTION as MODES, MOYENS_PAIEMENT_CHOIX } from '@/utils/choixCommande'
 import {
-  Truck, Store, Check, MapPin, Pencil, Plus, AlertTriangle, ArrowRight, ArrowLeft, Lock, CheckCircle2,
+  Check, MapPin, Pencil, Plus, AlertTriangle, ArrowRight, ArrowLeft, Lock, CheckCircle2,
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -362,10 +355,6 @@ const {
 
 const ETAPES = ['Livraison', 'Paiement', 'Confirmation']
 
-const MODES = [
-  { valeur: 'livraison', libelle: 'Livraison à domicile', description: 'Frais fixes par vendeur', icone: Truck },
-  { valeur: 'retrait_boutique', libelle: 'Retrait en boutique', description: 'Gratuit, sans minimum d\'achat', icone: Store },
-]
 
 const currentStep = ref(1)
 const titreEtape = ref(null)
@@ -382,17 +371,14 @@ const erreurPaiement = ref('')
 const formData = ref({
   type_livraison: 'livraison',
   adresse_livraison_id: '',
-  telephone_livraison: authStore.user?.telephone || '',
+  // 9 chiffres locaux dans les champs, « +237… » à l'envoi
+  telephone_livraison: chiffresLocaux(authStore.user?.telephone),
   instructions_speciales: '',
   moyen_paiement: 'orange_money',
-  telephone_paiement: authStore.user?.telephone || '',
+  telephone_paiement: chiffresLocaux(authStore.user?.telephone),
 })
 
-const paymentMethods = [
-  { value: 'orange_money', label: 'Orange Money', description: 'Validation sur votre téléphone', logo: '/Orange-Money-logo.png' },
-  { value: 'mtn_momo', label: 'MTN Mobile Money', description: 'Validation sur votre téléphone', logo: '/Momo-logo.png' },
-  { value: 'especes', label: 'Espèces', description: 'À régler à la livraison ou au retrait', logo: '/argent.png' },
-]
+const paymentMethods = MOYENS_PAIEMENT_CHOIX
 const estLivraison = computed(() => formData.value.type_livraison === 'livraison')
 
 const selectedAdresse = computed(() => {
@@ -524,8 +510,8 @@ const focusPremiereErreur = async () => {
 
 const goToStep2 = () => {
   erreurs.value = {}
-  if (estLivraison.value && !formData.value.telephone_livraison.trim()) {
-    erreurs.value = { telephone_livraison: 'Indiquez un numéro pour que le vendeur puisse vous joindre.' }
+  if (estLivraison.value && !estTelephoneComplet(formData.value.telephone_livraison)) {
+    erreurs.value = { telephone_livraison: 'Indiquez les 9 chiffres du numéro auquel le vendeur peut vous joindre.' }
     focusPremiereErreur()
     return
   }
@@ -543,8 +529,8 @@ const submitOrder = async () => {
   }
 
   erreurs.value = {}
-  if (formData.value.moyen_paiement !== 'especes' && !formData.value.telephone_paiement.trim()) {
-    erreurs.value = { telephone_paiement: 'Indiquez le numéro Mobile Money qui va payer.' }
+  if (formData.value.moyen_paiement !== 'especes' && !estTelephoneComplet(formData.value.telephone_paiement)) {
+    erreurs.value = { telephone_paiement: 'Indiquez les 9 chiffres du numéro Mobile Money qui va payer.' }
     focusPremiereErreur()
     return
   }
@@ -552,9 +538,16 @@ const submitOrder = async () => {
   submitting.value = true
   orderError.value = ''
 
-  const payload = { ...formData.value }
+  const payload = {
+    ...formData.value,
+    telephone_livraison: telephoneComplet(formData.value.telephone_livraison),
+    telephone_paiement: telephoneComplet(formData.value.telephone_paiement),
+  }
   if (payload.moyen_paiement === 'especes') {
     delete payload.telephone_paiement
+  }
+  if (payload.type_livraison !== 'livraison') {
+    delete payload.telephone_livraison
   }
 
   try {

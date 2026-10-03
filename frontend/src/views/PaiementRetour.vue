@@ -4,35 +4,40 @@ File: src/views/PaiementRetour.vue
 =================================== -->
 <!--
   La zone d'état est une région live : « Vérification… » puis le résultat sont annoncés.
-  Chaque issue a son icône, sa couleur et un texte explicite (jamais la couleur seule).
+  Chaque issue a son icône, sa couleur, un texte explicite (jamais la couleur seule) et une action :
+  réessayer la vérification, relancer le paiement depuis la commande, ou suivre ses commandes.
+  Paiement confirmé par NotchPay mais commandes non payées : le montant est vérifié par l'équipe
+  (contrôle du backend), la page le dit au lieu d'annoncer « payée ».
 -->
 <template>
   <div class="container mx-auto flex min-h-[60vh] max-w-lg items-center justify-center py-12">
     <div class="card w-full p-6 text-center sm:p-8">
       <div role="status" aria-live="polite">
         <span
-          class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full"
+          class="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full ring-8 ring-gray-50"
           :class="presentation.fond"
           aria-hidden="true"
         >
-          <span v-if="etat === 'verification'" class="spinner h-8 w-8 border-[3px] text-gold-600"></span>
-          <component :is="presentation.icone" v-else :size="32" />
+          <span v-if="etatAffiche === 'verification'" class="spinner h-9 w-9 border-[3px] text-gold-600"></span>
+          <component :is="presentation.icone" v-else :size="36" :stroke-width="1.75" />
         </span>
 
-        <h1 class="text-2xl">{{ etat === 'verification' ? 'Vérification du paiement…' : etat === 'complete' ? 'Paiement reçu' : titre }}</h1>
+        <h1 class="text-balance text-2xl">{{ presentation.titre }}</h1>
         <p class="mt-2 text-gray-600">
-          <template v-if="etat === 'verification'">
-            Validez la demande sur votre téléphone si ce n'est pas encore fait. Cette page se met à jour toute seule.
-          </template>
-          <template v-else-if="etat === 'complete'">
-            {{ paiement.commandes.length > 1 ? 'Vos commandes sont payées' : 'Votre commande est payée' }} :
+          <template v-if="etatAffiche === 'complete'">
+            {{ commandesPayables.length > 1 ? 'Vos commandes sont payées' : 'Votre commande est payée' }} :
             <span class="font-semibold text-gray-900">{{ formatPrice(paiement.montant) }} FCFA</span>.
+          </template>
+          <template v-else-if="etatAffiche === 'a_verifier'">
+            NotchPay a confirmé votre paiement de
+            <span class="font-semibold text-gray-900">{{ formatPrice(paiement.montant) }} FCFA</span>.
+            Notre équipe vérifie le montant avant de valider la commande : vous serez prévenu dans vos notifications.
           </template>
           <template v-else>{{ message }}</template>
         </p>
       </div>
 
-      <ul v-if="paiement?.commandes?.length && etat !== 'verification'" class="mt-6 space-y-2 text-left">
+      <ul v-if="paiement?.commandes?.length && etatAffiche !== 'verification'" class="mt-6 space-y-2 text-left">
         <li v-for="commande in paiement.commandes" :key="commande.id">
           <router-link
             :to="`/mes-commandes/${commande.id}`"
@@ -44,11 +49,15 @@ File: src/views/PaiementRetour.vue
         </li>
       </ul>
 
-      <div v-if="etat !== 'verification'" class="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-        <Button v-if="etat === 'en_attente'" variant="primary" :icon="RefreshCw" @click="verifier">
-          Vérifier à nouveau
+      <div v-if="etatAffiche !== 'verification'" class="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+        <Button v-if="['en_attente', 'erreur'].includes(etatAffiche)" variant="primary" :icon="RefreshCw" @click="verifier">
+          {{ etatAffiche === 'erreur' ? 'Réessayer' : 'Vérifier à nouveau' }}
         </Button>
-        <Button to="/mes-commandes" :variant="etat === 'en_attente' ? 'outline' : 'primary'">
+        <!-- Refusé, annulé ou expiré : le paiement se relance depuis la commande -->
+        <Button v-else-if="peutRelancer" :to="lienRelance" variant="primary" :icon="Lock">
+          Relancer le paiement
+        </Button>
+        <Button to="/mes-commandes" :variant="actionPrincipale ? 'outline' : 'primary'">
           Mes commandes
         </Button>
       </div>
@@ -61,14 +70,29 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import api, { messageErreur } from '@/services/api'
 import Button from '@/components/common/Button.vue'
-import { CheckCircle2, Hourglass, AlertTriangle, RefreshCw } from 'lucide-vue-next'
-import { formatPrice } from '@/utils/format'
 import BadgeStatut from '@/components/common/BadgeStatut.vue'
+import {
+  CheckCircle2, Hourglass, XCircle, Ban, TimerOff, SearchX, WifiOff, ShieldCheck, RefreshCw, Lock,
+} from 'lucide-vue-next'
+import { formatPrice } from '@/utils/format'
 import { oublierReferencePaiement, referencePaiementMemorisee } from '@/utils/paiement'
 
 // Le webhook confirme le paiement côté serveur ; ici on relit le statut quelques fois
 const INTERVALLE_MS = 4000
 const TENTATIVES_MAX = 15
+
+// Présentation de chaque issue (icône différente pour chacune : la couleur n'est qu'un renfort)
+const ETATS = {
+  verification: { titre: 'Vérification du paiement…', fond: 'bg-gold-100 text-gold-700' },
+  complete: { titre: 'Paiement reçu', fond: 'bg-green-100 text-green-700', icone: CheckCircle2 },
+  a_verifier: { titre: 'Paiement reçu, vérification en cours', fond: 'bg-yellow-100 text-yellow-800', icone: ShieldCheck },
+  en_attente: { titre: 'Paiement en cours de traitement', fond: 'bg-yellow-100 text-yellow-800', icone: Hourglass },
+  echec: { titre: 'Paiement refusé', fond: 'bg-red-100 text-red-700', icone: XCircle },
+  annule: { titre: 'Paiement annulé', fond: 'bg-gray-100 text-gray-700', icone: Ban },
+  expire: { titre: 'Paiement expiré', fond: 'bg-gray-100 text-gray-700', icone: TimerOff },
+  introuvable: { titre: 'Paiement introuvable', fond: 'bg-gray-100 text-gray-700', icone: SearchX },
+  erreur: { titre: 'Vérification impossible pour le moment', fond: 'bg-gray-100 text-gray-700', icone: WifiOff },
+}
 
 const route = useRoute()
 
@@ -84,26 +108,33 @@ const premiereReference = (...valeurs) => valeurs.find((valeur) => typeof valeur
 const reference = premiereReference(route.query.reference, route.query.trxref, route.query.notchpay_trxref)
   || referencePaiementMemorisee()
 
-const titre = computed(() => ({
-  en_attente: 'Paiement en cours de traitement',
-  echec: 'Paiement refusé',
-  annule: 'Paiement annulé',
-  expire: 'Paiement expiré',
-}[etat.value] || 'Paiement introuvable'))
+// Commandes encore concernées par le paiement (une commande annulée entre-temps ne compte plus)
+const commandesPayables = computed(() => (paiement.value?.commandes || []).filter((commande) => commande.statut !== 'annulee'))
 
-// Icône et couleur de chaque issue
-const presentation = computed(() => {
-  if (etat.value === 'verification') return { fond: 'bg-gold-100', icone: null }
-  if (etat.value === 'complete') return { fond: 'bg-green-100 text-green-700', icone: CheckCircle2 }
-  if (etat.value === 'en_attente') return { fond: 'bg-yellow-100 text-yellow-700', icone: Hourglass }
-  return { fond: 'bg-red-100 text-red-700', icone: AlertTriangle }
+const etatAffiche = computed(() => {
+  if (etat.value === 'complete' && commandesPayables.value.some((commande) => commande.statut_paiement !== 'paye')) {
+    return 'a_verifier'
+  }
+  return ETATS[etat.value] ? etat.value : 'introuvable'
 })
+
+const presentation = computed(() => ETATS[etatAffiche.value])
+
+const peutRelancer = computed(() => ['echec', 'annule', 'expire'].includes(etatAffiche.value)
+  && commandesPayables.value.some((commande) => commande.statut_paiement !== 'paye'))
+
+// Une seule commande : sa fiche (bouton « Payer maintenant ») ; plusieurs : la liste
+const lienRelance = computed(() => (commandesPayables.value.length === 1
+  ? `/mes-commandes/${commandesPayables.value[0].id}`
+  : '/mes-commandes'))
+
+const actionPrincipale = computed(() => ['en_attente', 'erreur'].includes(etatAffiche.value) || peutRelancer.value)
 
 const message = computed(() => {
   if (erreur.value) {
     return erreur.value
   }
-  if (etat.value === 'en_attente') {
+  if (etatAffiche.value === 'en_attente') {
     return 'NotchPay n\'a pas encore confirmé la transaction. Vous pouvez revenir plus tard : la commande sera marquée payée dès la confirmation.'
   }
   return 'Aucun montant n\'a été débité. Vous pouvez relancer le paiement depuis le détail de la commande.'
@@ -144,11 +175,14 @@ const interroger = async () => {
     }
     etat.value = paiement.value.statut
   } catch (err) {
-    etat.value = 'introuvable'
-    erreur.value = messageErreur(err, 'Impossible de vérifier le paiement pour le moment.')
     // Référence inconnue : inutile de la garder ; panne réseau : elle reste pour réessayer
     if (err.response?.status === 404) {
+      etat.value = 'introuvable'
+      erreur.value = 'Ce paiement n\'existe pas ou n\'est pas lié à votre compte. Retrouvez vos commandes et leur paiement dans « Mes commandes ».'
       oublierReferencePaiement()
+    } else {
+      etat.value = 'erreur'
+      erreur.value = messageErreur(err, 'Impossible de vérifier le paiement pour le moment.')
     }
   }
 }
