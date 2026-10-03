@@ -231,6 +231,10 @@
     .btn-icone {
       @apply min-h-11 min-w-11;
     }
+
+    .puce {
+      @apply min-h-11;
+    }
   }
 
   .card {

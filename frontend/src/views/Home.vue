@@ -3,36 +3,69 @@
 File: src/views/Home.vue
 =================================== -->
 <!--
-  Hiérarchie : promesse + action principale, réassurance (livraison, paiement, retrait),
-  catégories (défilement horizontal sur mobile), vedettes, nouveautés.
-  Grilles produits sur deux colonnes dès le mobile : deux fois moins de défilement.
+  Hiérarchie : promesse + action principale, vitrine de photos (produits vedettes, sinon
+  nouveautés), réassurance (livraison, paiement, retrait), catégories, vedettes, nouveautés.
+  La vitrine n'apparaît qu'avec trois photos au moins ; le texte ne bouge pas quand elle arrive
+  (colonne de largeur fixe). Grilles produits sur deux colonnes dès le mobile.
 -->
 <template>
   <div>
     <!-- Hero -->
     <section class="bg-gradient-peach" aria-labelledby="titre-accueil">
-      <div class="container mx-auto py-12 text-center md:py-20">
-        <p class="badge badge-primary mb-5 px-3 py-1 text-sm">
-          <MapPin :size="14" aria-hidden="true" />
-          Livré à Yaoundé et Douala
-        </p>
-        <h1 id="titre-accueil" class="mx-auto max-w-3xl text-[2.25rem] leading-[1.1] sm:text-5xl md:text-6xl">
-          L'art de sublimer vos <span class="text-gold-700 dark:text-gold-600">moments gourmands</span>
-        </h1>
-        <p class="mx-auto mt-5 max-w-xl text-lg text-gray-700">
-          Gâteaux, pâtisseries et glaces de nos artisans, livrés chez vous ou à retirer en boutique.
-        </p>
+      <div class="container mx-auto py-10 md:py-16">
+        <div class="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          <div class="max-w-xl">
+            <h1 id="titre-accueil" class="text-balance text-[2.5rem] leading-[1.05] sm:text-5xl lg:text-6xl">
+              L'art de sublimer vos moments gourmands
+            </h1>
+            <p class="mt-5 max-w-lg text-lg text-gray-700">
+              Gâteaux, pâtisseries et glaces de nos artisans, livrés chez vous à Yaoundé et Douala
+              ou à retirer en boutique.
+            </p>
 
-        <div class="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
-          <Button to="/produits" size="lg" :icon="ShoppingBag">
-            Découvrir nos créations
-          </Button>
-          <Button v-if="!authStore.isAuthenticated" to="/inscription" variant="secondary" size="lg">
-            Créer un compte
-          </Button>
+            <div class="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+              <Button to="/produits" size="lg" :icon="ShoppingBag">
+                Découvrir nos créations
+              </Button>
+              <Button v-if="!authStore.isAuthenticated" to="/inscription" variant="secondary" size="lg">
+                Créer un compte
+              </Button>
+            </div>
+          </div>
+
+          <!-- Vitrine : les vraies photos des créations, chacune mène à sa fiche -->
+          <ul
+            v-if="photosVitrine.length >= 3"
+            class="grid h-[21rem] grid-cols-2 grid-rows-2 gap-3 sm:h-[26rem] sm:gap-4 lg:h-[30rem]"
+            aria-label="Créations à la une"
+          >
+            <li
+              v-for="(produit, index) in photosVitrine"
+              :key="produit.id"
+              class="group relative overflow-hidden rounded-elegant bg-gray-100 shadow-card"
+              :class="{ 'row-span-2': index === 0 }"
+            >
+              <img
+                :src="resolveImageUrl(produit.image_principale)"
+                alt=""
+                class="h-full w-full object-cover transition-transform duration-700 ease-douce motion-safe:group-hover:scale-105"
+                :loading="index === 0 ? 'eager' : 'lazy'"
+                :fetchpriority="index === 0 ? 'high' : undefined"
+                @error="onImageError"
+              />
+              <router-link
+                :to="`/produits/${produit.slug}`"
+                class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-voile/85 via-voile/35 to-transparent px-3 pb-3 pt-8 text-white sm:px-4 sm:pb-3.5 sm:pt-12
+                       after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
+              >
+                <span class="block font-display text-[0.9375rem] font-semibold leading-snug sm:text-lg">{{ produit.nom }}</span>
+                <span class="text-sm font-medium">{{ formatPrice(produit.prix_promo || produit.prix_unitaire) }} FCFA</span>
+              </router-link>
+            </li>
+          </ul>
         </div>
 
-        <ul class="mx-auto mt-10 grid max-w-3xl grid-cols-1 gap-3 text-left sm:grid-cols-3">
+        <ul class="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-3 lg:mt-12">
           <li v-for="atout in ATOUTS" :key="atout.titre" class="flex items-center gap-3 rounded-2xl bg-surface/70 px-4 py-3 backdrop-blur">
             <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gold-100 text-gold-700">
               <component :is="atout.icone" :size="20" aria-hidden="true" />
@@ -51,14 +84,16 @@ File: src/views/Home.vue
       <button type="button" class="lien ml-1" @click="chargerAccueil">Réessayer</button>
     </AlertMessage>
 
-    <!-- Catégories -->
+    <!-- Catégories (pas de bouton en bas : « Tout voir » reste visible sur mobile) -->
     <section class="container mx-auto pt-12 md:pt-16" aria-labelledby="titre-categories">
       <div class="mb-5 flex items-end justify-between gap-4">
         <div>
           <h2 id="titre-categories">Nos catégories</h2>
           <p class="mt-1 text-gray-600">Des créations pour tous les goûts</p>
         </div>
-        <router-link to="/produits" class="lien hidden min-h-11 flex-shrink-0 items-center text-sm sm:inline-flex">Tout voir</router-link>
+        <router-link to="/produits" class="lien inline-flex min-h-11 flex-shrink-0 items-center text-sm">
+          Tout voir<span class="sr-only"> les produits</span>
+        </router-link>
       </div>
 
       <ul
@@ -111,7 +146,9 @@ File: src/views/Home.vue
           <h2 :id="`titre-${bloc.id}`">{{ bloc.titre }}</h2>
           <p class="mt-1 text-gray-600">{{ bloc.sousTitre }}</p>
         </div>
-        <router-link :to="bloc.lien" class="lien hidden min-h-11 flex-shrink-0 items-center text-sm sm:inline-flex">Tout voir</router-link>
+        <router-link :to="bloc.lien" class="lien hidden min-h-11 flex-shrink-0 items-center text-sm sm:inline-flex">
+          Tout voir<span class="sr-only"> : {{ bloc.titre }}</span>
+        </router-link>
       </div>
 
       <ul class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4" :aria-busy="chargement">
@@ -168,8 +205,10 @@ import AlertMessage from '@/components/common/AlertMessage.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ProduitCard from '@/components/produits/ProduitCard.vue'
 import { resolveImageUrl, onImageError } from '@/utils/images'
+import { formatPrice } from '@/utils/format'
+import { estIndisponible } from '@/utils/produit'
 import {
-  MapPin, ShoppingBag, Truck, ShieldCheck, Store, CakeSlice, PackageOpen, ChefHat, Clock3, Award,
+  ShoppingBag, Truck, ShieldCheck, Store, CakeSlice, PackageOpen, ChefHat, Clock3, Award,
 } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
@@ -192,6 +231,19 @@ const produitsFeatured = ref([])
 const produitsNouveautes = ref([])
 const chargement = ref(true)
 const erreur = ref(false)
+
+// Trois photos pour la vitrine : produits vedettes d'abord, puis nouveautés ; jamais un produit
+// sans photo ni en rupture de stock
+const photosVitrine = computed(() => {
+  const vus = new Set()
+  return [...produitsFeatured.value, ...produitsNouveautes.value]
+    .filter((produit) => {
+      if (!produit.image_principale || estIndisponible(produit) || vus.has(produit.id)) return false
+      vus.add(produit.id)
+      return true
+    })
+    .slice(0, 3)
+})
 
 const blocsProduits = computed(() => [
   {

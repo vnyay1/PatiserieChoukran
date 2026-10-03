@@ -15,14 +15,14 @@ File: src/components/commande/CommandeCard.vue
   >
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
-        <h3 class="font-body text-base font-bold text-gray-900">
+        <h2 class="font-body text-base font-bold text-gray-900">
           <router-link
             :to="`/mes-commandes/${commande.id}`"
             class="lien-etire after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
           >
             {{ commande.numero_commande }}
           </router-link>
-        </h3>
+        </h2>
         <p class="text-sm text-gray-600">{{ formatDate(commande.created_at) }}</p>
       </div>
       <div class="flex flex-shrink-0 items-center gap-1">
@@ -48,7 +48,7 @@ File: src/components/commande/CommandeCard.vue
 
     <div class="mt-4 flex flex-wrap items-end justify-between gap-3">
       <p>
-        <span class="block text-xs font-semibold uppercase tracking-wider text-gray-500">Montant total</span>
+        <span class="block text-sm text-gray-600">Montant total</span>
         <span class="price text-xl">{{ formatPrice(commande.montant_total) }} FCFA</span>
       </p>
       <BadgeStatut v-if="commande.statut !== 'annulee'" :statut="commande.statut_paiement" type="paiement" />

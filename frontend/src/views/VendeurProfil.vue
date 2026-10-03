@@ -63,20 +63,21 @@ File: src/views/VendeurProfil.vue
 
           <p class="mx-auto mt-5 max-w-3xl whitespace-pre-line text-center text-gray-700 sm:mx-0 sm:text-left">{{ vendeur.description_boutique }}</p>
 
-          <ul class="mt-5 flex flex-wrap justify-center gap-2 sm:justify-start">
-            <li class="badge badge-neutral px-3 py-1.5 text-sm font-medium">
-              <MapPin :size="15" aria-hidden="true" />
+          <!-- Infos de livraison en texte (comme sur la fiche produit) ; seul l'e-mail est un lien -->
+          <ul class="mt-5 flex flex-col items-center gap-x-6 gap-y-2 text-sm text-gray-700 sm:flex-row sm:flex-wrap">
+            <li class="flex items-center gap-2">
+              <MapPin :size="17" class="flex-shrink-0 text-gold-600" aria-hidden="true" />
               {{ vendeur.villes_livraison?.length ? `Livre à ${vendeur.villes_livraison.map(formatVille).join(' et ')}` : 'Retrait en boutique uniquement' }}
             </li>
-            <li class="badge badge-neutral px-3 py-1.5 text-sm font-medium">
-              <Truck :size="15" aria-hidden="true" />
+            <li class="flex items-center gap-2">
+              <Truck :size="17" class="flex-shrink-0 text-gold-600" aria-hidden="true" />
               {{ vendeur.montant_minimum_livraison > 0
                 ? `Livraison dès ${formatPrice(vendeur.montant_minimum_livraison)} FCFA d'achat`
                 : 'Livraison sans minimum d\'achat' }}
             </li>
             <li v-if="vendeur.email">
-              <a :href="`mailto:${vendeur.email}`" class="badge badge-primary px-3 py-1.5 text-sm font-medium hover:bg-gold-200">
-                <Mail :size="15" aria-hidden="true" />
+              <a :href="`mailto:${vendeur.email}`" class="lien inline-flex min-h-11 items-center gap-2">
+                <Mail :size="17" class="flex-shrink-0" aria-hidden="true" />
                 {{ vendeur.email }}
               </a>
             </li>

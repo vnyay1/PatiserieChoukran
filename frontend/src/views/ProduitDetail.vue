@@ -152,7 +152,7 @@ File: src/views/ProduitDetail.vue
                 :nom-produit="produit.nom"
               />
               <p class="ml-auto text-right">
-                <span class="block text-xs font-semibold uppercase tracking-wider text-gray-500">Total</span>
+                <span class="block text-sm text-gray-600">Total</span>
                 <span class="price text-2xl" aria-live="polite">{{ formatPrice(sousTotal) }} FCFA</span>
               </p>
             </div>

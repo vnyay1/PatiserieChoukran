@@ -150,7 +150,7 @@ const majPrix = (index, valeur) => {
 
 <style scoped>
 .titre-filtre {
-  @apply mb-3 font-body text-sm font-bold uppercase tracking-wider text-gray-900;
+  @apply mb-3 font-body text-base font-bold text-gray-900;
 }
 
 .option-filtre {

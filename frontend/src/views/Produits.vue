@@ -82,7 +82,7 @@ File: src/views/Produits.vue
             <li v-for="puce in pucesActives" :key="puce.cle">
               <button
                 type="button"
-                class="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-gold-200 bg-gold-50 py-1 pl-3 pr-2 text-sm font-semibold text-gold-800 transition-colors hover:border-gold-400 hover:bg-gold-100"
+                class="puce border-gold-300 bg-gold-50 pr-3 text-gold-800 hover:border-gold-400 hover:bg-gold-100"
                 :aria-label="`Retirer le filtre : ${puce.libelle}`"
                 @click="puce.retirer()"
               >
@@ -91,7 +91,7 @@ File: src/views/Produits.vue
               </button>
             </li>
             <li>
-              <button type="button" class="lien text-sm" @click="resetFilters">Tout effacer</button>
+              <button type="button" class="lien inline-flex min-h-10 items-center px-1 text-sm" @click="resetFilters">Tout effacer</button>
             </li>
           </ul>
 
@@ -107,7 +107,7 @@ File: src/views/Produits.vue
           <!-- Produits -->
           <ul v-else-if="produits.length > 0" class="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
             <li v-for="produit in produits" :key="produit.id">
-              <ProduitCard :produit="produit" />
+              <ProduitCard :produit="produit" niveau-titre="h2" />
             </li>
           </ul>
 
@@ -417,6 +417,6 @@ watch(() => villeStore.ville, () => {
 
 <style scoped>
 .titre-tri {
-  @apply mb-3 block font-body text-sm font-bold uppercase tracking-wider text-gray-900;
+  @apply mb-3 block font-body text-base font-bold text-gray-900;
 }
 </style>

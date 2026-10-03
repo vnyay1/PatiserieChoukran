@@ -13,8 +13,12 @@ File: src/components/layout/Header.vue
       <div class="flex h-14 items-center justify-between gap-3 md:h-[4.5rem]">
         <!-- Logo et ville du client (le catalogue est filtré par ville) -->
         <div class="flex min-w-0 items-center gap-2 md:gap-4">
-          <router-link to="/" class="flex-shrink-0 rounded-lg" aria-label="Choukrane Pâtisserie, accueil">
-            <img src="/logo.png" alt="" class="h-9 w-auto md:h-11" />
+          <!-- Logo dans un cadre arrondi ; le nom s'affiche quand la place le permet (pas à côté du menu md) -->
+          <router-link to="/" class="flex flex-shrink-0 items-center gap-2.5 rounded-xl" aria-label="Choukrane Pâtisserie, accueil">
+            <img src="/logo.png" alt="" width="44" height="44" class="h-9 w-9 rounded-xl object-cover ring-1 ring-gray-200 md:h-11 md:w-11" />
+            <span class="hidden font-display text-xl font-bold leading-none text-gray-900 sm:inline md:hidden xl:inline" aria-hidden="true">
+              Choukrane
+            </span>
           </router-link>
           <VilleSelecteur v-if="!authStore.isAdmin && !authStore.isVendeur" />
         </div>
@@ -183,7 +187,7 @@ File: src/components/layout/Header.vue
           </ul>
 
           <template v-if="menuGestion">
-            <h3 class="mb-2 mt-5 px-3 font-body text-xs font-bold uppercase tracking-wider text-gray-500">
+            <h3 class="mb-2 mt-5 px-3 font-body text-sm font-semibold text-gray-600">
               {{ menuGestion.titre }}
             </h3>
             <ul class="space-y-1">

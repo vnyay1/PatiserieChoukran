@@ -8,7 +8,10 @@ File: src/components/layout/Footer.vue
       <div class="grid grid-cols-1 gap-8 md:grid-cols-4 md:gap-10">
         <!-- À propos -->
         <div class="md:pr-4">
-          <img src="/logo.png" alt="Choukrane Pâtisserie" class="mb-4 h-11 w-auto" loading="lazy" />
+          <p class="mb-4 flex items-center gap-3">
+            <img src="/logo.png" alt="" width="48" height="48" class="h-12 w-12 rounded-xl object-cover ring-1 ring-gray-200" loading="lazy" />
+            <span class="font-display text-2xl font-bold text-gray-900">Choukrane</span>
+          </p>
           <p class="text-sm leading-relaxed text-gray-600">
             Chaque création est une promesse de douceur. Pâtisseries, gâteaux et glaces
             livrés à Yaoundé et Douala.
@@ -26,7 +29,7 @@ File: src/components/layout/Footer.vue
             :is="estMobile ? 'summary' : 'div'"
             class="flex items-center justify-between max-md:min-h-12 max-md:cursor-pointer max-md:list-none max-md:px-4 max-md:[&::-webkit-details-marker]:hidden"
           >
-            <h2 class="font-body text-sm font-bold uppercase tracking-wider text-gray-900 md:mb-4">
+            <h2 class="font-display text-lg font-semibold text-gray-900 md:mb-3">
               {{ section.titre }}
             </h2>
             <ChevronDown :size="18" class="text-gray-500 transition-transform duration-200 group-open:rotate-180 md:hidden" aria-hidden="true" />

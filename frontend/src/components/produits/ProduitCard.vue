@@ -30,14 +30,14 @@ File: src/components/produits/ProduitCard.vue
 
     <!-- Contenu -->
     <div class="flex flex-1 flex-col p-3 sm:p-4">
-      <h3 class="font-display text-base font-semibold leading-snug text-gray-900 sm:text-lg">
+      <component :is="niveauTitre" class="font-display text-base font-semibold leading-snug text-gray-900 sm:text-lg">
         <router-link
           :to="`/produits/${produit.slug}`"
           class="lien-etire line-clamp-2 after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
         >
           {{ produit.nom }}
         </router-link>
-      </h3>
+      </component>
 
       <!-- Vendeur : le panier crée une commande par vendeur -->
       <p v-if="produit.createur?.nom_complet" class="mt-1 truncate text-xs text-gray-600 sm:text-sm">
@@ -95,6 +95,12 @@ const props = defineProps({
   produit: {
     type: Object,
     required: true
+  },
+  // Niveau du titre : h3 sous une section titrée (h2), h2 directement sous le h1 de la page
+  niveauTitre: {
+    type: String,
+    default: 'h3',
+    validator: (valeur) => ['h2', 'h3'].includes(valeur)
   }
 })
 

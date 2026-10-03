@@ -68,7 +68,7 @@ File: src/views/Notifications.vue
         <div class="min-w-0 flex-1">
           <h2 class="flex items-center gap-2 font-body text-base leading-snug" :class="notification.est_lu ? 'font-semibold text-gray-800' : 'font-bold text-gray-900'">
             <span v-if="!notification.est_lu" class="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-gold-500" aria-hidden="true"></span>
-            <span v-if="!notification.est_lu" class="sr-only">Non lue :</span>
+            <span v-if="!notification.est_lu" class="sr-only">Non lue : </span>
             <span class="min-w-0 break-words">{{ notification.titre || 'Notification' }}</span>
           </h2>
           <p class="mt-1 whitespace-pre-line break-words text-sm text-gray-700">{{ notification.message }}</p>

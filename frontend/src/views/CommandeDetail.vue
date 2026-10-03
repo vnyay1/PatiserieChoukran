@@ -52,7 +52,7 @@ File: src/views/CommandeDetail.vue
 
           <div class="flex flex-col gap-3 md:items-end">
             <p class="md:text-right">
-              <span class="block text-xs font-semibold uppercase tracking-wider text-gray-500">Montant total</span>
+              <span class="block text-sm text-gray-600">Montant total</span>
               <span class="price text-3xl">{{ formatPrice(commande.montant_total) }} FCFA</span>
             </p>
             <Button

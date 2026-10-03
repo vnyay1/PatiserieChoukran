@@ -7,7 +7,6 @@ File: src/views/InfosPratiques.vue
   <div class="pb-6">
     <section class="bg-gradient-peach">
       <div class="container mx-auto py-10 md:py-14">
-        <p class="mb-2 text-sm font-bold uppercase tracking-wider text-gold-700">Infos pratiques</p>
         <h1>Nous contacter</h1>
         <p class="mt-3 max-w-2xl text-gray-700">
           Une question sur une commande, un événement ou une création personnalisée ? Notre équipe vous répond rapidement.
@@ -22,7 +21,7 @@ File: src/views/InfosPratiques.vue
             <component :is="contact.icone" :size="20" aria-hidden="true" />
           </span>
           <div class="min-w-0">
-            <h2 class="font-body text-sm font-bold uppercase tracking-wider text-gray-600">{{ contact.titre }}</h2>
+            <h2 class="font-body text-sm font-semibold text-gray-600">{{ contact.titre }}</h2>
             <a
               v-if="contact.lien"
               :href="contact.lien"
