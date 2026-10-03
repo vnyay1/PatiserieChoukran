@@ -37,11 +37,8 @@ File: src/views/CommandeDetail.vue
         <div class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">
-              <span :class="['badge', getBadgeClass(commande.statut)]">{{ getStatutLabel(commande.statut) }}</span>
-              <span v-if="commande.statut !== 'annulee'" :class="['badge', getPaymentBadgeClass(commande.statut_paiement)]">
-                <span class="sr-only">Paiement :</span>
-                {{ getPaymentLabel(commande.statut_paiement) }}
-              </span>
+              <BadgeStatut :statut="commande.statut" />
+              <BadgeStatut v-if="commande.statut !== 'annulee'" :statut="commande.statut_paiement" type="paiement" />
             </div>
             <h1 id="titre-commande" class="mt-3 text-2xl md:text-3xl">Commande {{ commande.numero_commande }}</h1>
             <p class="mt-1 text-sm text-gray-600">Passée le {{ formatDate(commande.created_at) }}</p>
@@ -88,51 +85,13 @@ File: src/views/CommandeDetail.vue
           <!-- Articles -->
           <section class="card p-5 sm:p-7" aria-labelledby="titre-articles">
             <h2 id="titre-articles" class="text-xl">Articles</h2>
-            <ul class="mt-4 divide-y divide-gray-200">
-              <li v-for="ligne in commande.ligne_commandes || []" :key="ligne.id" class="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
-                <img
-                  loading="lazy"
-                  :src="resolveImageUrl(ligne.produit?.image_principale)"
-                  alt=""
-                  class="h-16 w-16 flex-shrink-0 rounded-xl bg-gray-100 object-cover sm:h-20 sm:w-20"
-                  @error="onImageError"
-                />
-                <div class="min-w-0 flex-1">
-                  <p class="font-semibold text-gray-900">{{ ligne.nom_produit }}</p>
-                  <p class="text-sm text-gray-600">{{ ligne.quantite }} × {{ formatPrice(ligne.prix_unitaire) }} FCFA</p>
-                </div>
-                <p class="price text-lg">{{ formatPrice(ligne.sous_total) }} FCFA</p>
-              </li>
-            </ul>
+            <LignesCommande :lignes="commande.ligne_commandes || []" class="mt-4" />
           </section>
 
           <!-- Suivi -->
-          <section v-if="historiqueTrie.length" class="card p-5 sm:p-7" aria-labelledby="titre-suivi">
+          <section v-if="commande.historiques?.length" class="card p-5 sm:p-7" aria-labelledby="titre-suivi">
             <h2 id="titre-suivi" class="text-xl">Suivi de la commande</h2>
-            <ol class="mt-5">
-              <li v-for="(etape, index) in historiqueTrie" :key="etape.id" class="relative flex gap-4 pb-6 last:pb-0">
-                <span
-                  v-if="index < historiqueTrie.length - 1"
-                  class="absolute left-[0.6875rem] top-6 h-[calc(100%-1.5rem)] w-0.5 bg-gold-200"
-                  aria-hidden="true"
-                ></span>
-                <span
-                  class="relative mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full"
-                  :class="index === historiqueTrie.length - 1 ? 'bg-gold-500 text-on-gold' : 'bg-gold-100 text-gold-700'"
-                  aria-hidden="true"
-                >
-                  <Check :size="13" :stroke-width="3" />
-                </span>
-                <div class="min-w-0">
-                  <p class="font-semibold text-gray-900">
-                    {{ getStatutLabel(etape.nouveau_statut) }}
-                    <span v-if="index === historiqueTrie.length - 1" class="sr-only">(étape actuelle)</span>
-                  </p>
-                  <p class="text-sm text-gray-600"><time :datetime="etape.created_at">{{ formatDateHeure(etape.created_at) }}</time></p>
-                  <p v-if="etape.commentaire" class="mt-1 text-sm text-gray-700">{{ etape.commentaire }}</p>
-                </div>
-              </li>
-            </ol>
+            <ChronologieCommande :historiques="commande.historiques" class="mt-5" />
           </section>
         </div>
 
@@ -172,32 +131,26 @@ File: src/views/CommandeDetail.vue
           <!-- Paiement -->
           <section class="card p-5 sm:p-6" aria-labelledby="titre-paiement">
             <h2 id="titre-paiement" class="text-lg">Paiement</h2>
-            <dl class="mt-4 space-y-2 text-sm">
-              <div class="flex justify-between gap-3">
-                <dt class="text-gray-600">Produits</dt>
-                <dd class="tabular-nums text-gray-900">{{ formatPrice(commande.montant_produits) }} FCFA</dd>
-              </div>
-              <div class="flex justify-between gap-3">
-                <dt class="text-gray-600">Livraison</dt>
-                <dd class="tabular-nums text-gray-900">{{ formatPrice(commande.montant_livraison) }} FCFA</dd>
-              </div>
-              <div class="flex items-baseline justify-between gap-3 border-t border-gray-200 pt-3">
-                <dt class="font-semibold text-gray-900">Total</dt>
-                <dd class="price text-xl">{{ formatPrice(commande.montant_total) }} FCFA</dd>
-              </div>
+            <RecapMontants
+              :produits="commande.montant_produits"
+              :livraison="commande.montant_livraison"
+              :total="commande.montant_total"
+              :afficher-livraison="commande.type_livraison === 'livraison'"
+              class="mt-4"
+            >
               <div class="flex justify-between gap-3 pt-2">
-                <dt class="text-gray-600">Moyen</dt>
-                <dd class="text-gray-900">{{ getPaymentMethodLabel(commande.moyen_paiement) }}</dd>
+                <dt class="text-gray-700">Moyen</dt>
+                <dd class="text-right text-gray-900">{{ getPaymentMethodLabel(commande.moyen_paiement) }}</dd>
               </div>
               <div v-if="commande.telephone_paiement" class="flex justify-between gap-3">
-                <dt class="text-gray-600">Numéro</dt>
+                <dt class="text-gray-700">Numéro</dt>
                 <dd class="text-gray-900">{{ commande.telephone_paiement }}</dd>
               </div>
               <div v-if="commande.date_paiement" class="flex justify-between gap-3">
-                <dt class="text-gray-600">Payée le</dt>
-                <dd class="text-gray-900">{{ formatDateHeure(commande.date_paiement) }}</dd>
+                <dt class="text-gray-700">Payée le</dt>
+                <dd class="text-right text-gray-900">{{ formatDateHeure(commande.date_paiement) }}</dd>
               </div>
-            </dl>
+            </RecapMontants>
           </section>
 
           <!-- Actions (commande en attente) -->
@@ -309,21 +262,20 @@ import {
   formatPrice,
   formatDateLongue as formatDate,
   formatDateHeure,
-  libelleStatut as getStatutLabel,
-  classeStatut as getBadgeClass,
-  libellePaiement as getPaymentLabel,
-  classePaiement as getPaymentBadgeClass,
   libelleMoyenPaiement as getPaymentMethodLabel,
 } from '@/utils/format'
 import Button from '@/components/common/Button.vue'
+import BadgeStatut from '@/components/common/BadgeStatut.vue'
 import FormField from '@/components/common/FormField.vue'
 import AlertMessage from '@/components/common/AlertMessage.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import LignesCommande from '@/components/commande/LignesCommande.vue'
+import ChronologieCommande from '@/components/commande/ChronologieCommande.vue'
+import RecapMontants from '@/components/commande/RecapMontants.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useLivraisonVendeurs } from '@/composables/useLivraisonVendeurs'
 import { formatVille, libelleAdresse, villeAdresse } from '@/utils/villes'
-import { ArrowLeft, Phone, Pencil, Truck, Store, FileDown, Lock, Check, XCircle, PackageOpen } from 'lucide-vue-next'
-import { resolveImageUrl, onImageError } from '@/utils/images'
+import { ArrowLeft, Phone, Pencil, Truck, Store, FileDown, Lock, XCircle, PackageOpen } from 'lucide-vue-next'
 
 const route = useRoute()
 const toastStore = useToastStore()
@@ -399,12 +351,6 @@ const payerMaintenant = async () => {
     ouverturePaiement.value = false
   }
 }
-
-// Étapes de la commande, de la plus ancienne à la plus récente
-const historiqueTrie = computed(() => {
-  return [...(commande.value?.historiques || [])]
-    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-})
 
 const initFormFromCommande = () => {
   if (!commande.value) return

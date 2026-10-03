@@ -39,21 +39,29 @@ export const dateIso = (date) => {
 // Stock à partir duquel un produit est signalé « bientôt épuisé » (même seuil que le tableau de bord)
 export const SEUIL_STOCK_FAIBLE = 5
 
+// classe : badge de ton de tailwind.css (fond 100, texte 800), écrite en entier pour que Tailwind la génère ;
+// affichés par BadgeStatut
 export const STATUTS_COMMANDE = {
-  en_attente: { label: 'En attente', classe: 'bg-yellow-100 text-yellow-700' },
-  confirmee: { label: 'Confirmée', classe: 'bg-blue-100 text-blue-700' },
-  en_preparation: { label: 'En préparation', classe: 'bg-purple-100 text-purple-700' },
-  prete: { label: 'Prête', classe: 'bg-indigo-100 text-indigo-700' },
-  en_livraison: { label: 'En livraison', classe: 'bg-orange-100 text-orange-700' },
-  livree: { label: 'Livrée', classe: 'bg-green-100 text-green-700' },
-  annulee: { label: 'Annulée', classe: 'bg-red-100 text-red-700' },
+  en_attente: { label: 'En attente', classe: 'badge-warning' },
+  confirmee: { label: 'Confirmée', classe: 'badge-info' },
+  en_preparation: { label: 'En préparation', classe: 'badge-violet' },
+  prete: { label: 'Prête', classe: 'badge-indigo' },
+  en_livraison: { label: 'En livraison', classe: 'badge-orange' },
+  livree: { label: 'Livrée', classe: 'badge-success' },
+  annulee: { label: 'Annulée', classe: 'badge-danger' },
 }
 
 export const STATUTS_PAIEMENT = {
-  en_attente: { label: 'À payer', classe: 'bg-yellow-100 text-yellow-700' },
-  paye: { label: 'Payé', classe: 'bg-green-100 text-green-700' },
-  echec: { label: 'Échec', classe: 'bg-red-100 text-red-700' },
-  rembourse: { label: 'Remboursé', classe: 'bg-gray-100 text-gray-700' },
+  en_attente: { label: 'À payer', classe: 'badge-warning' },
+  paye: { label: 'Payé', classe: 'badge-success' },
+  echec: { label: 'Échec', classe: 'badge-danger' },
+  rembourse: { label: 'Remboursé', classe: 'badge-neutral' },
+}
+
+export const STATUTS_COMPTE = {
+  actif: { label: 'Actif', classe: 'badge-success' },
+  inactif: { label: 'Inactif', classe: 'badge-neutral' },
+  suspendu: { label: 'Suspendu', classe: 'badge-danger' },
 }
 
 export const MOYENS_PAIEMENT = {
@@ -63,9 +71,8 @@ export const MOYENS_PAIEMENT = {
 }
 
 export const libelleStatut = (statut) => STATUTS_COMMANDE[statut]?.label || statut
-export const classeStatut = (statut) => STATUTS_COMMANDE[statut]?.classe || 'bg-gray-100 text-gray-700'
 export const libellePaiement = (statut) => STATUTS_PAIEMENT[statut]?.label || statut
-export const classePaiement = (statut) => STATUTS_PAIEMENT[statut]?.classe || 'bg-gray-100 text-gray-700'
+export const libelleCompte = (statut) => STATUTS_COMPTE[statut]?.label || statut
 export const libelleMoyenPaiement = (moyen) => MOYENS_PAIEMENT[moyen] || moyen
 
 // Pour les recherches : « Bonabéri » et « bonaberi » doivent correspondre

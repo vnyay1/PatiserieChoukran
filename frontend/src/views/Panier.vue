@@ -117,21 +117,17 @@ File: src/views/Panier.vue
         <div class="card p-5 sm:p-6">
           <h2 id="titre-recapitulatif" class="text-xl">Récapitulatif</h2>
 
-          <dl class="mt-5 space-y-3 text-[0.9375rem]">
-            <div class="flex items-center justify-between gap-3 text-gray-700">
-              <dt>Produits ({{ panierStore.itemCount }})</dt>
-              <dd class="font-semibold tabular-nums text-gray-900">{{ formatPrice(panierStore.total) }} FCFA</dd>
-            </div>
-            <div class="flex items-center justify-between gap-3 text-gray-700">
-              <dt>Livraison{{ livraisonEstimee ? ' estimée' : '' }}</dt>
-              <dd v-if="livraisonEstimee" class="font-semibold tabular-nums text-gray-900">{{ formatPrice(fraisEstimes) }} FCFA</dd>
-              <dd v-else class="text-sm text-gray-600">Calculée à l'étape suivante</dd>
-            </div>
-            <div class="flex items-baseline justify-between gap-3 border-t border-gray-200 pt-4">
-              <dt class="font-semibold text-gray-900">Total{{ livraisonEstimee ? ' estimé' : '' }}</dt>
-              <dd class="price text-2xl">{{ formatPrice(totalEstime) }} FCFA</dd>
-            </div>
-          </dl>
+          <RecapMontants
+            :produits="panierStore.total"
+            :livraison="livraisonEstimee ? fraisEstimes : null"
+            :total="totalEstime"
+            :libelle-produits="`Produits (${panierStore.itemCount})`"
+            :libelle-livraison="livraisonEstimee ? 'Livraison estimée' : 'Livraison'"
+            :libelle-total="livraisonEstimee ? 'Total estimé' : 'Total'"
+            texte-livraison="Calculée à l'étape suivante"
+            grand
+            class="mt-5"
+          />
 
           <p v-if="livraisonEstimee" class="mt-2 text-xs text-gray-600">
             {{ adressePrincipale ? `Vers ${adressePrincipale.quartier}, ${formatVille(villeLivraison)} (adresse principale)` : `À ${formatVille(villeLivraison)} (ville choisie)` }},

@@ -6,34 +6,30 @@ File: src/views/admin/AdminRapports.vue
 <template>
   <div class="admin-rapports-page pb-6">
     <div class="container mx-auto px-4 py-6 max-w-7xl">
-      <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
-        <div>
-          <h1>
-            Rapports mensuels
-          </h1>
-          <p class="text-gray-600 text-sm">
-            Activité de tous les vendeurs sur les commandes créées dans le mois.
-            Le rapport du mois écoulé est généré automatiquement le 1<sup>er</sup> de chaque mois.
-          </p>
-        </div>
-
-        <div class="flex flex-col sm:flex-row gap-3 sm:items-end">
-          <div>
-            <label for="admin-rapports-1" class="block text-sm font-medium text-gray-700 mb-1">Mois</label>
-            <select id="admin-rapports-1" v-model="moisChoisi" class="input min-w-48" :disabled="loadingMois">
-              <option v-for="mois in listeMois" :key="mois.mois" :value="mois.mois">
-                {{ capitaliser(mois.libelle) }}{{ mois.clos ? '' : ' (en cours)' }}
-              </option>
-            </select>
+      <EnTetePage titre="Rapports mensuels">
+        <template #sous-titre>
+          Activité de tous les vendeurs sur les commandes créées dans le mois.
+          Le rapport du mois écoulé est généré automatiquement le 1<sup>er</sup> de chaque mois.
+        </template>
+        <template #actions>
+          <div class="flex flex-col sm:flex-row gap-3 sm:items-end">
+            <div>
+              <label for="admin-rapports-1" class="block text-sm font-medium text-gray-700 mb-1">Mois</label>
+              <select id="admin-rapports-1" v-model="moisChoisi" class="input min-w-48" :disabled="loadingMois">
+                <option v-for="mois in listeMois" :key="mois.mois" :value="mois.mois">
+                  {{ capitaliser(mois.libelle) }}{{ mois.clos ? '' : ' (en cours)' }}
+                </option>
+              </select>
+            </div>
+            <Button variant="outline" :icon="FileText" :icon-size="18" :loading="telechargement === 'pdf'" :disabled="!moisChoisi" @click="telecharger('pdf')">
+              PDF
+            </Button>
+            <Button variant="primary" :icon="Sheet" :icon-size="18" :loading="telechargement === 'csv'" :disabled="!moisChoisi" @click="telecharger('csv')">
+              CSV
+            </Button>
           </div>
-          <Button variant="outline" :icon="FileText" :icon-size="18" :loading="telechargement === 'pdf'" :disabled="!moisChoisi" @click="telecharger('pdf')">
-            PDF
-          </Button>
-          <Button variant="primary" :icon="Sheet" :icon-size="18" :loading="telechargement === 'csv'" :disabled="!moisChoisi" @click="telecharger('csv')">
-            CSV
-          </Button>
-        </div>
-      </div>
+        </template>
+      </EnTetePage>
 
       <p v-if="erreur" role="alert" class="text-sm font-medium text-red-700 mb-4">{{ erreur }}</p>
 
@@ -131,6 +127,7 @@ import api, { messageErreur, lireErreurBlob } from '@/services/api'
 import { useToastStore } from '@/stores/toast'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import EnTetePage from '@/components/common/EnTetePage.vue'
 import { formatPrice } from '@/utils/format'
 import { telechargerBlob } from '@/utils/telechargement'
 import { FileText, Sheet, Star } from 'lucide-vue-next'

@@ -45,7 +45,7 @@ File: src/components/layout/Header.vue
                 :class="{ 'lien-nav-actif': gestionActive }"
                 :aria-expanded="menuOuvert"
                 :aria-controls="idMenuGestion"
-                @click="menuOuvert = !menuOuvert"
+                @click="basculerMenu"
               >
                 {{ menuGestion.titre }}
                 <ChevronDown :size="16" class="transition-transform duration-200" :class="{ 'rotate-180': menuOuvert }" aria-hidden="true" />
@@ -114,9 +114,7 @@ File: src/components/layout/Header.vue
             class="ml-1 hidden min-h-11 items-center gap-2 rounded-full border border-gray-200 py-1 pl-1 pr-1 text-sm font-semibold text-gray-800 transition-colors hover:border-gray-300 hover:bg-gray-50 md:inline-flex lg:pr-3"
             :aria-current="route.name === 'profil' ? 'page' : undefined"
           >
-            <span class="flex h-8 w-8 items-center justify-center rounded-full bg-gold-500 text-xs font-bold text-on-gold" aria-hidden="true">
-              {{ initiales }}
-            </span>
+            <Avatar :nom="authStore.userName" taille="sm" />
             <span class="hidden max-w-[10rem] truncate lg:inline">{{ authStore.userName }}</span>
             <span class="sr-only lg:hidden">Mon compte</span>
           </router-link>
@@ -158,9 +156,7 @@ File: src/components/layout/Header.vue
           to="/profil"
           class="flex items-center gap-3 rounded-2xl bg-gold-50 p-3 transition-colors hover:bg-gold-100"
         >
-          <span class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gold-500 font-bold text-on-gold" aria-hidden="true">
-            {{ initiales }}
-          </span>
+          <Avatar :nom="authStore.userName" />
           <span class="min-w-0">
             <span class="block truncate font-semibold text-gray-900">{{ authStore.userName }}</span>
             <span class="block text-sm text-gray-600">Voir mon compte</span>
@@ -215,16 +211,18 @@ File: src/components/layout/Header.vue
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePanierStore } from '@/stores/panier'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useVendeurCommandesBadge } from '@/composables/useVendeurCommandesBadge'
 import { useNavigation } from '@/composables/useNavigation'
+import { useMenuDeroulant } from '@/composables/useMenuDeroulant'
 import VilleSelecteur from '@/components/layout/VilleSelecteur.vue'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
+import Avatar from '@/components/common/Avatar.vue'
 import { ShoppingCart, Info, Bell, Menu, ChevronDown } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -235,10 +233,14 @@ const { vendeurCommandesCount, formatBadgeCount, showVendeurCommandesBadge } = u
 const { liensPrincipaux, menuGestion, estActif, gestionActive } = useNavigation()
 
 const mobileOpen = ref(false)
-const menuOuvert = ref(false)
-const menuRacine = ref(null)
-const menuBouton = ref(null)
-const idMenuGestion = useId()
+const {
+  ouvert: menuOuvert,
+  racine: menuRacine,
+  bouton: menuBouton,
+  idMenu: idMenuGestion,
+  fermer: fermerMenu,
+  basculer: basculerMenu,
+} = useMenuDeroulant()
 
 const panierCount = computed(() => panierStore.itemCount)
 const unreadNotificationsCount = computed(() => notificationsStore.unreadCount)
@@ -257,21 +259,6 @@ const libellePanier = computed(() => {
   if (count === 0) return 'Panier, vide'
   return `Panier, ${count} article${count > 1 ? 's' : ''}`
 })
-
-const initiales = computed(() => {
-  const mots = (authStore.userName || '').trim().split(/\s+/).filter(Boolean)
-  return (mots.slice(0, 2).map((mot) => mot[0]).join('') || '?').toUpperCase()
-})
-
-const fermerMenu = (rendreFocus = false) => {
-  menuOuvert.value = false
-  if (rendreFocus) menuBouton.value?.focus()
-}
-
-// Clic ou focus en dehors du menu de gestion : il se referme
-const fermerMenuSiExterieur = (event) => {
-  if (menuOuvert.value && menuRacine.value && !menuRacine.value.contains(event.target)) fermerMenu()
-}
 
 // Le compteur de notifications suit l'utilisateur connecté (et non la simple présence
 // d'un token : l'utilisateur est chargé après le premier rendu)
@@ -298,15 +285,8 @@ watch(
   }
 )
 
-onMounted(() => {
-  document.addEventListener('click', fermerMenuSiExterieur)
-  document.addEventListener('focusin', fermerMenuSiExterieur)
-})
-
 onBeforeUnmount(() => {
   notificationsStore.stopPolling()
-  document.removeEventListener('click', fermerMenuSiExterieur)
-  document.removeEventListener('focusin', fermerMenuSiExterieur)
 })
 </script>
 
@@ -333,16 +313,5 @@ onBeforeUnmount(() => {
 
 .lien-tiroir[aria-current='page'] {
   @apply bg-gold-100 font-semibold text-gold-800;
-}
-
-.deroulant-enter-active,
-.deroulant-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.2, 0, 0, 1);
-}
-
-.deroulant-enter-from,
-.deroulant-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
 }
 </style>

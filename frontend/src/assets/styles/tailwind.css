@@ -259,28 +259,45 @@
     @apply mt-1.5 flex items-start gap-1.5 text-[0.8125rem] font-medium leading-snug text-red-600;
   }
 
+  /* Badges de ton : fond 100, texte 800 et filet 200 (le fond le plus clair, jaune, reste visible sur une carte) */
   .badge {
     @apply inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold leading-5;
   }
 
   .badge-primary {
-    @apply bg-gold-100 text-gold-800;
+    @apply bg-gold-100 text-gold-800 ring-1 ring-inset ring-gold-200;
   }
 
   .badge-success {
-    @apply bg-green-100 text-green-800;
+    @apply bg-green-100 text-green-800 ring-1 ring-inset ring-green-200;
   }
 
   .badge-danger {
-    @apply bg-red-100 text-red-800;
+    @apply bg-red-100 text-red-800 ring-1 ring-inset ring-red-200;
   }
 
   .badge-warning {
-    @apply bg-yellow-100 text-yellow-800;
+    @apply bg-yellow-100 text-yellow-800 ring-1 ring-inset ring-yellow-200;
   }
 
   .badge-neutral {
-    @apply bg-gray-100 text-gray-700;
+    @apply bg-gray-100 text-gray-800 ring-1 ring-inset ring-gray-200;
+  }
+
+  .badge-info {
+    @apply bg-blue-100 text-blue-800 ring-1 ring-inset ring-blue-200;
+  }
+
+  .badge-violet {
+    @apply bg-purple-100 text-purple-800 ring-1 ring-inset ring-purple-200;
+  }
+
+  .badge-indigo {
+    @apply bg-indigo-100 text-indigo-800 ring-1 ring-inset ring-indigo-200;
+  }
+
+  .badge-orange {
+    @apply bg-orange-100 text-orange-800 ring-1 ring-inset ring-orange-200;
   }
 
   /* Pastille de compteur (panier, notifications) */
@@ -395,6 +412,18 @@
 
 .animate-slideUp {
   animation: slideUp 0.28s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Menus déroulants (useMenuDeroulant) : <Transition name="deroulant"> */
+.deroulant-enter-active,
+.deroulant-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.deroulant-enter-from,
+.deroulant-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 /* ===================================

@@ -66,32 +66,16 @@ File: src/views/vendeur/ProfilBoutique.vue
 
           <div>
             <label for="profil-boutique-3" class="block text-sm font-medium text-gray-700 mb-2">Logo de l'entreprise *</label>
-            <div class="flex items-center gap-4">
-              <div class="h-24 w-24 flex-shrink-0 rounded-elegant border bg-surface overflow-hidden flex items-center justify-center">
-                <img
-                  v-if="apercuLogo"
-                  :src="apercuLogo"
-                  alt="Aperçu du logo"
-                  class="h-full w-full object-contain"
-                  @error="onImageError"
-                />
-                <Store v-else :size="32" class="text-gray-500" aria-hidden="true" />
-              </div>
-              <div class="flex-1 min-w-0">
-                <input
-                  id="profil-boutique-3"
-                  :key="cleChampLogo"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  class="input"
-                  :required="!logoActuel"
-                  @change="choisirLogo"
-                />
-                <p class="text-xs text-gray-500 mt-1">
-                  JPEG, PNG ou WebP, {{ TAILLE_MAX_IMAGE_MO }} Mo maximum. De préférence carré.
-                </p>
-              </div>
-            </div>
+            <TeleversementImage
+              id="profil-boutique-3"
+              v-model="fichierLogo"
+              :image-actuelle="logoActuel"
+              :required="!logoActuel"
+              :icone="Store"
+              logo
+              aide="De préférence carré."
+              @erreur="erreur = $event"
+            />
           </div>
 
           <div>
@@ -152,14 +136,14 @@ File: src/views/vendeur/ProfilBoutique.vue
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api, { messageErreur } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
-import { resolveImageUrl, onImageError, verifierImage, TAILLE_MAX_IMAGE_MO } from '@/utils/images'
+import TeleversementImage from '@/components/common/TeleversementImage.vue'
 import { formatDateLongue } from '@/utils/format'
 import { Store, LogOut, ExternalLink } from 'lucide-vue-next'
 
@@ -177,8 +161,6 @@ const conditions = ref('')
 const logoActuel = ref(null)
 const accepteesLe = ref(null)
 const fichierLogo = ref(null)
-const apercuLocal = ref(null)
-const cleChampLogo = ref(0)
 
 const form = ref({
   email: '',
@@ -187,33 +169,8 @@ const form = ref({
 })
 
 const complet = computed(() => authStore.user?.profil_vendeur_complet === true)
-const apercuLogo = computed(() => apercuLocal.value || (logoActuel.value ? resolveImageUrl(logoActuel.value, { placeholder: false }) : null))
 const longueurDescription = computed(() => form.value.description_boutique.trim().length)
 const descriptionTropCourte = computed(() => longueurDescription.value > 0 && longueurDescription.value < DESCRIPTION_MIN)
-
-const libererApercu = () => {
-  if (apercuLocal.value) {
-    URL.revokeObjectURL(apercuLocal.value)
-    apercuLocal.value = null
-  }
-}
-
-const choisirLogo = (event) => {
-  const fichier = event.target.files?.[0] || null
-  libererApercu()
-  erreur.value = ''
-
-  const probleme = verifierImage(fichier)
-  if (probleme) {
-    erreur.value = probleme
-    fichierLogo.value = null
-    cleChampLogo.value++
-    return
-  }
-
-  fichierLogo.value = fichier
-  apercuLocal.value = fichier ? URL.createObjectURL(fichier) : null
-}
 
 const charger = async () => {
   loading.value = true
@@ -265,8 +222,6 @@ const enregistrer = async () => {
     logoActuel.value = profil.logo_boutique
     accepteesLe.value = profil.conditions_acceptees_le
     fichierLogo.value = null
-    libererApercu()
-    cleChampLogo.value++
 
     if (etaitComplet) {
       toastStore.succes('Profil boutique mis à jour.')
@@ -287,5 +242,4 @@ const deconnexion = async () => {
 }
 
 onMounted(charger)
-onBeforeUnmount(libererApercu)
 </script>

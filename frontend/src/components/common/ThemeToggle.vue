@@ -39,12 +39,12 @@ File: src/components/common/ThemeToggle.vue
       :aria-label="`Thème : ${optionActive.libelle}. Changer le thème`"
       :aria-expanded="ouvert"
       :aria-controls="idListe"
-      @click="ouvert = !ouvert"
+      @click="basculer"
     >
       <component :is="themeStore.estSombre ? Moon : Sun" :size="20" aria-hidden="true" />
     </button>
 
-    <Transition name="menu-theme">
+    <Transition name="deroulant">
       <ul
         v-if="ouvert"
         :id="idListe"
@@ -69,9 +69,10 @@ File: src/components/common/ThemeToggle.vue
 </template>
 
 <script setup>
-import { computed, ref, useId, onMounted, onBeforeUnmount } from 'vue'
+import { computed, useId } from 'vue'
 import { Sun, Moon, Monitor, Check } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
+import { useMenuDeroulant } from '@/composables/useMenuDeroulant'
 
 defineProps({
   variante: {
@@ -88,53 +89,13 @@ const OPTIONS = [
 ]
 
 const themeStore = useThemeStore()
-const ouvert = ref(false)
-const racine = ref(null)
-const bouton = ref(null)
-const idListe = useId()
+const { ouvert, racine, bouton, idMenu: idListe, fermer, basculer } = useMenuDeroulant()
 const nomGroupe = useId()
 
 const optionActive = computed(() => OPTIONS.find((option) => option.valeur === themeStore.preference) || OPTIONS[2])
-
-const fermer = (rendreFocus = false) => {
-  ouvert.value = false
-  if (rendreFocus) bouton.value?.focus()
-}
 
 const choisir = (valeur) => {
   themeStore.choisir(valeur)
   fermer(true)
 }
-
-const fermerSiExterieur = (event) => {
-  if (ouvert.value && racine.value && !racine.value.contains(event.target)) fermer()
-}
-
-// Le focus qui quitte la liste (Tab) la referme
-const fermerSiFocusSort = (event) => {
-  if (ouvert.value && racine.value && !racine.value.contains(event.target)) fermer()
-}
-
-onMounted(() => {
-  document.addEventListener('click', fermerSiExterieur)
-  document.addEventListener('focusin', fermerSiFocusSort)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', fermerSiExterieur)
-  document.removeEventListener('focusin', fermerSiFocusSort)
-})
 </script>
-
-<style scoped>
-.menu-theme-enter-active,
-.menu-theme-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.2, 0, 0, 1);
-}
-
-.menu-theme-enter-from,
-.menu-theme-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
-}
-</style>

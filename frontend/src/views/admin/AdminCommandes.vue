@@ -6,26 +6,21 @@ File: src/views/admin/AdminCommandes.vue
 <template>
   <div class="admin-commandes-page pb-6">
     <div class="container mx-auto px-4 py-6 max-w-6xl">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div>
-          <h1>
-            {{ isAdmin ? 'Gestion des commandes' : 'Mes commandes à traiter' }}
-          </h1>
-          <p class="text-gray-600 text-sm">
-            {{ isHistoriqueMode
-              ? 'Commandes terminées : annulées, ou livrées et payées.'
-              : 'Faites avancer chaque commande et confirmez les paiements reçus.' }}
-          </p>
-        </div>
-        <div class="flex gap-2">
+      <EnTetePage :titre="isAdmin ? 'Gestion des commandes' : 'Mes commandes à traiter'">
+        <template #sous-titre>
+          {{ isHistoriqueMode
+            ? 'Commandes terminées : annulées, ou livrées et payées.'
+            : 'Faites avancer chaque commande et confirmez les paiements reçus.' }}
+        </template>
+        <template #actions>
           <Button variant="secondary" size="sm" @click="toggleHistoriqueMode">
             {{ isHistoriqueMode ? 'Commandes en cours' : 'Historique' }}
           </Button>
           <Button variant="outline" size="sm" :loading="loading" @click="fetchCommandes">
             Actualiser
           </Button>
-        </div>
-      </div>
+        </template>
+      </EnTetePage>
 
       <!-- Repères du vendeur (l'admin dispose du tableau de bord) -->
       <div v-if="!isAdmin && statsVendeur" class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -133,10 +128,8 @@ File: src/views/admin/AdminCommandes.vue
                 </div>
               </div>
               <div class="flex flex-wrap items-center gap-2">
-                <span class="badge" :class="classeStatut(commande.statut)">{{ libelleStatut(commande.statut) }}</span>
-                <span v-if="commande.statut !== 'annulee'" class="badge" :class="classePaiement(commande.statut_paiement)">
-                  {{ libellePaiement(commande.statut_paiement) }}
-                </span>
+                <BadgeStatut :statut="commande.statut" />
+                <BadgeStatut v-if="commande.statut !== 'annulee'" :statut="commande.statut_paiement" type="paiement" />
               </div>
               <div class="flex flex-wrap gap-2">
                 <select
@@ -198,9 +191,7 @@ File: src/views/admin/AdminCommandes.vue
                   </td>
                   <td class="px-4 py-3">
                     <div class="flex flex-col gap-2">
-                      <span class="badge self-start" :class="classeStatut(commande.statut)">
-                        {{ libelleStatut(commande.statut) }}
-                      </span>
+                      <BadgeStatut :statut="commande.statut" class="self-start" />
                       <select
                         v-if="!isReadOnlyCommande(commande)"
                         class="text-xs border border-gray-200 rounded-lg px-2 py-1"
@@ -217,13 +208,12 @@ File: src/views/admin/AdminCommandes.vue
                   </td>
                   <td class="px-4 py-3">
                     <div class="flex flex-col gap-2">
-                      <span
+                      <BadgeStatut
                         v-if="commande.statut !== 'annulee'"
-                        class="badge self-start"
-                        :class="classePaiement(commande.statut_paiement)"
-                      >
-                        {{ libellePaiement(commande.statut_paiement) }}
-                      </span>
+                        :statut="commande.statut_paiement"
+                        type="paiement"
+                        class="self-start"
+                      />
                       <Button
                         v-if="peutConfirmerPaiement(commande)"
                         variant="outline"
@@ -288,17 +278,9 @@ File: src/views/admin/AdminCommandes.vue
               <span v-if="isAdmin && selectedCommande.vendeur"> · Vendeur : {{ selectedCommande.vendeur.nom_complet }}</span>
             </div>
             <div class="flex flex-wrap gap-2">
-              <span class="badge" :class="classeStatut(selectedCommande.statut)">
-                {{ libelleStatut(selectedCommande.statut) }}
-              </span>
+              <BadgeStatut :statut="selectedCommande.statut" />
               <!-- Une commande annulée n'affiche plus son statut de paiement -->
-              <span
-                v-if="selectedCommande.statut !== 'annulee'"
-                class="badge"
-                :class="classePaiement(selectedCommande.statut_paiement)"
-              >
-                {{ libellePaiement(selectedCommande.statut_paiement) }}
-              </span>
+              <BadgeStatut v-if="selectedCommande.statut !== 'annulee'" :statut="selectedCommande.statut_paiement" type="paiement" />
             </div>
           </div>
 
@@ -381,63 +363,25 @@ File: src/views/admin/AdminCommandes.vue
               </div>
 
               <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mt-4 mb-2">Montants</div>
-              <div class="text-sm text-gray-700 flex justify-between">
-                <span>Produits</span><span>{{ formatPrice(selectedCommande.montant_produits) }} FCFA</span>
-              </div>
-              <div class="text-sm text-gray-700 flex justify-between">
-                <span>Livraison</span><span>{{ formatPrice(selectedCommande.montant_livraison) }} FCFA</span>
-              </div>
-              <div class="text-sm font-semibold text-gray-800 flex justify-between mt-1">
-                <span>Total</span><span>{{ formatPrice(selectedCommande.montant_total) }} FCFA</span>
-              </div>
+              <RecapMontants
+                :produits="selectedCommande.montant_produits"
+                :livraison="selectedCommande.montant_livraison"
+                :total="selectedCommande.montant_total"
+                :afficher-livraison="selectedCommande.type_livraison === 'livraison'"
+              />
             </Card>
           </div>
 
           <!-- Articles -->
           <div class="space-y-3">
             <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Articles</div>
-            <div v-if="!selectedCommande.ligne_commandes?.length" class="text-sm text-gray-500">
-              Aucun article.
-            </div>
-            <div v-else class="space-y-2">
-              <div
-                v-for="ligne in selectedCommande.ligne_commandes"
-                :key="ligne.id"
-                class="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-100 bg-surface"
-              >
-                <div class="flex items-center gap-3">
-                  <img
-                    loading="lazy"
-                    :src="resolveImageUrl(ligne.produit?.image_principale)"
-                    alt=""
-                    class="h-12 w-12 rounded-lg object-cover border"
-                    @error="onImageError"
-                  />
-                  <div>
-                    <div class="font-semibold text-gray-800">{{ ligne.nom_produit }}</div>
-                    <div class="text-xs text-gray-500">
-                      {{ ligne.quantite }} × {{ formatPrice(ligne.prix_unitaire) }} FCFA
-                    </div>
-                  </div>
-                </div>
-                <div class="price text-base">{{ formatPrice(ligne.sous_total) }} FCFA</div>
-              </div>
-            </div>
+            <LignesCommande :lignes="selectedCommande.ligne_commandes || []" compact />
           </div>
 
           <!-- Historique -->
           <div v-if="selectedCommande.historiques?.length" class="space-y-2">
             <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Historique</div>
-            <ol class="border-l-2 border-gold-200 pl-4 space-y-3">
-              <li v-for="etape in historiqueTrie" :key="etape.id" class="text-sm">
-                <div class="font-medium text-gray-800">{{ libelleStatut(etape.nouveau_statut) }}</div>
-                <div class="text-xs text-gray-500">
-                  {{ formatDateHeure(etape.created_at) }}
-                  <span v-if="etape.modifie_par"> · {{ etape.modifie_par.nom_complet }}</span>
-                </div>
-                <div v-if="etape.commentaire" class="text-xs text-gray-600 mt-0.5">{{ etape.commentaire }}</div>
-              </li>
-            </ol>
+            <ChronologieCommande :historiques="selectedCommande.historiques" afficher-auteur />
           </div>
         </div>
       </BaseModal>
@@ -453,10 +397,14 @@ import { useConfirm } from '@/composables/useConfirm'
 import { formatVille } from '@/utils/villes'
 import api, { messageErreur, lireErreurBlob } from '@/services/api'
 import Card from '@/components/common/Card.vue'
+import BadgeStatut from '@/components/common/BadgeStatut.vue'
+import LignesCommande from '@/components/commande/LignesCommande.vue'
+import ChronologieCommande from '@/components/commande/ChronologieCommande.vue'
+import RecapMontants from '@/components/commande/RecapMontants.vue'
 import Button from '@/components/common/Button.vue'
+import EnTetePage from '@/components/common/EnTetePage.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import AlertMessage from '@/components/common/AlertMessage.vue'
-import { resolveImageUrl, onImageError } from '@/utils/images'
 import { telechargerBlob } from '@/utils/telechargement'
 import { FileDown, Phone } from 'lucide-vue-next'
 import {
@@ -466,9 +414,6 @@ import {
   formatDate,
   formatDateHeure,
   libelleStatut,
-  classeStatut,
-  libellePaiement,
-  classePaiement,
   libelleMoyenPaiement,
 } from '@/utils/format'
 
@@ -524,11 +469,6 @@ const showDetail = ref(false)
 const detailLoading = ref(false)
 const detailError = ref('')
 const selectedCommande = ref(null)
-
-const historiqueTrie = computed(() => {
-  return [...(selectedCommande.value?.historiques || [])]
-    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-})
 
 const notifyVendeurBadgeRefresh = () => {
   window.dispatchEvent(new CustomEvent('vendeur-commandes-updated'))

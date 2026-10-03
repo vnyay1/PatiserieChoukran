@@ -58,21 +58,7 @@ File: src/views/ProduitDetail.vue
               @error="onImageError"
             />
 
-            <div class="absolute inset-x-4 top-4 flex items-start justify-between gap-2">
-              <span v-if="produit.createur?.est_vendeur_vedette" class="badge bg-gold-500 px-3 py-1 text-sm text-on-gold shadow-sm">
-                <Star :size="14" fill="currentColor" aria-hidden="true" />
-                Vendeur vedette
-              </span>
-              <span v-else></span>
-              <span v-if="produit.prix_promo" class="badge bg-danger px-3 py-1 text-sm text-white shadow-sm">
-                <span aria-hidden="true">−{{ reductionPercent }} %</span>
-                <span class="sr-only">Promotion : moins {{ reductionPercent }} %</span>
-              </span>
-            </div>
-
-            <div v-if="indisponible" class="absolute inset-0 flex items-center justify-center bg-voile/55">
-              <span class="badge bg-surface px-4 py-2 text-base text-gray-900">Rupture de stock</span>
-            </div>
+            <BadgesProduit :produit="produit" grand />
           </div>
 
           <!-- Miniatures -->
@@ -157,7 +143,7 @@ File: src/views/ProduitDetail.vue
           </ul>
 
           <!-- Achat (desktop et tablette) -->
-          <div v-if="!isRestrictedRole" ref="blocAchat" class="mt-7 rounded-2xl border border-gray-200 bg-surface p-4 shadow-card sm:p-5">
+          <div v-if="!estEquipe" ref="blocAchat" class="mt-7 rounded-2xl border border-gray-200 bg-surface p-4 shadow-card sm:p-5">
             <div class="flex flex-wrap items-center gap-4">
               <QuantiteStepper
                 v-model="quantite"
@@ -177,8 +163,8 @@ File: src/views/ProduitDetail.vue
               class="mt-4"
               :icon="indisponible ? null : ShoppingCart"
               :disabled="indisponible"
-              :loading="addingToCart"
-              @click="addToCart"
+              :loading="ajoutEnCours"
+              @click="ajouterAuPanier"
             >
               {{ indisponible ? 'Indisponible' : 'Ajouter au panier' }}
             </Button>
@@ -225,8 +211,8 @@ File: src/views/ProduitDetail.vue
             <Button
               variant="primary"
               :icon="ShoppingCart"
-              :loading="addingToCart"
-              @click="addToCart"
+              :loading="ajoutEnCours"
+              @click="ajouterAuPanier"
             >
               Ajouter
             </Button>
@@ -259,29 +245,25 @@ File: src/views/ProduitDetail.vue
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
-import { usePanierStore } from '@/stores/panier'
-import { useToastStore } from '@/stores/toast'
+import { useRoute } from 'vue-router'
 import { useVilleStore } from '@/stores/ville'
+import { useAjoutPanier } from '@/composables/useAjoutPanier'
 import api from '@/services/api'
 import ProduitCard from '@/components/produits/ProduitCard.vue'
+import BadgesProduit from '@/components/produits/BadgesProduit.vue'
 import Button from '@/components/common/Button.vue'
 import AlertMessage from '@/components/common/AlertMessage.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import QuantiteStepper from '@/components/common/QuantiteStepper.vue'
 import { resolveImageUrl, onImageError } from '@/utils/images'
 import { formatPrice, SEUIL_STOCK_FAIBLE } from '@/utils/format'
+import { estIndisponible } from '@/utils/produit'
 import {
-  Star, ShoppingCart, AlertTriangle, Truck, ChevronRight, Store, CheckCircle2, XCircle, PackageOpen,
+  ShoppingCart, AlertTriangle, Truck, ChevronRight, Store, CheckCircle2, XCircle, PackageOpen,
 } from 'lucide-vue-next'
 import { formatVille } from '@/utils/villes'
 
 const route = useRoute()
-const router = useRouter()
-const authStore = useAuthStore()
-const panierStore = usePanierStore()
-const toastStore = useToastStore()
 const villeStore = useVilleStore()
 
 // Villes et minimum du vendeur : prévient avant l'ajout au panier si la ville n'est pas livrée
@@ -305,12 +287,11 @@ const produit = ref(null)
 const produitsSimilaires = ref([])
 const loading = ref(true)
 const erreurChargement = ref(false)
-const addingToCart = ref(false)
 const quantite = ref(1)
 const currentImage = ref('')
-const isRestrictedRole = computed(() => authStore.isAdmin || authStore.isVendeur)
-const indisponible = computed(() => !produit.value?.est_disponible || produit.value?.stock_disponible === 0)
-const barreMobilePossible = computed(() => Boolean(produit.value) && !indisponible.value && !isRestrictedRole.value)
+const { ajouter, ajoutEnCours, estEquipe } = useAjoutPanier()
+const indisponible = computed(() => estIndisponible(produit.value))
+const barreMobilePossible = computed(() => Boolean(produit.value) && !indisponible.value && !estEquipe.value)
 
 // Sur mobile, la barre d'achat collante n'apparaît que lorsque le bloc d'achat (et son
 // sélecteur de quantité) est sorti de l'écran : jamais deux boutons « Ajouter » à la fois
@@ -346,11 +327,6 @@ const allImages = computed(() => {
   return images
     .filter(Boolean)
     .map((path) => resolveImageUrl(path, { placeholder: false }))
-})
-
-const reductionPercent = computed(() => {
-  if (!produit.value?.prix_promo) return 0
-  return Math.round(((produit.value.prix_unitaire - produit.value.prix_promo) / produit.value.prix_unitaire) * 100)
 })
 
 const prixUnitaire = computed(() => produit.value?.prix_promo || produit.value?.prix_unitaire || 0)
@@ -412,27 +388,9 @@ const fetchProduitsSimilaires = async () => {
   }
 }
 
-const addToCart = async () => {
-  if (isRestrictedRole.value) {
-    return
-  }
-
-  // Visiteur : le panier est réservé aux clients connectés
-  if (!authStore.isAuthenticated) {
-    toastStore.info('Connectez-vous pour ajouter des produits à votre panier.')
-    router.push({ name: 'login', query: { redirect: route.fullPath } })
-    return
-  }
-
-  addingToCart.value = true
-  const result = await panierStore.addItem(produit.value.id, quantite.value)
-  addingToCart.value = false
-
-  if (result.success) {
-    toastStore.succes(`${quantite.value} × « ${produit.value.nom} » ajouté au panier.`)
+const ajouterAuPanier = async () => {
+  if (await ajouter(produit.value, quantite.value)) {
     quantite.value = 1
-  } else {
-    toastStore.erreur(result.message || 'Impossible d\'ajouter ce produit au panier.')
   }
 }
 

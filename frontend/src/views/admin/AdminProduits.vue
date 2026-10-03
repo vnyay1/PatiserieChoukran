@@ -136,48 +136,33 @@ File: src/views/admin/AdminProduits.vue
 
           <div>
             <label for="admin-produits-10" class="block text-sm font-medium text-gray-700 mb-2">Image principale</label>
-            <div class="flex items-center gap-3">
-              <img
-                v-if="apercuPrincipale"
-                loading="lazy"
-                :src="apercuPrincipale"
-                alt="Aperçu de l'image principale"
-                class="h-16 w-16 flex-shrink-0 rounded-lg object-cover border"
-                @error="onImageError"
-              />
-              <input
-                id="admin-produits-10"
-                :key="fileInputKey"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                class="input"
-                @change="onImagePrincipale"
-              />
-            </div>
+            <TeleversementImage
+              id="admin-produits-10"
+              v-model="imagePrincipale"
+              :image-actuelle="imagePrincipaleActuelle"
+              @erreur="formError = $event"
+            />
           </div>
 
           <div>
             <label for="admin-produits-11" class="block text-sm font-medium text-gray-700 mb-2">Images secondaires (4 max.)</label>
             <input
               id="admin-produits-11"
-              :key="fileInputKey + 1"
+              :key="fileInputKey"
               type="file"
               accept="image/jpeg,image/png,image/webp"
               multiple
               class="input"
               @change="onImagesSecondaires"
             />
-            <p class="text-xs text-gray-500 mt-1">
+            <p class="aide">
+              JPEG, PNG ou WebP, {{ TAILLE_MAX_IMAGE_MO }} Mo maximum par image.
               <template v-if="imagesSecondaires.length">{{ imagesSecondaires.length }} image(s) sélectionnée(s).</template>
               <template v-else-if="isEditing && nbImagesSecondairesActuelles">
                 {{ nbImagesSecondairesActuelles }} image(s) actuelle(s) : un nouvel envoi les remplace.
               </template>
             </p>
           </div>
-
-          <p class="md:col-span-2 text-xs text-gray-500 -mt-2">
-            JPEG, PNG ou WebP, {{ TAILLE_MAX_IMAGE_MO }} Mo maximum par image.
-          </p>
 
           <div class="md:col-span-2 flex flex-wrap gap-4">
             <label class="inline-flex min-h-11 cursor-pointer items-center gap-2">
@@ -306,13 +291,14 @@ File: src/views/admin/AdminProduits.vue
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import api, { messageErreur } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import TeleversementImage from '@/components/common/TeleversementImage.vue'
 import { Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-vue-next'
 import { resolveImageUrl, onImageError, verifierImage, TAILLE_MAX_IMAGE_MO } from '@/utils/images'
 
@@ -356,20 +342,10 @@ const filters = ref({
 
 const imagePrincipale = ref(null)
 const imagesSecondaires = ref([])
-// Image déjà enregistrée (édition) et aperçu local du nouveau fichier
+// Images déjà enregistrées (modification)
 const imagePrincipaleActuelle = ref(null)
 const nbImagesSecondairesActuelles = ref(0)
-const apercuLocal = ref(null)
-const apercuPrincipale = computed(() => {
-  return apercuLocal.value || (imagePrincipaleActuelle.value ? resolveImageUrl(imagePrincipaleActuelle.value) : null)
-})
-
-const libererApercu = () => {
-  if (apercuLocal.value) {
-    URL.revokeObjectURL(apercuLocal.value)
-    apercuLocal.value = null
-  }
-}
+// Change pour vider le champ des images secondaires
 const fileInputKey = ref(0)
 
 const formatPrice = (price) => {
@@ -451,8 +427,7 @@ const resetForm = () => {
   imagesSecondaires.value = []
   imagePrincipaleActuelle.value = null
   nbImagesSecondairesActuelles.value = 0
-  libererApercu()
-  fileInputKey.value += 2
+  fileInputKey.value += 1
   formError.value = ''
 }
 
@@ -478,8 +453,7 @@ const openEdit = (produit) => {
   imagesSecondaires.value = []
   imagePrincipaleActuelle.value = produit.image_principale || null
   nbImagesSecondairesActuelles.value = produit.images_secondaires?.length || 0
-  libererApercu()
-  fileInputKey.value += 2
+  fileInputKey.value += 1
   isEditing.value = true
   showForm.value = true
   formError.value = ''
@@ -488,23 +462,6 @@ const openEdit = (produit) => {
 const closeForm = () => {
   showForm.value = false
   formError.value = ''
-}
-
-const onImagePrincipale = (event) => {
-  const fichier = event.target.files?.[0] || null
-  libererApercu()
-
-  const erreur = verifierImage(fichier)
-  if (erreur) {
-    formError.value = erreur
-    imagePrincipale.value = null
-    event.target.value = ''
-    return
-  }
-
-  formError.value = ''
-  imagePrincipale.value = fichier
-  apercuLocal.value = fichier ? URL.createObjectURL(fichier) : null
 }
 
 const onImagesSecondaires = (event) => {
@@ -635,8 +592,6 @@ const changePage = (page) => {
   currentPage.value = page
   fetchProduits()
 }
-
-onBeforeUnmount(libererApercu)
 
 onMounted(() => {
   fetchCategories()

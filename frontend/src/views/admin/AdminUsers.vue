@@ -6,21 +6,16 @@ File: src/views/admin/AdminUsers.vue
 <template>
   <div class="admin-users-page pb-6">
     <div class="container mx-auto px-4 py-6 max-w-6xl">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div>
-          <h1>
-            Utilisateurs
-          </h1>
-          <p class="text-gray-600 text-sm">
-            Gérer les rôles, statuts et consulter les informations clients.
-          </p>
-        </div>
-        <div class="flex gap-2">
+      <EnTetePage titre="Utilisateurs">
+        <template #sous-titre>
+          Gérer les rôles, statuts et consulter les informations clients.
+        </template>
+        <template #actions>
           <Button variant="outline" size="sm" :loading="loading" @click="fetchUsers">
             Actualiser
           </Button>
-        </div>
-      </div>
+        </template>
+      </EnTetePage>
 
       <Card padding="md" class="mb-6">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
@@ -159,9 +154,7 @@ File: src/views/admin/AdminUsers.vue
                 </td>
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-2">
-                    <span class="badge" :class="getStatutClass(user.statut)">
-                      {{ getStatutLabel(user.statut) }}
-                    </span>
+                    <BadgeStatut :statut="user.statut" type="compte" />
                     <select
                       class="input min-h-9 w-auto py-1 pl-3 pr-8 text-sm"
                       :aria-label="`Statut de ${user.nom_complet}`"
@@ -236,9 +229,7 @@ File: src/views/admin/AdminUsers.vue
                 <span class="badge bg-gray-100 text-gray-700">
                   {{ getRoleLabel(selectedUser.role) }}
                 </span>
-                <span class="badge" :class="getStatutClass(selectedUser.statut)">
-                  {{ getStatutLabel(selectedUser.statut) }}
-                </span>
+                <BadgeStatut :statut="selectedUser.statut" type="compte" />
                 <span v-if="selectedUser.role === 'vendeur' && selectedUser.est_vendeur_vedette" class="badge badge-primary">
                   Vedette
                 </span>
@@ -352,9 +343,7 @@ File: src/views/admin/AdminUsers.vue
                   <div class="text-xs text-gray-500">{{ formatDate(commande.created_at) }}</div>
                 </div>
                 <div class="flex items-center gap-2">
-                  <span class="badge" :class="classeStatut(commande.statut)">
-                    {{ libelleStatut(commande.statut) }}
-                  </span>
+                  <BadgeStatut :statut="commande.statut" />
                   <span class="price text-base">{{ formatPrice(commande.montant_total) }} FCFA</span>
                 </div>
               </div>
@@ -372,9 +361,11 @@ import api, { messageErreur } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
-import { formatPrice, formatPrice as formatNumber, formatDate, classeStatut, libelleStatut } from '@/utils/format'
+import { formatPrice, formatPrice as formatNumber, formatDate, libelleCompte } from '@/utils/format'
+import BadgeStatut from '@/components/common/BadgeStatut.vue'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import EnTetePage from '@/components/common/EnTetePage.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import AlertMessage from '@/components/common/AlertMessage.vue'
 import { Search, Star } from 'lucide-vue-next'
@@ -424,24 +415,6 @@ const getRoleLabel = (role) => {
     vendeur: 'Vendeur',
   }
   return labels[role] || role
-}
-
-const getStatutLabel = (statut) => {
-  const labels = {
-    actif: 'Actif',
-    inactif: 'Inactif',
-    suspendu: 'Suspendu',
-  }
-  return labels[statut] || statut
-}
-
-const getStatutClass = (statut) => {
-  const classes = {
-    actif: 'bg-green-100 text-green-700',
-    inactif: 'bg-gray-100 text-gray-700',
-    suspendu: 'bg-red-100 text-red-700',
-  }
-  return classes[statut] || 'bg-gray-100 text-gray-700'
 }
 
 const formatAdresse = (adresse) => {
@@ -517,7 +490,7 @@ const onStatusChange = async (user, event) => {
     titre: 'Changer le statut',
     message: nextStatus === 'actif'
       ? `${user.nom_complet} pourra de nouveau se connecter.`
-      : `${user.nom_complet} passera en « ${getStatutLabel(nextStatus)} » et sera déconnecté de tous ses appareils.`,
+      : `${user.nom_complet} passera en « ${libelleCompte(nextStatus)} » et sera déconnecté de tous ses appareils.`,
     libelleConfirmer: 'Confirmer',
     danger: nextStatus !== 'actif',
   })

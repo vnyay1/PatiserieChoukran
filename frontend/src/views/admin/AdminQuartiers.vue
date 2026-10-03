@@ -6,20 +6,17 @@ File: src/views/admin/AdminQuartiers.vue
 <template>
   <div class="admin-quartiers-page pb-6">
     <div class="container mx-auto px-4 py-6 max-w-5xl">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div>
-          <h1>
-            Quartiers
-          </h1>
-          <p class="text-gray-600 text-sm">
-            Quartiers proposés aux clients dans leurs adresses, par ville. Un quartier désactivé
-            n'est plus proposé mais les adresses existantes le conservent.
-          </p>
-        </div>
-        <Button variant="primary" :icon="Plus" :icon-size="18" @click="ouvrirCreation">
-          Nouveau quartier
-        </Button>
-      </div>
+      <EnTetePage titre="Quartiers">
+        <template #sous-titre>
+          Quartiers proposés aux clients dans leurs adresses, par ville. Un quartier désactivé
+          n'est plus proposé mais les adresses existantes le conservent.
+        </template>
+        <template #actions>
+          <Button variant="primary" :icon="Plus" :icon-size="18" @click="ouvrirCreation">
+            Nouveau quartier
+          </Button>
+        </template>
+      </EnTetePage>
 
       <Card v-if="formulaireOuvert" padding="lg" class="mb-6">
         <form class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end" @submit.prevent="enregistrer">
@@ -141,6 +138,7 @@ import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import EnTetePage from '@/components/common/EnTetePage.vue'
 import { VILLES, formatVille } from '@/utils/villes'
 import { Plus, Search, Pencil, Trash2 } from 'lucide-vue-next'
 

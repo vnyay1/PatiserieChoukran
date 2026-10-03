@@ -14,9 +14,7 @@ File: src/views/Profil.vue
       <!-- Identité et navigation -->
       <div class="card p-4 sm:p-5">
         <div class="flex items-center gap-3 lg:flex-col lg:text-center">
-          <span class="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-gold-500 text-lg font-bold text-on-gold lg:h-20 lg:w-20 lg:text-2xl" aria-hidden="true">
-            {{ initiales }}
-          </span>
+          <Avatar :nom="authStore.user?.nom_complet" taille="lg" />
           <div class="min-w-0">
             <p class="truncate font-display text-lg font-semibold text-gray-900">{{ authStore.user?.nom_complet }}</p>
             <p class="text-sm text-gray-600">{{ authStore.user?.telephone }}</p>
@@ -100,7 +98,7 @@ File: src/views/Profil.vue
 
           <AlertMessage v-if="isClientProfileLocked" type="info">
             Le numéro de téléphone et l'e-mail d'un compte client ne sont pas modifiables.
-            Contactez-nous au +237 658 55 56 00 pour les changer.
+            Contactez-nous au <a :href="TELEPHONE.lien" class="lien whitespace-nowrap">{{ TELEPHONE.affiche }}</a> pour les changer.
           </AlertMessage>
 
           <AlertMessage v-if="profileError" type="error">{{ profileError }}</AlertMessage>
@@ -234,10 +232,12 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import PasswordInput from '@/components/common/PasswordInput.vue'
 import TelephoneInput from '@/components/common/TelephoneInput.vue'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
+import Avatar from '@/components/common/Avatar.vue'
 import AdresseFormModal from '@/components/adresse/AdresseFormModal.vue'
 import { formatVille, villeAdresse } from '@/utils/villes'
 import { chiffresLocaux, telephoneComplet } from '@/utils/telephone'
 import { useConfirm } from '@/composables/useConfirm'
+import { TELEPHONE } from '@/utils/contact'
 import { User, MapPin, Lock, LogOut, Trash2, Pencil, Plus, AlertTriangle } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -304,15 +304,6 @@ const naviguerOnglets = async (event) => {
   document.getElementById(`onglet-${activeTab.value}`)?.focus()
 }
 
-const initiales = computed(() => {
-  return authStore.user?.nom_complet
-    ?.split(' ')
-    .filter(Boolean)
-    .map((mot) => mot[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) || 'U'
-})
 const isClientProfileLocked = computed(() => authStore.user?.role === 'client')
 const telephoneModifie = computed(() => !isClientProfileLocked.value
   && chiffresLocaux(profileForm.value.telephone) !== chiffresLocaux(authStore.user?.telephone || ''))

@@ -25,24 +25,7 @@ File: src/components/produits/ProduitCard.vue
         @error="onImageError"
       />
 
-      <div class="absolute inset-x-2 top-2 flex items-start justify-between gap-2">
-        <!-- Vendeur mis en avant par l'admin -->
-        <span v-if="produit.createur?.est_vendeur_vedette" class="badge bg-gold-500 text-on-gold shadow-sm">
-          <Star :size="12" fill="currentColor" aria-hidden="true" />
-          Vedette
-        </span>
-        <span v-else></span>
-
-        <span v-if="produit.prix_promo" class="badge bg-danger text-white shadow-sm">
-          <span aria-hidden="true">−{{ reductionPercent }} %</span>
-          <span class="sr-only">Promotion : moins {{ reductionPercent }} %</span>
-        </span>
-      </div>
-
-      <!-- Rupture de stock -->
-      <div v-if="indisponible" class="absolute inset-0 flex items-center justify-center bg-voile/55">
-        <span class="badge bg-surface px-3 py-1 text-sm text-gray-900">Rupture de stock</span>
-      </div>
+      <BadgesProduit :produit="produit" />
     </div>
 
     <!-- Contenu -->
@@ -79,7 +62,7 @@ File: src/components/produits/ProduitCard.vue
 
       <!-- Ajout au panier : masqué pour l'équipe (admin, vendeur) -->
       <Button
-        v-if="!isRestrictedRole"
+        v-if="!estEquipe"
         variant="primary"
         size="sm"
         full-width
@@ -87,9 +70,9 @@ File: src/components/produits/ProduitCard.vue
         :icon="indisponible ? null : ShoppingCart"
         :icon-size="16"
         :disabled="indisponible"
-        :loading="addingToCart"
+        :loading="ajoutEnCours"
         :aria-label="indisponible ? `${produit.nom} : indisponible` : `Ajouter ${produit.nom} au panier`"
-        @click="addToCart"
+        @click="ajouter(produit)"
       >
         {{ indisponible ? 'Indisponible' : 'Ajouter' }}
       </Button>
@@ -98,16 +81,15 @@ File: src/components/produits/ProduitCard.vue
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
-import { usePanierStore } from '@/stores/panier'
-import { useToastStore } from '@/stores/toast'
+import { computed } from 'vue'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
-import { ShoppingCart, Star } from 'lucide-vue-next'
+import BadgesProduit from '@/components/produits/BadgesProduit.vue'
+import { ShoppingCart } from 'lucide-vue-next'
+import { useAjoutPanier } from '@/composables/useAjoutPanier'
 import { resolveImageUrl, onImageError } from '@/utils/images'
 import { formatPrice } from '@/utils/format'
+import { estIndisponible } from '@/utils/produit'
 
 const props = defineProps({
   produit: {
@@ -116,40 +98,6 @@ const props = defineProps({
   }
 })
 
-const router = useRouter()
-const authStore = useAuthStore()
-const panierStore = usePanierStore()
-const toastStore = useToastStore()
-const addingToCart = ref(false)
-const isRestrictedRole = computed(() => authStore.isAdmin || authStore.isVendeur)
-const indisponible = computed(() => !props.produit.est_disponible || props.produit.stock_disponible === 0)
-
-const reductionPercent = computed(() => {
-  if (!props.produit.prix_promo) return 0
-  const reduction = ((props.produit.prix_unitaire - props.produit.prix_promo) / props.produit.prix_unitaire) * 100
-  return Math.round(reduction)
-})
-
-const addToCart = async () => {
-  if (isRestrictedRole.value) {
-    return
-  }
-
-  // Visiteur : le panier est réservé aux clients connectés
-  if (!authStore.isAuthenticated) {
-    toastStore.info('Connectez-vous pour ajouter des produits à votre panier.')
-    router.push({ name: 'login', query: { redirect: router.currentRoute.value.fullPath } })
-    return
-  }
-
-  addingToCart.value = true
-  const result = await panierStore.addItem(props.produit.id, 1)
-  addingToCart.value = false
-
-  if (result.success) {
-    toastStore.succes(`« ${props.produit.nom} » ajouté au panier.`)
-  } else {
-    toastStore.erreur(result.message || 'Impossible d\'ajouter ce produit au panier.')
-  }
-}
+const { ajouter, ajoutEnCours, estEquipe } = useAjoutPanier()
+const indisponible = computed(() => estIndisponible(props.produit))
 </script>

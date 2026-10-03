@@ -8,15 +8,8 @@ File: src/views/Notifications.vue
 -->
 <template>
   <div class="container mx-auto max-w-3xl pb-6 pt-6 md:pt-8">
-    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1>Notifications</h1>
-        <p class="mt-1 text-sm text-gray-600" aria-live="polite">
-          {{ unreadCount === 0 ? 'Tout est lu' : `${unreadCount} non lue${unreadCount > 1 ? 's' : ''}` }}
-        </p>
-      </div>
-
-      <div class="flex flex-wrap gap-2">
+    <EnTetePage titre="Notifications" :sous-titre="resumeNonLues" annonce>
+      <template #actions>
         <Button
           variant="outline"
           size="sm"
@@ -35,8 +28,8 @@ File: src/views/Notifications.vue
         >
           Supprimer les lues
         </Button>
-      </div>
-    </div>
+      </template>
+    </EnTetePage>
 
     <div class="mb-5 flex flex-wrap items-center gap-2" role="group" aria-label="Afficher">
       <button
@@ -118,35 +111,23 @@ File: src/views/Notifications.vue
       texte="Vous serez prévenu ici de chaque étape de vos commandes."
     />
 
-    <nav v-if="hasPagination" class="mt-6 flex items-center justify-center gap-3" aria-label="Pagination">
-      <Button
-        variant="outline"
-        size="sm"
-        :icon="ChevronLeft"
-        :disabled="currentPage <= 1 || notificationsStore.loading"
-        @click="changePage(currentPage - 1)"
-      >
-        Précédentes
-      </Button>
-      <span class="text-sm tabular-nums text-gray-600">Page {{ currentPage }} sur {{ lastPage }}</span>
-      <Button
-        variant="outline"
-        size="sm"
-        :disabled="currentPage >= lastPage || notificationsStore.loading"
-        @click="changePage(currentPage + 1)"
-      >
-        Suivantes
-        <ChevronRight :size="16" aria-hidden="true" />
-      </Button>
-    </nav>
+    <Pagination
+      v-model:page="currentPage"
+      :derniere="lastPage"
+      :desactive="notificationsStore.loading"
+      libelle="Pages de notifications"
+      class="mt-6"
+    />
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Bell, BellOff, Package, Trash2, CheckCheck, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { Bell, BellOff, Package, Trash2, CheckCheck } from 'lucide-vue-next'
 import Button from '@/components/common/Button.vue'
+import EnTetePage from '@/components/common/EnTetePage.vue'
+import Pagination from '@/components/common/Pagination.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import AlertMessage from '@/components/common/AlertMessage.vue'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -176,7 +157,11 @@ const notifications = computed(() => notificationsStore.items)
 const unreadCount = computed(() => notificationsStore.unreadCount)
 const hasReadNotifications = computed(() => notifications.value.some((entry) => entry.est_lu))
 const lastPage = computed(() => notificationsStore.pagination.last_page || 1)
-const hasPagination = computed(() => lastPage.value > 1)
+const resumeNonLues = computed(() => {
+  const nombre = unreadCount.value
+  if (nombre === 0) return 'Tout est lu'
+  return `${nombre} non lue${nombre > 1 ? 's' : ''}`
+})
 
 const labelType = (type) => {
   if (type === 'commande') return 'Commande'
@@ -218,11 +203,6 @@ const fetchNotifications = async () => {
 const setReadFilter = (value) => {
   if (readFilter.value === value) return
   readFilter.value = value
-}
-
-const changePage = (page) => {
-  if (page < 1 || page > lastPage.value || page === currentPage.value) return
-  currentPage.value = page
 }
 
 const markAsRead = async (id) => {

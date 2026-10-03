@@ -26,7 +26,7 @@ File: src/components/commande/CommandeCard.vue
         <p class="text-sm text-gray-600">{{ formatDate(commande.created_at) }}</p>
       </div>
       <div class="flex flex-shrink-0 items-center gap-1">
-        <span :class="['badge', getBadgeClass(commande.statut)]">{{ getStatutLabel(commande.statut) }}</span>
+        <BadgeStatut :statut="commande.statut" />
         <ChevronRight :size="20" class="text-gray-500" aria-hidden="true" />
       </div>
     </div>
@@ -51,10 +51,7 @@ File: src/components/commande/CommandeCard.vue
         <span class="block text-xs font-semibold uppercase tracking-wider text-gray-500">Montant total</span>
         <span class="price text-xl">{{ formatPrice(commande.montant_total) }} FCFA</span>
       </p>
-      <span v-if="commande.statut !== 'annulee'" :class="['badge', getPaymentBadgeClass(commande.statut_paiement)]">
-        <span class="sr-only">Paiement :</span>
-        {{ getPaymentLabel(commande.statut_paiement) }}
-      </span>
+      <BadgeStatut v-if="commande.statut !== 'annulee'" :statut="commande.statut_paiement" type="paiement" />
     </div>
 
     <!-- Suivi (commande en cours) -->
@@ -80,13 +77,10 @@ File: src/components/commande/CommandeCard.vue
 <script setup>
 import { computed } from 'vue'
 import Card from '@/components/common/Card.vue'
+import BadgeStatut from '@/components/common/BadgeStatut.vue'
 import {
   formatPrice,
   formatDateLongue as formatDate,
-  libelleStatut as getStatutLabel,
-  classeStatut as getBadgeClass,
-  libellePaiement as getPaymentLabel,
-  classePaiement as getPaymentBadgeClass,
 } from '@/utils/format'
 import { Package, Truck, Store, ChevronRight } from 'lucide-vue-next'
 

@@ -12,19 +12,16 @@ File: src/views/Produits.vue
     <!-- Recherche -->
     <div class="sticky top-14 z-30 border-b border-gray-200 bg-surface/95 backdrop-blur-md md:top-[4.5rem]">
       <div class="container mx-auto flex items-center gap-2 py-3">
-        <form class="relative flex-1" role="search" @submit.prevent="mettreAJourUrl(1)">
-          <label for="recherche-produits" class="sr-only">Rechercher un produit</label>
-          <Search class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" :size="20" aria-hidden="true" />
-          <input
-            id="recherche-produits"
-            v-model="searchQuery"
-            type="search"
-            enterkeyhint="search"
-            placeholder="Gâteau, glace, croissant…"
-            class="input rounded-full pl-11"
-            @input="handleSearch"
-          />
-        </form>
+        <ChampRecherche
+          id="recherche-produits"
+          v-model="searchQuery"
+          role="search"
+          libelle="Rechercher un produit"
+          placeholder="Gâteau, glace, croissant…"
+          arrondi
+          class="flex-1"
+          @rechercher="mettreAJourUrl(1)"
+        />
         <button
           type="button"
           class="btn-outline relative flex-shrink-0 px-4 md:hidden"
@@ -131,43 +128,13 @@ File: src/views/Produits.vue
           </EmptyState>
 
           <!-- Pagination -->
-          <nav v-if="totalPages > 1" class="mt-10 flex justify-center" aria-label="Pagination">
-            <ul class="flex flex-wrap items-center justify-center gap-1.5">
-              <li>
-                <button
-                  type="button"
-                  class="page-btn"
-                  :disabled="currentPage === 1"
-                  aria-label="Page précédente"
-                  @click="changePage(currentPage - 1)"
-                >
-                  <ChevronLeft :size="20" aria-hidden="true" />
-                </button>
-              </li>
-              <li v-for="page in displayedPages" :key="page">
-                <button
-                  type="button"
-                  class="page-btn"
-                  :aria-current="page === currentPage ? 'page' : undefined"
-                  :aria-label="`Page ${page}`"
-                  @click="changePage(page)"
-                >
-                  {{ page }}
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  class="page-btn"
-                  :disabled="currentPage === totalPages"
-                  aria-label="Page suivante"
-                  @click="changePage(currentPage + 1)"
-                >
-                  <ChevronRight :size="20" aria-hidden="true" />
-                </button>
-              </li>
-            </ul>
-          </nav>
+          <Pagination
+            :page="currentPage"
+            :derniere="totalPages"
+            libelle="Pages de produits"
+            class="mt-10"
+            @update:page="changePage"
+          />
         </div>
       </div>
     </div>
@@ -207,7 +174,7 @@ File: src/views/Produits.vue
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api, { messageErreur } from '@/services/api'
 import { useVilleStore } from '@/stores/ville'
@@ -217,8 +184,10 @@ import Button from '@/components/common/Button.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import AlertMessage from '@/components/common/AlertMessage.vue'
+import ChampRecherche from '@/components/common/ChampRecherche.vue'
+import Pagination from '@/components/common/Pagination.vue'
 import { formatPrice } from '@/utils/format'
-import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight, SearchX } from 'lucide-vue-next'
+import { SlidersHorizontal, X, SearchX } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -258,22 +227,6 @@ const currentPage = ref(1)
 const perPage = ref(12)
 const totalProduits = ref(0)
 const totalPages = computed(() => Math.ceil(totalProduits.value / perPage.value))
-
-const displayedPages = computed(() => {
-  const pages = []
-  const maxPages = 5
-  let start = Math.max(1, currentPage.value - Math.floor(maxPages / 2))
-  let end = Math.min(totalPages.value, start + maxPages - 1)
-
-  if (end - start < maxPages - 1) {
-    start = Math.max(1, end - maxPages + 1)
-  }
-
-  for (let i = start; i <= end; i++) {
-    pages.push(i)
-  }
-  return pages
-})
 
 const hasPriceFilter = computed(() => priceRange.value[0] != null || priceRange.value[1] != null)
 const hasActiveFilters = computed(() => {
@@ -415,12 +368,6 @@ const getCategoryName = (id) => {
   return cat ? cat.nom : ''
 }
 
-let searchTimeout = null
-const handleSearch = () => {
-  clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => mettreAJourUrl(1), 400)
-}
-
 const resetFilters = () => {
   searchQuery.value = ''
   selectedCategory.value = null
@@ -466,20 +413,10 @@ watch(() => villeStore.ville, () => {
   else mettreAJourUrl(1)
 })
 
-onBeforeUnmount(() => clearTimeout(searchTimeout))
 </script>
 
 <style scoped>
 .titre-tri {
   @apply mb-3 block font-body text-sm font-bold uppercase tracking-wider text-gray-900;
-}
-
-.page-btn {
-  @apply inline-flex h-11 min-w-11 items-center justify-center rounded-full border border-gray-300 bg-surface px-3 font-semibold tabular-nums text-gray-800
-         transition-colors hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-45;
-}
-
-.page-btn[aria-current='page'] {
-  @apply border-gold-500 bg-gold-500 text-on-gold hover:bg-gold-500;
 }
 </style>

@@ -39,9 +39,7 @@ File: src/views/PaiementRetour.vue
             class="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-gray-200 px-4 py-2 transition-colors hover:border-gray-300 hover:bg-gray-50"
           >
             <span class="font-semibold text-gray-900">{{ commande.numero_commande }}</span>
-            <span :class="['badge', classePaiement(commande.statut_paiement)]">
-              {{ libellePaiement(commande.statut_paiement) }}
-            </span>
+            <BadgeStatut :statut="commande.statut_paiement" type="paiement" />
           </router-link>
         </li>
       </ul>
@@ -64,7 +62,8 @@ import { useRoute } from 'vue-router'
 import api, { messageErreur } from '@/services/api'
 import Button from '@/components/common/Button.vue'
 import { CheckCircle2, Hourglass, AlertTriangle, RefreshCw } from 'lucide-vue-next'
-import { classePaiement, formatPrice, libellePaiement } from '@/utils/format'
+import { formatPrice } from '@/utils/format'
+import BadgeStatut from '@/components/common/BadgeStatut.vue'
 import { oublierReferencePaiement, referencePaiementMemorisee } from '@/utils/paiement'
 
 // Le webhook confirme le paiement côté serveur ; ici on relit le statut quelques fois

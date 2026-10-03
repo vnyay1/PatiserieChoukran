@@ -14,7 +14,7 @@ File: src/components/layout/VilleSelecteur.vue
       class="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-gold-200 bg-gold-50 px-3 text-sm font-semibold text-gold-800 transition-colors hover:border-gold-300 hover:bg-gold-100"
       :aria-expanded="ouvert"
       :aria-controls="idListe"
-      @click="ouvert = !ouvert"
+      @click="basculer"
     >
       <MapPin :size="16" aria-hidden="true" />
       <span class="sr-only">Ville de livraison :</span>
@@ -61,8 +61,8 @@ File: src/components/layout/VilleSelecteur.vue
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, useId } from 'vue'
 import { useVilleStore } from '@/stores/ville'
+import { useMenuDeroulant } from '@/composables/useMenuDeroulant'
 import { VILLES } from '@/utils/villes'
 import { MapPin, ChevronDown, Check } from 'lucide-vue-next'
 
@@ -77,35 +77,13 @@ defineProps({
 const emit = defineEmits(['choisie'])
 
 const villeStore = useVilleStore()
-const ouvert = ref(false)
-const racine = ref(null)
-const bouton = ref(null)
-const idListe = useId()
-
-const fermer = (rendreFocus = false) => {
-  ouvert.value = false
-  if (rendreFocus) bouton.value?.focus()
-}
+const { ouvert, racine, bouton, idMenu: idListe, fermer, basculer } = useMenuDeroulant()
 
 const choisir = (ville) => {
   villeStore.choisir(ville)
   fermer(true)
   emit('choisie', ville)
 }
-
-const fermerSiExterieur = (event) => {
-  if (ouvert.value && racine.value && !racine.value.contains(event.target)) fermer()
-}
-
-onMounted(() => {
-  document.addEventListener('click', fermerSiExterieur)
-  document.addEventListener('focusin', fermerSiExterieur)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', fermerSiExterieur)
-  document.removeEventListener('focusin', fermerSiExterieur)
-})
 </script>
 
 <style scoped>
@@ -115,16 +93,5 @@ onBeforeUnmount(() => {
 
 .option-ville[aria-pressed='true'] {
   @apply bg-gold-50 font-semibold text-gold-800;
-}
-
-.deroulant-enter-active,
-.deroulant-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.2, 0, 0, 1);
-}
-
-.deroulant-enter-from,
-.deroulant-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
 }
 </style>

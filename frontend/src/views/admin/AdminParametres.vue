@@ -6,19 +6,16 @@ File: src/views/admin/AdminParametres.vue
 <template>
   <div class="admin-parametres-page pb-6">
     <div class="container mx-auto px-4 py-6 max-w-6xl">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div>
-          <h1>
-            Paramètres du site
-          </h1>
-          <p class="text-gray-600 text-sm">
-            Gérer les réglages globaux (textes, options et configurations).
-          </p>
-        </div>
-        <Button variant="primary" :icon="Plus" :icon-size="18" @click="openCreate">
-          Nouveau paramètre
-        </Button>
-      </div>
+      <EnTetePage titre="Paramètres du site">
+        <template #sous-titre>
+          Gérer les réglages globaux (textes, options et configurations).
+        </template>
+        <template #actions>
+          <Button variant="primary" :icon="Plus" :icon-size="18" @click="openCreate">
+            Nouveau paramètre
+          </Button>
+        </template>
+      </EnTetePage>
 
       <ReglagesBoutique />
 
@@ -231,6 +228,7 @@ import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import EnTetePage from '@/components/common/EnTetePage.vue'
 import ReglagesBoutique from '@/components/admin/ReglagesBoutique.vue'
 import { Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-vue-next'
 

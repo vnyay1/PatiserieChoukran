@@ -6,19 +6,16 @@ File: src/views/admin/AdminCategories.vue
 <template>
   <div class="admin-categories-page pb-6">
     <div class="container mx-auto px-4 py-6 max-w-6xl">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div>
-          <h1>
-            Catégories
-          </h1>
-          <p class="text-gray-600 text-sm">
-            Voir toutes les catégories disponibles et en ajouter de nouvelles.
-          </p>
-        </div>
-        <Button variant="primary" :icon="Plus" :icon-size="18" @click="openCreate">
-          Nouvelle catégorie
-        </Button>
-      </div>
+      <EnTetePage titre="Catégories">
+        <template #sous-titre>
+          Voir toutes les catégories disponibles et en ajouter de nouvelles.
+        </template>
+        <template #actions>
+          <Button variant="primary" :icon="Plus" :icon-size="18" @click="openCreate">
+            Nouvelle catégorie
+          </Button>
+        </template>
+      </EnTetePage>
 
       <Card padding="md" class="mb-6">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
@@ -85,27 +82,13 @@ File: src/views/admin/AdminCategories.vue
 
           <div class="md:col-span-2">
             <label for="admin-categories-6" class="block text-sm font-medium text-gray-700 mb-2">Image</label>
-            <div class="flex items-center gap-4">
-              <img
-                v-if="apercuImage"
-                loading="lazy"
-                :src="apercuImage"
-                alt="Aperçu de l'image de la catégorie"
-                class="h-20 w-20 flex-shrink-0 rounded-lg object-cover border"
-                @error="onImageError"
-              />
-              <input
-                id="admin-categories-6"
-                :key="fileInputKey"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                class="input"
-                @change="onImageChange"
-              />
-            </div>
-            <p class="text-xs text-gray-500 mt-1">
-              JPEG, PNG ou WebP, {{ TAILLE_MAX_IMAGE_MO }} Mo maximum. Affichée sur la page d'accueil.
-            </p>
+            <TeleversementImage
+              id="admin-categories-6"
+              v-model="imageFile"
+              :image-actuelle="imageActuelle"
+              aide="Affichée sur la page d'accueil."
+              @erreur="formError = $event"
+            />
           </div>
 
           <div class="md:col-span-2 flex flex-wrap gap-4">
@@ -238,15 +221,17 @@ File: src/views/admin/AdminCategories.vue
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import api, { messageErreur } from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import EnTetePage from '@/components/common/EnTetePage.vue'
+import TeleversementImage from '@/components/common/TeleversementImage.vue'
 import { Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-vue-next'
-import { resolveImageUrl, onImageError, verifierImage, TAILLE_MAX_IMAGE_MO } from '@/utils/images'
+import { resolveImageUrl, onImageError } from '@/utils/images'
 
 const authStore = useAuthStore()
 const toastStore = useToastStore()
@@ -279,18 +264,8 @@ const form = ref({
 })
 
 const imageFile = ref(null)
-const fileInputKey = ref(0)
-// Image déjà enregistrée (édition) et aperçu local du fichier choisi
+// Image déjà enregistrée (modification)
 const imageActuelle = ref(null)
-const apercuLocal = ref(null)
-const apercuImage = computed(() => apercuLocal.value || (imageActuelle.value ? resolveImageUrl(imageActuelle.value) : null))
-
-const libererApercu = () => {
-  if (apercuLocal.value) {
-    URL.revokeObjectURL(apercuLocal.value)
-    apercuLocal.value = null
-  }
-}
 
 const canManageCategorie = (categorie) => {
   if (authStore.isAdmin) return true
@@ -350,8 +325,6 @@ const resetForm = () => {
   }
   imageFile.value = null
   imageActuelle.value = null
-  libererApercu()
-  fileInputKey.value += 1
   formError.value = ''
 }
 
@@ -375,8 +348,6 @@ const openEdit = (categorie) => {
   }
   imageFile.value = null
   imageActuelle.value = categorie.image || null
-  libererApercu()
-  fileInputKey.value += 1
   isEditing.value = true
   showForm.value = true
   formError.value = ''
@@ -385,24 +356,6 @@ const openEdit = (categorie) => {
 const closeForm = () => {
   showForm.value = false
   formError.value = ''
-}
-
-const onImageChange = (event) => {
-  const fichier = event.target.files?.[0] || null
-  libererApercu()
-
-  // Refus immédiat avec un message clair plutôt qu'un échec à l'enregistrement
-  const erreur = verifierImage(fichier)
-  if (erreur) {
-    formError.value = erreur
-    imageFile.value = null
-    fileInputKey.value += 1
-    return
-  }
-
-  formError.value = ''
-  imageFile.value = fichier
-  apercuLocal.value = fichier ? URL.createObjectURL(fichier) : null
 }
 
 const buildFormData = () => {
@@ -477,8 +430,6 @@ const changePage = (page) => {
   currentPage.value = page
   fetchCategories()
 }
-
-onBeforeUnmount(libererApercu)
 
 onMounted(() => {
   fetchCategories()

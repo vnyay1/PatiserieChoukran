@@ -54,16 +54,11 @@ File: src/views/InfosPratiques.vue
 
 <script setup>
 import { Phone, MapPin, Instagram, Clock3 } from 'lucide-vue-next'
+import { TELEPHONE, ADRESSE, INSTAGRAM, HORAIRES } from '@/utils/contact'
 
 const CONTACTS = [
-  { titre: 'Téléphone', valeur: '+237 658 55 56 00', lien: 'tel:+237658555600', icone: Phone },
-  { titre: 'Adresse', valeur: 'Yaoundé, Olembé Échangeur', icone: MapPin },
-  { titre: 'Instagram', valeur: '@Choukran.Patisserie', lien: 'https://instagram.com/Choukran.Patisserie', externe: true, icone: Instagram },
-]
-
-const HORAIRES = [
-  { jours: 'Lundi – Vendredi', heures: '8 h – 18 h' },
-  { jours: 'Samedi', heures: '9 h – 17 h' },
-  { jours: 'Dimanche', heures: 'Fermé', ferme: true },
+  { titre: 'Téléphone', valeur: TELEPHONE.affiche, lien: TELEPHONE.lien, icone: Phone },
+  { titre: 'Adresse', valeur: ADRESSE, icone: MapPin },
+  { titre: 'Instagram', valeur: INSTAGRAM.compte, lien: INSTAGRAM.lien, externe: true, icone: Instagram },
 ]
 </script>

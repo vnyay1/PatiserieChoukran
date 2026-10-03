@@ -40,23 +40,23 @@ File: src/components/layout/Footer.vue
             </ul>
 
             <address v-else-if="section.type === 'contact'" class="space-y-1 not-italic">
-              <a href="tel:+237658555600" class="lien-pied">
+              <a :href="TELEPHONE.lien" class="lien-pied">
                 <Phone :size="16" class="text-gold-600" aria-hidden="true" />
-                <span><span class="sr-only">Téléphone : </span>+237 658 55 56 00</span>
+                <span><span class="sr-only">Téléphone : </span>{{ TELEPHONE.affiche }}</span>
               </a>
               <p class="flex min-h-9 items-center gap-2 text-sm text-gray-600">
                 <MapPin :size="16" class="flex-shrink-0 text-gold-600" aria-hidden="true" />
-                Yaoundé, Olembé Échangeur
+                {{ ADRESSE }}
               </p>
-              <a href="https://instagram.com/Choukran.Patisserie" target="_blank" rel="noopener noreferrer" class="lien-pied">
+              <a :href="INSTAGRAM.lien" target="_blank" rel="noopener noreferrer" class="lien-pied">
                 <Instagram :size="16" class="text-gold-600" aria-hidden="true" />
-                <span>@Choukran.Patisserie<span class="sr-only"> sur Instagram (nouvel onglet)</span></span>
+                <span>{{ INSTAGRAM.compte }}<span class="sr-only"> sur Instagram (nouvel onglet)</span></span>
               </a>
             </address>
 
             <dl v-else class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm text-gray-600">
               <template v-for="horaire in HORAIRES" :key="horaire.jours">
-                <dt class="font-medium text-gray-800">{{ horaire.jours }}</dt>
+                <dt class="font-medium text-gray-800">{{ horaire.joursCourts }}</dt>
                 <dd>{{ horaire.heures }}</dd>
               </template>
             </dl>
@@ -78,6 +78,7 @@ File: src/components/layout/Footer.vue
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { Phone, MapPin, Instagram, ChevronDown } from 'lucide-vue-next'
+import { TELEPHONE, ADRESSE, INSTAGRAM, HORAIRES } from '@/utils/contact'
 
 const authStore = useAuthStore()
 const currentYear = new Date().getFullYear()
@@ -86,12 +87,6 @@ const SECTIONS = [
   { titre: 'Navigation', type: 'liens' },
   { titre: 'Contact', type: 'contact' },
   { titre: 'Horaires', type: 'horaires' },
-]
-
-const HORAIRES = [
-  { jours: 'Lun – Ven', heures: '8 h – 18 h' },
-  { jours: 'Samedi', heures: '9 h – 17 h' },
-  { jours: 'Dimanche', heures: 'Fermé' },
 ]
 
 // Accordéons (<details>) sous md seulement : un seul balisage pour les deux tailles
@@ -128,6 +123,6 @@ const footerNavItems = computed(() => {
 
 <style scoped>
 .lien-pied {
-  @apply inline-flex min-h-9 items-center gap-2 text-sm text-gray-600 underline-offset-4 transition-colors hover:text-gray-900 hover:underline;
+  @apply inline-flex min-h-11 items-center gap-2 text-sm text-gray-600 underline-offset-4 transition-colors hover:text-gray-900 hover:underline md:min-h-9;
 }
 </style>

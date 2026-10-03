@@ -6,25 +6,20 @@ File: src/views/admin/AdminDashboard.vue
 <template>
   <div class="admin-dashboard-page pb-6">
     <div class="container mx-auto px-4 py-6 max-w-6xl">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div>
-          <h1>
-            Tableau de bord
-          </h1>
-          <p class="text-gray-600 text-sm">
-            {{ dashboardSubtitle }}
-          </p>
-        </div>
-        <!-- Les autres pages de gestion sont dans le menu « Administration » -->
-        <div class="flex flex-wrap gap-2">
+      <EnTetePage titre="Tableau de bord">
+        <template #sous-titre>
+          {{ dashboardSubtitle }}
+        </template>
+        <template #actions>
+          <!-- Les autres pages de gestion sont dans le menu « Administration » -->
           <Button variant="outline" size="sm" :icon="RefreshCw" :icon-size="16" :loading="loading" @click="fetchStats">
             Actualiser
           </Button>
           <Button to="/admin/commandes" variant="primary" size="sm">
             Gérer les commandes
           </Button>
-        </div>
-      </div>
+        </template>
+      </EnTetePage>
 
       <!-- Filtres -->
       <div class="flex flex-col xl:flex-row xl:items-end gap-4 mb-6">
@@ -219,12 +214,8 @@ File: src/views/admin/AdminDashboard.vue
                   {{ formatPrice(commande.montant_total) }} FCFA
                 </div>
                 <div class="flex flex-wrap gap-2">
-                  <span class="badge" :class="getBadgeClass(commande.statut)">
-                    {{ getStatutLabel(commande.statut) }}
-                  </span>
-                  <span class="badge" :class="getPaymentBadgeClass(commande.statut_paiement)">
-                    {{ getPaymentLabel(commande.statut_paiement) }}
-                  </span>
+                  <BadgeStatut :statut="commande.statut" />
+                  <BadgeStatut :statut="commande.statut_paiement" type="paiement" />
                 </div>
               </div>
             </div>
@@ -239,7 +230,9 @@ File: src/views/admin/AdminDashboard.vue
 import { ref, computed, onMounted } from 'vue'
 import api from '@/services/api'
 import Card from '@/components/common/Card.vue'
+import BadgeStatut from '@/components/common/BadgeStatut.vue'
 import Button from '@/components/common/Button.vue'
+import EnTetePage from '@/components/common/EnTetePage.vue'
 import AlertMessage from '@/components/common/AlertMessage.vue'
 import { AlertTriangle, RefreshCw } from 'lucide-vue-next'
 import { resolveImageUrl, onImageError } from '@/utils/images'
@@ -248,10 +241,6 @@ import {
   formatDate,
   formatPrice,
   formatPrice as formatNumber,
-  libelleStatut as getStatutLabel,
-  classeStatut as getBadgeClass,
-  libellePaiement as getPaymentLabel,
-  classePaiement as getPaymentBadgeClass,
 } from '@/utils/format'
 
 const loading = ref(false)

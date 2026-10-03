@@ -51,17 +51,21 @@ File: src/views/Checkout.vue
             <fieldset>
               <legend class="label mb-3">Mode de réception</legend>
               <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label v-for="mode in MODES" :key="mode.valeur" class="carte-radio">
-                  <input v-model="formData.type_livraison" type="radio" name="type_livraison" :value="mode.valeur" class="sr-only" />
-                  <span class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gold-100 text-gold-700">
-                    <component :is="mode.icone" :size="22" aria-hidden="true" />
-                  </span>
-                  <span class="min-w-0 flex-1">
-                    <span class="block font-semibold text-gray-900">{{ mode.libelle }}</span>
-                    <span class="block text-sm text-gray-600">{{ mode.description }}</span>
-                  </span>
-                  <span class="coche" aria-hidden="true"><Check :size="14" /></span>
-                </label>
+                <CarteRadio
+                  v-for="mode in MODES"
+                  :key="mode.valeur"
+                  v-model="formData.type_livraison"
+                  name="type_livraison"
+                  :value="mode.valeur"
+                  :titre="mode.libelle"
+                  :description="mode.description"
+                >
+                  <template #visuel>
+                    <span class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gold-100 text-gold-700">
+                      <component :is="mode.icone" :size="22" aria-hidden="true" />
+                    </span>
+                  </template>
+                </CarteRadio>
               </div>
             </fieldset>
 
@@ -75,28 +79,27 @@ File: src/views/Checkout.vue
 
               <div class="space-y-3">
                 <div v-for="adresse in adresses" :key="adresse.id" class="relative">
-                  <label class="carte-radio items-start pr-16">
-                    <input
-                      v-model="formData.adresse_livraison_id"
-                      type="radio"
-                      name="adresse_livraison_id"
-                      :value="adresse.id"
-                      class="sr-only"
-                    />
-                    <MapPin :size="20" class="mt-0.5 flex-shrink-0 text-gold-600" aria-hidden="true" />
-                    <span class="min-w-0 flex-1">
-                      <span class="flex flex-wrap items-center gap-2 font-semibold text-gray-900">
-                        {{ adresse.libelle || adresse.quartier || 'Adresse' }}
-                        <span v-if="adresse.est_principale" class="badge badge-neutral">Principale</span>
-                      </span>
-                      <span class="block text-sm text-gray-600">{{ lieuAdresse(adresse) }}</span>
-                      <span v-if="adresse.telephone_contact" class="block text-sm text-gray-600">{{ adresse.telephone_contact }}</span>
-                      <span v-if="!adresse.quartier_id" class="mt-1 flex items-center gap-1.5 text-sm font-medium text-orange-700">
-                        <AlertTriangle :size="14" aria-hidden="true" />
-                        Quartier à préciser pour être livré
-                      </span>
+                  <CarteRadio
+                    v-model="formData.adresse_livraison_id"
+                    name="adresse_livraison_id"
+                    :value="adresse.id"
+                    :coche="false"
+                    class="items-start pr-16"
+                  >
+                    <template #visuel>
+                      <MapPin :size="20" class="mt-0.5 flex-shrink-0 text-gold-600" aria-hidden="true" />
+                    </template>
+                    <span class="flex flex-wrap items-center gap-2 font-semibold text-gray-900">
+                      {{ adresse.libelle || adresse.quartier || 'Adresse' }}
+                      <span v-if="adresse.est_principale" class="badge badge-neutral">Principale</span>
                     </span>
-                  </label>
+                    <span class="block text-sm text-gray-600">{{ lieuAdresse(adresse) }}</span>
+                    <span v-if="adresse.telephone_contact" class="block text-sm text-gray-600">{{ adresse.telephone_contact }}</span>
+                    <span v-if="!adresse.quartier_id" class="mt-1 flex items-center gap-1.5 text-sm font-medium text-orange-700">
+                      <AlertTriangle :size="14" aria-hidden="true" />
+                      Quartier à préciser pour être livré
+                    </span>
+                  </CarteRadio>
                   <button
                     type="button"
                     class="btn-ghost btn-sm absolute right-2 top-2 px-3"
@@ -165,17 +168,21 @@ File: src/views/Checkout.vue
             <fieldset>
               <legend class="label mb-3">Moyen de paiement</legend>
               <div class="space-y-3">
-                <label v-for="method in paymentMethods" :key="method.value" class="carte-radio">
-                  <input v-model="formData.moyen_paiement" type="radio" name="moyen_paiement" :value="method.value" class="sr-only" />
-                  <span class="flex h-11 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-plaque p-1 ring-1 ring-gray-200">
-                    <img :src="method.logo" alt="" class="max-h-full w-auto object-contain" />
-                  </span>
-                  <span class="min-w-0 flex-1">
-                    <span class="block font-semibold text-gray-900">{{ method.label }}</span>
-                    <span class="block text-sm text-gray-600">{{ method.description }}</span>
-                  </span>
-                  <span class="coche" aria-hidden="true"><Check :size="14" /></span>
-                </label>
+                <CarteRadio
+                  v-for="method in paymentMethods"
+                  :key="method.value"
+                  v-model="formData.moyen_paiement"
+                  name="moyen_paiement"
+                  :value="method.value"
+                  :titre="method.label"
+                  :description="method.description"
+                >
+                  <template #visuel>
+                    <span class="flex h-11 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-plaque p-1 ring-1 ring-gray-200">
+                      <img :src="method.logo" alt="" class="max-h-full w-auto object-contain" />
+                    </span>
+                  </template>
+                </CarteRadio>
               </div>
             </fieldset>
 
@@ -298,21 +305,14 @@ File: src/views/Checkout.vue
             </li>
           </ul>
 
-          <dl class="mt-4 space-y-2 border-t border-gray-200 pt-4 text-[0.9375rem]">
-            <div class="flex justify-between gap-3">
-              <dt class="text-gray-700">Produits</dt>
-              <dd class="tabular-nums">{{ formatPrice(panierStore.total) }} FCFA</dd>
-            </div>
-            <div v-if="estLivraison" class="flex justify-between gap-3">
-              <dt class="text-gray-700">Livraison</dt>
-              <dd v-if="livraisonCalculee" class="tabular-nums">{{ formatPrice(fraisLivraison) }} FCFA</dd>
-              <dd v-else class="text-sm text-gray-600">À calculer</dd>
-            </div>
-            <div class="flex items-baseline justify-between gap-3 pt-2">
-              <dt class="font-semibold text-gray-900">Total</dt>
-              <dd class="price text-2xl">{{ formatPrice(totalGeneral) }} FCFA</dd>
-            </div>
-          </dl>
+          <RecapMontants
+            :produits="panierStore.total"
+            :livraison="livraisonCalculee ? fraisLivraison : null"
+            :total="totalGeneral"
+            :afficher-livraison="estLivraison"
+            grand
+            class="mt-4 border-t border-gray-200 pt-4"
+          />
         </div>
       </aside>
     </div>
@@ -337,6 +337,8 @@ import api, { messageErreur } from '@/services/api'
 import Button from '@/components/common/Button.vue'
 import FormField from '@/components/common/FormField.vue'
 import AlertMessage from '@/components/common/AlertMessage.vue'
+import CarteRadio from '@/components/common/CarteRadio.vue'
+import RecapMontants from '@/components/commande/RecapMontants.vue'
 import AdresseFormModal from '@/components/adresse/AdresseFormModal.vue'
 import { useLivraisonVendeurs, grouperParVendeur } from '@/composables/useLivraisonVendeurs'
 import { useVilleStore } from '@/stores/ville'
@@ -606,26 +608,3 @@ watch(
   { immediate: true }
 )
 </script>
-
-<style scoped>
-/* Carte radio : bordure bronze + fond or + coche quand choisie, anneau au focus clavier */
-.carte-radio {
-  @apply relative flex min-h-[4.5rem] cursor-pointer items-center gap-3 rounded-2xl border-2 border-gray-200 bg-surface p-4 transition-colors hover:border-gray-300;
-}
-
-.carte-radio:has(:checked) {
-  @apply border-gold-600 bg-gold-50;
-}
-
-.carte-radio:has(:focus-visible) {
-  @apply outline outline-2 outline-offset-2 outline-gold-600;
-}
-
-.coche {
-  @apply flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 border-gray-300 text-transparent transition-colors;
-}
-
-.carte-radio:has(:checked) .coche {
-  @apply border-gold-600 bg-gold-600 text-on-accent;
-}
-</style>
