@@ -53,7 +53,8 @@ File: src/views/Notifications.vue
       <div v-for="n in 4" :key="n" class="skeleton h-28 rounded-elegant"></div>
     </div>
 
-    <ul v-else-if="notifications.length > 0" class="space-y-3">
+    <!-- Une notification supprimée glisse et s'efface (TransitionGroup) -->
+    <TransitionGroup v-else-if="notifications.length > 0" tag="ul" name="liste" class="space-y-3">
       <li
         v-for="notification in notifications"
         :key="notification.id"
@@ -96,7 +97,7 @@ File: src/views/Notifications.vue
           <Trash2 :size="18" aria-hidden="true" />
         </button>
       </li>
-    </ul>
+    </TransitionGroup>
 
     <!-- Erreur de chargement : distincte d'une liste vide -->
     <AlertMessage v-else-if="erreurChargement" type="error">

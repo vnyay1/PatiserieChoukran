@@ -422,6 +422,22 @@
   animation: slideUp 0.28s cubic-bezier(0.2, 0, 0, 1);
 }
 
+/* Listes (<TransitionGroup name="liste">) : un élément ajouté apparaît, un élément retiré glisse et s'efface */
+.liste-enter-active,
+.liste-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.liste-enter-from {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.liste-leave-to {
+  opacity: 0;
+  transform: translateX(1rem);
+}
+
 /* Menus déroulants (useMenuDeroulant) : <Transition name="deroulant"> */
 .deroulant-enter-active,
 .deroulant-leave-active {

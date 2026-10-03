@@ -48,19 +48,27 @@ File: src/views/Register.vue
               <input v-model="form.email" v-bind="attrs" type="email" autocomplete="email" inputmode="email" class="input" />
             </FormField>
 
+            <!-- L'aide suit la saisie ; l'état atteint est annoncé une fois (région live) -->
             <FormField
               v-slot="{ attrs }"
               label="Mot de passe"
               requis
-              aide="8 caractères minimum."
+              :aide="aideNouveauMotDePasse(form.mot_de_passe)"
               :erreur="erreurs.mot_de_passe"
             >
               <PasswordInput v-model="form.mot_de_passe" v-bind="attrs" autocomplete="new-password" minlength="8" />
             </FormField>
 
-            <FormField v-slot="{ attrs }" label="Confirmer le mot de passe" requis :erreur="erreurs.mot_de_passe_confirmation">
+            <FormField
+              v-slot="{ attrs }"
+              label="Confirmer le mot de passe"
+              requis
+              :aide="aideConfirmation(form.mot_de_passe, form.mot_de_passe_confirmation)"
+              :erreur="erreurs.mot_de_passe_confirmation"
+            >
               <PasswordInput v-model="form.mot_de_passe_confirmation" v-bind="attrs" autocomplete="new-password" minlength="8" />
             </FormField>
+            <p class="sr-only" aria-live="polite">{{ annonceMotDePasse }}</p>
 
             <AlertMessage v-if="error" type="error">{{ error }}</AlertMessage>
 
@@ -82,7 +90,7 @@ File: src/views/Register.vue
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import Button from '@/components/common/Button.vue'
@@ -92,6 +100,7 @@ import PasswordInput from '@/components/common/PasswordInput.vue'
 import TelephoneInput from '@/components/common/TelephoneInput.vue'
 import { destinationApresConnexion } from '@/utils/redirection'
 import { estTelephoneComplet, telephoneComplet } from '@/utils/telephone'
+import { aideNouveauMotDePasse, aideConfirmation, longueurSuffisante } from '@/utils/motDePasse'
 
 const route = useRoute()
 const router = useRouter()
@@ -108,6 +117,14 @@ const form = ref({
 const loading = ref(false)
 const error = ref(null)
 const erreurs = ref({})
+
+// Annoncé quand une condition devient vraie (pas à chaque touche)
+const annonceMotDePasse = computed(() => [
+  longueurSuffisante(form.value.mot_de_passe) ? 'Mot de passe assez long.' : '',
+  form.value.mot_de_passe_confirmation && form.value.mot_de_passe_confirmation === form.value.mot_de_passe
+    ? 'Les deux mots de passe correspondent.'
+    : '',
+].filter(Boolean).join(' '))
 
 const EMAIL_VALIDE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 

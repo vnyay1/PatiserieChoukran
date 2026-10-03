@@ -192,12 +192,25 @@ File: src/views/Profil.vue
           <FormField v-slot="{ attrs }" label="Mot de passe actuel" requis :erreur="erreursMotDePasse.ancien_mot_de_passe">
             <PasswordInput v-model="passwordForm.ancien_mot_de_passe" v-bind="attrs" autocomplete="current-password" />
           </FormField>
-          <FormField v-slot="{ attrs }" label="Nouveau mot de passe" requis aide="8 caractères minimum." :erreur="erreursMotDePasse.nouveau_mot_de_passe">
+          <FormField
+            v-slot="{ attrs }"
+            label="Nouveau mot de passe"
+            requis
+            :aide="aideNouveauMotDePasse(passwordForm.nouveau_mot_de_passe)"
+            :erreur="erreursMotDePasse.nouveau_mot_de_passe"
+          >
             <PasswordInput v-model="passwordForm.nouveau_mot_de_passe" v-bind="attrs" autocomplete="new-password" minlength="8" />
           </FormField>
-          <FormField v-slot="{ attrs }" label="Confirmer le nouveau mot de passe" requis :erreur="erreursMotDePasse.nouveau_mot_de_passe_confirmation">
+          <FormField
+            v-slot="{ attrs }"
+            label="Confirmer le nouveau mot de passe"
+            requis
+            :aide="aideConfirmation(passwordForm.nouveau_mot_de_passe, passwordForm.nouveau_mot_de_passe_confirmation)"
+            :erreur="erreursMotDePasse.nouveau_mot_de_passe_confirmation"
+          >
             <PasswordInput v-model="passwordForm.nouveau_mot_de_passe_confirmation" v-bind="attrs" autocomplete="new-password" minlength="8" />
           </FormField>
+          <p class="sr-only" aria-live="polite">{{ annonceMotDePasse }}</p>
 
           <AlertMessage v-if="passwordError" type="error">{{ passwordError }}</AlertMessage>
 
@@ -221,7 +234,7 @@ File: src/views/Profil.vue
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import api, { messageErreur } from '@/services/api'
@@ -238,14 +251,30 @@ import { formatVille, villeAdresse } from '@/utils/villes'
 import { chiffresLocaux, telephoneComplet } from '@/utils/telephone'
 import { useConfirm } from '@/composables/useConfirm'
 import { TELEPHONE } from '@/utils/contact'
+import { aideNouveauMotDePasse, aideConfirmation, longueurSuffisante } from '@/utils/motDePasse'
 import { User, MapPin, Lock, LogOut, Trash2, Pencil, Plus, AlertTriangle } from 'lucide-vue-next'
 
+const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 const { confirmer } = useConfirm()
 
-const activeTab = ref('infos')
+// Onglet dans l'URL (?onglet=adresses) : lien direct, rafraîchissement et retour arrière
+const ONGLETS = ['infos', 'adresses', 'securite']
+const ongletDeUrl = () => (ONGLETS.includes(route.query.onglet) ? route.query.onglet : 'infos')
+const activeTab = ref(ongletDeUrl())
+watch(activeTab, (onglet) => {
+  const voulu = onglet === 'infos' ? undefined : onglet
+  if (route.query.onglet === voulu) return
+  const query = { ...route.query }
+  if (voulu) query.onglet = voulu
+  else delete query.onglet
+  router.replace({ query })
+})
+watch(() => route.query.onglet, () => {
+  if (route.name === 'profil') activeTab.value = ongletDeUrl()
+})
 const updating = ref(false)
 const updatingPassword = ref(false)
 const showAddAddress = ref(false)
@@ -269,6 +298,15 @@ const passwordForm = ref({
   nouveau_mot_de_passe: '',
   nouveau_mot_de_passe_confirmation: '',
 })
+
+// Annoncé quand une condition devient vraie (pas à chaque touche)
+const annonceMotDePasse = computed(() => [
+  longueurSuffisante(passwordForm.value.nouveau_mot_de_passe) ? 'Nouveau mot de passe assez long.' : '',
+  passwordForm.value.nouveau_mot_de_passe_confirmation
+    && passwordForm.value.nouveau_mot_de_passe_confirmation === passwordForm.value.nouveau_mot_de_passe
+    ? 'Les deux mots de passe correspondent.'
+    : '',
+].filter(Boolean).join(' '))
 
 const menuItems = [
   { id: 'infos', label: 'Informations', icon: User },
