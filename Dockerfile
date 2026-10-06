@@ -33,6 +33,9 @@ WORKDIR /app
 # Même origine que l'API : le SPA appelle /api/v1 en relatif.
 ARG VITE_API_URL=/api/v1
 ENV VITE_API_URL=${VITE_API_URL}
+# Adresse publique (https://…) : rend absolue l'image de partage d'index.html ; vide par défaut
+ARG VITE_URL_PUBLIQUE=
+ENV VITE_URL_PUBLIQUE=${VITE_URL_PUBLIQUE}
 
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
