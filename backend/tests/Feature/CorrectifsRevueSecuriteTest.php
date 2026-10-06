@@ -10,6 +10,7 @@ use App\Providers\AppServiceProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\CreeDonneesBoutique;
 use Tests\TestCase;
@@ -174,20 +175,28 @@ class CorrectifsRevueSecuriteTest extends TestCase
         $this->getJson('/api/v1/admin/users?per_page=abc')->assertOk()->assertJsonPath('data.per_page', 15);
     }
 
-    public function test_la_limite_de_connexion_d_un_compte_vaut_pour_toutes_les_adresses_ip(): void
+    public function test_une_attaque_repartie_ne_bloque_pas_le_titulaire_du_compte_mais_est_signalee(): void
     {
         config(['app.proxies_de_confiance' => '*']);
         $this->app->getProvider(AppServiceProvider::class)->boot();
+        Log::spy();
 
         try {
-            // Force brute répartie : une seule tentative par adresse
+            // Échecs répartis sur 50 adresses : le numéro de connexion n'est pas secret (un vendeur
+            // le donne à ses clients), un tiers ne doit pas pouvoir bloquer son titulaire
             for ($i = 1; $i <= 50; $i++) {
                 $this->postJson('/api/v1/auth/login', ['telephone' => $this->client->telephone, 'mot_de_passe' => 'mauvais'], ['X-Forwarded-For' => "198.51.100.{$i}"])
                     ->assertStatus(422);
             }
 
-            $this->postJson('/api/v1/auth/login', ['telephone' => $this->client->telephone, 'mot_de_passe' => 'mauvais'], ['X-Forwarded-For' => '203.0.113.7'])
-                ->assertStatus(429);
+            $this->postJson('/api/v1/auth/login', ['telephone' => $this->client->telephone, 'mot_de_passe' => 'password123'], ['X-Forwarded-For' => '203.0.113.7'])
+                ->assertOk();
+
+            // L'attaque est tracée (une alerte, au 50e échec de l'heure)
+            Log::shouldHaveReceived('warning')
+                ->withArgs(fn (string $message, array $contexte = []) => str_contains($message, 'échecs de connexion')
+                    && ($contexte['utilisateur'] ?? null) === $this->client->id)
+                ->once();
         } finally {
             TrustProxies::flushState();
         }

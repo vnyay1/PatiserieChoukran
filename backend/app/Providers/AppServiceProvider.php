@@ -87,17 +87,18 @@ class AppServiceProvider extends ServiceProvider
 
         // Connexion / inscription : protection contre la force brute. Le numéro est normalisé
         // comme à la connexion : « 690… », « 237690… » et « +237 690… » partagent un compteur.
-        // Le seau par compte borne aussi une attaque répartie sur de nombreuses adresses IP.
+        // Pas de seau par compte : le numéro de connexion n'est pas secret (un vendeur le donne à
+        // ses clients) et un tiers bloquerait la connexion de son titulaire ; les échecs répétés sur
+        // un compte sont signalés au journal (AuthController).
         RateLimiter::for('auth', function (Request $request) use ($trop) {
             $telephone = Telephone::normaliser($request->input('telephone'));
             $telephone = is_string($telephone) ? $telephone : '';
             $client = self::cleClient($request);
 
-            return array_filter([
+            return [
                 Limit::perMinute(10)->by($client.'|'.$telephone)->response($trop),
                 Limit::perMinute(30)->by($client)->response($trop),
-                $telephone !== '' ? Limit::perHour(50)->by('compte|'.$telephone)->response($trop) : null,
-            ]);
+            ];
         });
 
         // Actions sensibles d'un compte connecté (mot de passe, numéro de connexion) :

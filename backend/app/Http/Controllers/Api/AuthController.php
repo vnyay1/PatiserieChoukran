@@ -7,6 +7,8 @@ use App\Models\User;
 use App\Support\Telephone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
@@ -50,6 +52,25 @@ class AuthController extends Controller
         ], 201);
     }
 
+    // Échecs de connexion sur un même compte en une heure à partir desquels le journal alerte
+    private const SEUIL_ALERTE_ECHECS = 50;
+
+    /**
+     * Attaque répartie sur de nombreuses adresses : signalée au journal sans bloquer le compte
+     * (son titulaire doit toujours pouvoir se connecter). Une alerte par heure et par compte.
+     */
+    private static function signalerEchecsRepetes(User $user): void
+    {
+        $cle = 'echecs-connexion|'.$user->id;
+        RateLimiter::hit($cle, 3600);
+
+        if (RateLimiter::attempts($cle) === self::SEUIL_ALERTE_ECHECS) {
+            Log::warning('Connexion : '.self::SEUIL_ALERTE_ECHECS.' échecs de connexion en une heure sur un même compte', [
+                'utilisateur' => $user->id,
+            ]);
+        }
+    }
+
     /**
      * Connexion utilisateur
      */
@@ -69,6 +90,10 @@ class AuthController extends Controller
 
         // Vérifier si l'utilisateur existe et si le mot de passe est correct
         if (! $user || ! Hash::check($request->mot_de_passe, $user->mot_de_passe)) {
+            if ($user) {
+                self::signalerEchecsRepetes($user);
+            }
+
             throw ValidationException::withMessages([
                 'telephone' => ['Les identifiants fournis sont incorrects.'],
             ]);
