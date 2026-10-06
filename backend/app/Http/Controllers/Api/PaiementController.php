@@ -44,7 +44,11 @@ class PaiementController extends Controller
         if ($commande->isPaid() || $commande->paiementAVerifier()) {
             return response()->json(['success' => false, 'message' => $commande->motifMontantFige('la suite')], 422);
         }
-        if ($commande->paiementEnCours() && $commande->paiement->url_paiement) {
+        // Le lien ouvert n'est rouvert que s'il couvre encore exactement ses commandes ; sinon
+        // un nouveau paiement est créé pour cette seule commande (l'ancien, payé quand même,
+        // ne confirme rien : synchroniser() voit l'écart et prévient les admins)
+        if ($commande->paiementEnCours() && $commande->paiement->url_paiement
+            && Paiements::couvreSesCommandes($commande->paiement)) {
             return response()->json([
                 'success' => true,
                 'data' => ['reference' => $commande->paiement->reference, 'url_paiement' => $commande->paiement->url_paiement],

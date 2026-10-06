@@ -80,6 +80,20 @@ class Paiements
     }
 
     /**
+     * Le montant demandé à NotchPay est-il encore celui de ses commandes non annulées ?
+     * Faux dès qu'une commande du même paiement a été annulée (par son vendeur ou l'admin)
+     * après l'ouverture : rouvrir le lien ferait payer une commande qui ne le doit plus.
+     */
+    public static function couvreSesCommandes(Paiement $paiement): bool
+    {
+        $du = (int) round($paiement->commandes()->get()
+            ->reject(fn (Commande $commande) => $commande->isAnnulee())
+            ->sum(fn (Commande $commande) => (float) $commande->montant_total));
+
+        return $du === (int) round((float) $paiement->montant);
+    }
+
+    /**
      * synchroniser() limité à un appel à NotchPay toutes les 10 secondes par paiement : les
      * actions répétées du client (modifier, annuler, payer) ne multiplient pas les appels
      * sortants. Le retour de paiement et le webhook appellent synchroniser() directement.

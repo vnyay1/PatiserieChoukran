@@ -195,6 +195,30 @@ class PaiementNotchPayTest extends TestCase
         $this->postJson("/api/v1/commandes/{$especes->id}/payer")->assertStatus(422);
     }
 
+    public function test_payer_ne_rouvre_pas_un_paiement_dont_une_autre_commande_a_ete_annulee(): void
+    {
+        // Paiement de 4 000 pour deux commandes de 2 000 ; le vendeur B annule la sienne ensuite
+        [$paiement, $commandes] = $this->paiementEnAttente();
+        $paiement->update(['url_paiement' => 'https://pay.notchpay.co/ancien']);
+        $commandes->last()->changerStatut('annulee', $this->vendeurB->id, 'Rupture de stock');
+
+        Http::fake([
+            'api.notchpay.co/payments/trx.test_1' => Http::response(['transaction' => ['reference' => 'trx.test_1', 'status' => 'pending']]),
+            'api.notchpay.co/payments' => Http::response(['authorization_url' => 'https://pay.notchpay.co/nouveau', 'transaction' => ['reference' => 'trx.test_2']], 201),
+        ]);
+
+        // L'ancien lien ferait payer 4 000 pour une commande qui n'en doit plus que 2 000
+        Sanctum::actingAs($this->client);
+        $this->postJson("/api/v1/commandes/{$commandes->first()->id}/payer")
+            ->assertOk()
+            ->assertJsonPath('data.url_paiement', 'https://pay.notchpay.co/nouveau');
+
+        $commande = $commandes->first()->fresh();
+        $this->assertNotSame($paiement->id, $commande->paiement_id);
+        $this->assertEquals(2000, (float) $commande->paiement->montant);
+        Http::assertSent(fn (RequeteHttp $requete) => $requete->url() === 'https://api.notchpay.co/payments' && $requete['amount'] === 2000);
+    }
+
     public function test_le_callback_sur_l_api_renvoie_vers_la_page_de_retour_du_spa(): void
     {
         config(['app.frontend_url' => 'http://localhost:5173']);
