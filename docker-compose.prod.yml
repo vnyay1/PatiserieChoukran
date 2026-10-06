@@ -31,6 +31,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # Aucun processus ne peut regagner de privilèges (binaires setuid)
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     networks:
       - app_net
@@ -50,6 +53,9 @@ services:
       timeout: 5s
       retries: 15
       start_period: 30s
+    # Aucun processus ne peut regagner de privilèges (binaires setuid)
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     networks:
       - app_net
@@ -70,6 +76,9 @@ services:
     depends_on:
       app:
         condition: service_healthy
+    # Aucun processus ne peut regagner de privilèges (binaires setuid)
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     networks:
       - app_net
@@ -86,6 +95,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # Aucun processus ne peut regagner de privilèges (binaires setuid)
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     networks:
       - app_net

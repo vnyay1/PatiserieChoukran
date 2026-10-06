@@ -46,7 +46,9 @@ RUN npm run build
 # ---------------------------------------------------------------------------
 # 3. Image finale
 # ---------------------------------------------------------------------------
-FROM php:8.2-fpm-alpine AS app
+# PHP 8.4 : la branche 8.2 ne reçoit plus de correctifs de sécurité après le 31/12/2026
+# (composer.json garde ^8.2 pour XAMPP ; la CI teste les deux versions)
+FROM php:8.4-fpm-alpine AS app
 
 ENV APP_ROOT=/var/www/html \
     SPA_ROOT=/var/www/spa \
