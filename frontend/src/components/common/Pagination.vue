@@ -7,6 +7,8 @@ File: src/components/common/Pagination.vue
   « … » entre elles) et suivant, tous en cibles de 44 px. Page courante : aria-current="page"
   et fond or. Sur mobile, les numéros laissent place à « Page 2 sur 8 ».
   Masquée s'il n'y a qu'une page. v-model:page ; « desactive » pendant un chargement.
+  Boutons inactifs en aria-disabled, jamais disabled : un bouton désactivé perd le focus (Chrome
+  le renvoie sur <body>), or c'est celui que l'on vient d'activer (page suivante, dernière page).
   L'espacement autour (mt-…) est donné par la page.
 -->
 <template>
@@ -14,7 +16,7 @@ File: src/components/common/Pagination.vue
     <button
       type="button"
       class="page-btn"
-      :disabled="page <= 1 || desactive"
+      :aria-disabled="page <= 1 || desactive ? 'true' : undefined"
       aria-label="Page précédente"
       @click="aller(page - 1)"
     >
@@ -32,7 +34,7 @@ File: src/components/common/Pagination.vue
           class="page-btn"
           :aria-current="element.numero === page ? 'page' : undefined"
           :aria-label="`Page ${element.numero}`"
-          :disabled="desactive"
+          :aria-disabled="desactive ? 'true' : undefined"
           @click="aller(element.numero)"
         >
           {{ element.numero }}
@@ -43,7 +45,7 @@ File: src/components/common/Pagination.vue
     <button
       type="button"
       class="page-btn"
-      :disabled="page >= derniere || desactive"
+      :aria-disabled="page >= derniere || desactive ? 'true' : undefined"
       aria-label="Page suivante"
       @click="aller(page + 1)"
     >
@@ -87,7 +89,7 @@ const elements = computed(() => {
 })
 
 const aller = (numero) => {
-  if (numero < 1 || numero > props.derniere || numero === page.value) return
+  if (props.desactive || numero < 1 || numero > props.derniere || numero === page.value) return
   page.value = numero
 }
 </script>
@@ -95,7 +97,11 @@ const aller = (numero) => {
 <style scoped>
 .page-btn {
   @apply inline-flex h-11 min-w-11 items-center justify-center rounded-full border border-gray-300 bg-surface px-3 font-semibold tabular-nums text-gray-800
-         transition-colors hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-45;
+         transition-colors hover:border-gray-400 hover:bg-gray-50;
+}
+
+.page-btn[aria-disabled='true'] {
+  @apply cursor-not-allowed opacity-45 hover:border-gray-300 hover:bg-surface;
 }
 
 .page-btn[aria-current='page'] {
