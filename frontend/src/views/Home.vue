@@ -55,13 +55,15 @@ File: src/views/Home.vue
                 :fetchpriority="index === 0 ? 'high' : undefined"
                 @error="onImageError"
               />
+              <!-- Toute la tuile est le lien ; focus clavier en anneau intérieur (la tuile rogne ses bords) -->
               <router-link
                 :to="`/produits/${produit.slug}`"
-                class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-voile/85 via-voile/35 to-transparent px-3 pb-3 pt-8 text-white sm:px-4 sm:pb-3.5 sm:pt-12
-                       after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
+                class="absolute inset-0 flex flex-col justify-end rounded-elegant text-white focus-visible:outline-[3px] focus-visible:outline-offset-[-3px]"
               >
-                <span class="block font-display text-[0.9375rem] font-semibold leading-snug sm:text-lg">{{ produit.nom }}</span>
-                <span class="text-sm font-medium">{{ formatPrice(produit.prix_promo || produit.prix_unitaire) }} FCFA</span>
+                <span class="bg-gradient-to-t from-voile/85 via-voile/35 to-transparent px-3 pb-3 pt-8 sm:px-4 sm:pb-3.5 sm:pt-12">
+                  <span class="block font-display text-[0.9375rem] font-semibold leading-snug sm:text-lg">{{ produit.nom }}</span>
+                  <span class="text-sm font-medium">{{ formatPrice(produit.prix_promo || produit.prix_unitaire) }} FCFA</span>
+                </span>
               </router-link>
             </li>
           </ul>
