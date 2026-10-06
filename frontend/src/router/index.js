@@ -4,6 +4,7 @@
 // ===================================
 
 import { createRouter, createWebHistory } from 'vue-router'
+import { titrePage } from '@/utils/titre'
 import { useAuthStore } from '@/stores/auth'
 
 // Lazy loading des composants
@@ -41,25 +42,26 @@ const routes = [
     path: '/',
     name: 'home',
     component: Home,
-    meta: { title: 'Accueil' }
+    // Pas de titre court : l'accueil garde la phrase complète (TITRE_ACCUEIL)
+    meta: {}
   },
   {
     path: '/produits',
     name: 'produits',
     component: Produits,
-    meta: { title: 'Nos Produits' }
+    meta: { title: 'Nos produits' }
   },
   {
     path: '/infos-pratiques',
     name: 'infos-pratiques',
     component: InfosPratiques,
-    meta: { title: 'Nous Contacter & Horaires', mobileOnly: true }
+    meta: { title: 'Contact et horaires', mobileOnly: true }
   },
   {
     path: '/produits/:slug',
     name: 'produit-detail',
     component: ProduitDetail,
-    meta: { title: 'Détail Produit' }
+    meta: { title: 'Produit' }
   },
   {
     path: '/vendeurs/:id',
@@ -71,7 +73,7 @@ const routes = [
     path: '/panier',
     name: 'panier',
     component: Panier,
-    meta: { title: 'Mon Panier', requiresAuth: true }
+    meta: { title: 'Mon panier', requiresAuth: true }
   },
   {
     path: '/commander',
@@ -83,13 +85,13 @@ const routes = [
     path: '/mes-commandes',
     name: 'mes-commandes',
     component: MesCommandes,
-    meta: { title: 'Mes Commandes', requiresAuth: true }
+    meta: { title: 'Mes commandes', requiresAuth: true }
   },
   {
     path: '/mes-commandes/:id',
     name: 'commande-detail',
     component: CommandeDetail,
-    meta: { title: 'Détail Commande', requiresAuth: true }
+    meta: { title: 'Commande', requiresAuth: true }
   },
   {
     // Page de retour configurée comme callback NotchPay (NOTCHPAY_CALLBACK_URL)
@@ -113,7 +115,7 @@ const routes = [
     path: '/profil',
     name: 'profil',
     component: Profil,
-    meta: { title: 'Mon Profil', requiresAuth: true }
+    meta: { title: 'Mon compte', requiresAuth: true }
   },
   {
     path: '/connexion',
@@ -136,13 +138,13 @@ const routes = [
     path: '/admin/dashboard',
     name: 'admin-dashboard',
     component: AdminDashboard,
-    meta: { title: 'Dashboard Admin', requiresAuth: true, requiresAdmin: true }
+    meta: { title: 'Tableau de bord', requiresAuth: true, requiresAdmin: true }
   },
   {
     path: '/admin/categories',
     name: 'admin-categories',
     component: AdminCategories,
-    meta: { title: 'Administration Catégories', requiresAuth: true, requiresCatalogueManager: true }
+    meta: { title: 'Catégories', requiresAuth: true, requiresCatalogueManager: true }
   },
   {
     path: '/admin/parametres',
@@ -154,19 +156,19 @@ const routes = [
     path: '/admin/commandes',
     name: 'admin-commandes',
     component: AdminCommandes,
-    meta: { title: 'Gestion Commandes', requiresAuth: true, requiresCommandesManager: true }
+    meta: { title: 'Commandes', requiresAuth: true, requiresCommandesManager: true }
   },
   {
     path: '/admin/produits',
     name: 'admin-produits',
     component: AdminProduits,
-    meta: { title: 'Administration Produits', requiresAuth: true, requiresCatalogueManager: true }
+    meta: { title: 'Produits', requiresAuth: true, requiresCatalogueManager: true }
   },
   {
     path: '/admin/users',
     name: 'admin-users',
     component: AdminUsers,
-    meta: { title: 'Administration Utilisateurs', requiresAuth: true, requiresAdmin: true }
+    meta: { title: 'Utilisateurs', requiresAuth: true, requiresAdmin: true }
   },
   {
     path: '/admin/quartiers',
@@ -226,9 +228,6 @@ router.beforeEach(async (to, from, next) => {
   const canManageCatalogue = authStore.canManageCatalogue
   const canManageCommandes = isAdmin || isVendeur
 
-  // Mettre à jour le titre de la page
-  document.title = `${to.meta.title || 'Choukrane'} - Pâtisserie`
-
   // Routes nécessitant l'authentification
   if (to.meta.requiresAuth && !isAuthenticated) {
     next({ name: 'login', query: { redirect: to.fullPath } })
@@ -284,6 +283,12 @@ router.beforeEach(async (to, from, next) => {
   }
 
   next()
+})
+
+// Titre de l'onglet une fois la navigation confirmée (après une éventuelle redirection) ;
+// la fiche produit et la page vendeur le précisent quand leurs données arrivent
+router.afterEach((to) => {
+  document.title = titrePage(to.meta.title)
 })
 
 export default router

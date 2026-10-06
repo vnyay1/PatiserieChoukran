@@ -4,26 +4,21 @@ File: src/views/vendeur/ProfilBoutique.vue
 =================================== -->
 
 <template>
-  <div class="profil-boutique-page bg-cream min-h-screen pb-20">
-    <div class="container mx-auto px-4 py-6 max-w-3xl">
-      <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
-        <div>
-          <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
-            Ma boutique
-          </h1>
-          <p class="text-gray-600 text-sm">
-            Ces informations sont affichées sur votre page vendeur, visible par tous les clients.
-          </p>
-        </div>
-        <router-link
-          v-if="complet"
-          :to="{ name: 'vendeur-profil', params: { id: authStore.user.id } }"
-          class="btn-outline py-2 px-4 text-sm inline-flex items-center gap-2"
-        >
-          <ExternalLink :size="16" />
-          Voir ma page publique
-        </router-link>
-      </div>
+  <div class="profil-boutique-page pb-6">
+    <div class="container mx-auto max-w-3xl pt-6 md:pt-8">
+      <EnTetePage titre="Ma boutique" sous-titre="Ces informations sont affichées sur votre page vendeur, visible par tous les clients.">
+        <template v-if="complet" #actions>
+          <Button
+            :to="{ name: 'vendeur-profil', params: { id: authStore.user.id } }"
+            variant="outline"
+            size="sm"
+            :icon="ExternalLink"
+            :icon-size="16"
+          >
+            Voir ma page publique
+          </Button>
+        </template>
+      </EnTetePage>
 
       <!-- Premier passage : le vendeur ne peut rien faire d'autre avant d'avoir complété son profil -->
       <div
@@ -45,14 +40,15 @@ File: src/views/vendeur/ProfilBoutique.vue
       <Card v-else padding="lg">
         <form class="space-y-6" @submit.prevent="enregistrer">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Nom affiché</label>
-            <input :value="authStore.user?.nom_complet" type="text" class="input bg-gray-100 text-gray-500" disabled />
-            <p class="text-xs text-gray-500 mt-1">Modifiable depuis « Mon profil » une fois la boutique complétée.</p>
+            <label for="profil-boutique-1" class="label">Nom affiché</label>
+            <input id="profil-boutique-1" :value="authStore.user?.nom_complet" type="text" class="input bg-gray-100 text-gray-500" disabled />
+            <p class="aide">Modifiable depuis « Mon profil » une fois la boutique complétée.</p>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Adresse e-mail de l'entreprise *</label>
+            <label for="profil-boutique-2" class="label">Adresse e-mail de l'entreprise *</label>
             <input
+              id="profil-boutique-2"
               v-model="form.email"
               type="email"
               class="input"
@@ -60,46 +56,32 @@ File: src/views/vendeur/ProfilBoutique.vue
               autocomplete="email"
               required
             />
-            <p class="text-xs text-gray-500 mt-1">Vous y recevez les nouvelles commandes ; elle est affichée sur votre page.</p>
+            <p class="aide">Vous y recevez les nouvelles commandes ; elle est affichée sur votre page.</p>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Logo de l'entreprise *</label>
-            <div class="flex items-center gap-4">
-              <div class="h-24 w-24 flex-shrink-0 rounded-elegant border bg-white overflow-hidden flex items-center justify-center">
-                <img
-                  v-if="apercuLogo"
-                  :src="apercuLogo"
-                  alt="Aperçu du logo"
-                  class="h-full w-full object-contain"
-                  @error="onImageError"
-                />
-                <Store v-else :size="32" class="text-gray-300" />
-              </div>
-              <div class="flex-1 min-w-0">
-                <input
-                  :key="cleChampLogo"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  class="input"
-                  :required="!logoActuel"
-                  @change="choisirLogo"
-                />
-                <p class="text-xs text-gray-500 mt-1">
-                  JPEG, PNG ou WebP, {{ TAILLE_MAX_IMAGE_MO }} Mo maximum. De préférence carré.
-                </p>
-              </div>
-            </div>
+            <label for="profil-boutique-3" class="label">Logo de l'entreprise *</label>
+            <TeleversementImage
+              id="profil-boutique-3"
+              v-model="fichierLogo"
+              :image-actuelle="logoActuel"
+              :required="!logoActuel"
+              :icone="Store"
+              logo
+              aide="De préférence carré."
+              @erreur="erreur = $event"
+            />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Description de l'entreprise *</label>
+            <label for="profil-boutique-4" class="label">Description de l'entreprise *</label>
             <textarea
+              id="profil-boutique-4"
               v-model="form.description_boutique"
               rows="5"
               maxlength="2000"
               class="input resize-y"
-              placeholder="Votre histoire, vos spécialités, votre quartier, vos horaires..."
+              placeholder="Votre histoire, vos spécialités, votre quartier, vos horaires…"
               required
             ></textarea>
             <p class="text-xs mt-1" :class="descriptionTropCourte ? 'text-orange-600' : 'text-gray-500'">
@@ -108,7 +90,7 @@ File: src/views/vendeur/ProfilBoutique.vue
           </div>
 
           <div>
-            <p class="block text-sm font-medium text-gray-700 mb-2">Conditions des vendeurs *</p>
+            <p class="label">Conditions des vendeurs *</p>
             <div class="max-h-56 overflow-y-auto whitespace-pre-line text-sm text-gray-700 p-4 rounded-xl border border-gray-200 bg-gray-50">
               {{ conditions || 'Conditions indisponibles pour le moment.' }}
             </div>
@@ -116,7 +98,7 @@ File: src/views/vendeur/ProfilBoutique.vue
               <input
                 v-model="form.conditions_acceptees"
                 type="checkbox"
-                class="mt-0.5 rounded border-gray-300 text-gold-600 focus:ring-gold-500"
+                class="mt-0.5 h-5 w-5 flex-shrink-0 rounded"
                 required
               />
               <span class="text-sm text-gray-700">
@@ -126,7 +108,7 @@ File: src/views/vendeur/ProfilBoutique.vue
             </label>
           </div>
 
-          <p v-if="erreur" class="text-sm text-red-600">{{ erreur }}</p>
+          <p v-if="erreur" role="alert" class="text-sm font-medium text-red-700">{{ erreur }}</p>
 
           <div class="flex flex-wrap items-center justify-between gap-3">
             <Button type="submit" variant="primary" :loading="enregistrement">
@@ -135,10 +117,10 @@ File: src/views/vendeur/ProfilBoutique.vue
             <button
               v-if="!complet"
               type="button"
-              class="inline-flex items-center gap-2 text-sm text-red-500 hover:text-red-600"
+              class="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-red-700 hover:text-red-800"
               @click="deconnexion"
             >
-              <LogOut :size="16" />
+              <LogOut :size="16" aria-hidden="true" />
               Se déconnecter
             </button>
           </div>
@@ -149,14 +131,15 @@ File: src/views/vendeur/ProfilBoutique.vue
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api, { messageErreur } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
-import { resolveImageUrl, onImageError, verifierImage, TAILLE_MAX_IMAGE_MO } from '@/utils/images'
+import EnTetePage from '@/components/common/EnTetePage.vue'
+import TeleversementImage from '@/components/common/TeleversementImage.vue'
 import { formatDateLongue } from '@/utils/format'
 import { Store, LogOut, ExternalLink } from 'lucide-vue-next'
 
@@ -174,8 +157,6 @@ const conditions = ref('')
 const logoActuel = ref(null)
 const accepteesLe = ref(null)
 const fichierLogo = ref(null)
-const apercuLocal = ref(null)
-const cleChampLogo = ref(0)
 
 const form = ref({
   email: '',
@@ -184,33 +165,8 @@ const form = ref({
 })
 
 const complet = computed(() => authStore.user?.profil_vendeur_complet === true)
-const apercuLogo = computed(() => apercuLocal.value || (logoActuel.value ? resolveImageUrl(logoActuel.value, { placeholder: false }) : null))
 const longueurDescription = computed(() => form.value.description_boutique.trim().length)
 const descriptionTropCourte = computed(() => longueurDescription.value > 0 && longueurDescription.value < DESCRIPTION_MIN)
-
-const libererApercu = () => {
-  if (apercuLocal.value) {
-    URL.revokeObjectURL(apercuLocal.value)
-    apercuLocal.value = null
-  }
-}
-
-const choisirLogo = (event) => {
-  const fichier = event.target.files?.[0] || null
-  libererApercu()
-  erreur.value = ''
-
-  const probleme = verifierImage(fichier)
-  if (probleme) {
-    erreur.value = probleme
-    fichierLogo.value = null
-    cleChampLogo.value++
-    return
-  }
-
-  fichierLogo.value = fichier
-  apercuLocal.value = fichier ? URL.createObjectURL(fichier) : null
-}
 
 const charger = async () => {
   loading.value = true
@@ -262,8 +218,6 @@ const enregistrer = async () => {
     logoActuel.value = profil.logo_boutique
     accepteesLe.value = profil.conditions_acceptees_le
     fichierLogo.value = null
-    libererApercu()
-    cleChampLogo.value++
 
     if (etaitComplet) {
       toastStore.succes('Profil boutique mis à jour.')
@@ -284,5 +238,4 @@ const deconnexion = async () => {
 }
 
 onMounted(charger)
-onBeforeUnmount(libererApercu)
 </script>

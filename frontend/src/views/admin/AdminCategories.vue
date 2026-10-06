@@ -1,355 +1,304 @@
 <!-- ===================================
-ADMIN - GESTION DES CATEGORIES
+ADMIN / VENDEUR - GESTION DES CATÉGORIES
 File: src/views/admin/AdminCategories.vue
 =================================== -->
-
+<!--
+  Filtres et page dans l'URL. Liste dans TableauDonnees : cartes sur mobile, tableau dès md.
+  Création et modification dans un tiroir (BaseModal). Un vendeur ne modifie que ses catégories.
+-->
 <template>
-  <div class="admin-categories-page bg-cream min-h-screen pb-20">
-    <div class="container mx-auto px-4 py-6 max-w-6xl">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div>
-          <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
-            Administration Catégories
-          </h1>
-          <p class="text-gray-600 text-sm">
-            Voir toutes les catégories disponibles et en ajouter de nouvelles.
-          </p>
-        </div>
+  <div class="container mx-auto max-w-6xl pb-6 pt-6 md:pt-8">
+    <EnTetePage titre="Catégories" sous-titre="Voir toutes les catégories et en ajouter de nouvelles.">
+      <template #actions>
         <Button variant="primary" :icon="Plus" :icon-size="18" @click="openCreate">
           Nouvelle catégorie
         </Button>
-      </div>
+      </template>
+    </EnTetePage>
 
-      <Card padding="md" class="mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Recherche</label>
-            <div class="relative">
-              <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" :size="18" />
-              <input
-                v-model="filters.search"
-                type="search"
-                placeholder="Nom de catégorie..."
-                class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-gold-500 focus:ring-2 focus:ring-gold-200 outline-none"
-                @input="handleSearch"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Statut</label>
-            <select v-model="filters.est_actif" class="input">
-              <option value="">Toutes</option>
-              <option value="1">Actives</option>
-              <option value="0">Inactives</option>
-            </select>
-          </div>
-
-          <div class="md:col-span-4 flex flex-wrap gap-3">
-            <Button variant="outline" @click="resetFilters">
-              Réinitialiser
-            </Button>
-            <Button variant="primary" @click="applyFilters">
-              Appliquer
-            </Button>
-          </div>
+    <Card padding="md" class="mb-6">
+      <div class="grid grid-cols-1 items-end gap-4 md:grid-cols-4">
+        <ChampRecherche
+          id="filtre-categories-recherche"
+          v-model="filtres.search"
+          libelle="Recherche"
+          libelle-visible
+          placeholder="Nom de catégorie…"
+          class="md:col-span-2"
+          @rechercher="mettreAJour({ page: 1 })"
+        />
+        <div>
+          <label for="filtre-categories-statut" class="label">Statut</label>
+          <select id="filtre-categories-statut" v-model="filtres.est_actif" class="input" @change="mettreAJour({ page: 1 })">
+            <option value="">Toutes</option>
+            <option value="1">Actives</option>
+            <option value="0">Inactives</option>
+          </select>
         </div>
-      </Card>
-
-      <Card v-if="showForm" padding="lg" class="mb-6">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="font-display text-xl font-bold text-gray-800">
-            {{ isEditing ? 'Modifier la catégorie' : 'Ajouter une catégorie' }}
-          </h2>
-          <button class="text-sm text-gray-500 hover:text-gray-700" @click="closeForm">
-            Fermer
-          </button>
-        </div>
-
-        <form class="grid grid-cols-1 md:grid-cols-2 gap-4" @submit.prevent="submitForm">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
-            <input v-model="form.nom" type="text" class="input" required />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Ordre d'affichage</label>
-            <input v-model.number="form.ordre_affichage" type="number" min="0" class="input" />
-          </div>
-
-          <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-            <textarea v-model="form.description" rows="3" class="input resize-none"></textarea>
-          </div>
-
-          <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Image</label>
-            <div class="flex items-center gap-4">
-              <img
-                v-if="apercuImage"
-                loading="lazy"
-                :src="apercuImage"
-                alt="Aperçu de l'image de la catégorie"
-                class="h-20 w-20 flex-shrink-0 rounded-lg object-cover border"
-                @error="onImageError"
-              />
-              <input
-                :key="fileInputKey"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                class="input"
-                @change="onImageChange"
-              />
-            </div>
-            <p class="text-xs text-gray-500 mt-1">
-              JPEG, PNG ou WebP, {{ TAILLE_MAX_IMAGE_MO }} Mo maximum. Affichée sur la page d'accueil.
-            </p>
-          </div>
-
-          <div class="md:col-span-2 flex flex-wrap gap-4">
-            <label class="inline-flex items-center gap-2">
-              <input
-                v-model="form.est_actif"
-                type="checkbox"
-                class="rounded border-gray-300 text-gold-600 focus:ring-gold-500"
-              />
-              <span class="text-sm text-gray-700">Catégorie active</span>
-            </label>
-          </div>
-
-          <div class="md:col-span-2 flex gap-3">
-            <Button type="submit" variant="primary" :loading="saving">
-              {{ isEditing ? 'Enregistrer' : 'Créer la catégorie' }}
-            </Button>
-            <Button type="button" variant="outline" @click="closeForm">
-              Annuler
-            </Button>
-          </div>
-
-          <p v-if="formError" class="text-sm text-red-600 md:col-span-2">
-            {{ formError }}
-          </p>
-        </form>
-      </Card>
-
-      <Card padding="none">
-        <div class="p-4 border-b border-gray-100 flex items-center justify-between">
-          <div class="text-sm text-gray-600">
-            {{ totalCategories }} catégorie{{ totalCategories > 1 ? 's' : '' }}
-          </div>
-          <Button variant="outline" size="sm" :icon="RefreshCw" :icon-size="16" @click="fetchCategories">
-            Actualiser
+        <div class="flex md:justify-end">
+          <Button variant="outline" size="sm" :disabled="!filtresActifs" @click="reinitialiserFiltres">
+            Réinitialiser les filtres
           </Button>
         </div>
+      </div>
+    </Card>
 
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-sm">
-            <thead class="bg-gray-50 text-gray-600">
-              <tr>
-                <th class="text-left font-semibold px-4 py-3">Catégorie</th>
-                <th class="text-left font-semibold px-4 py-3">Ordre</th>
-                <th class="text-left font-semibold px-4 py-3">Statut</th>
-                <th class="text-right font-semibold px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody v-if="loading">
-              <tr>
-                <td colspan="4" class="p-6 text-center text-gray-500">Chargement...</td>
-              </tr>
-            </tbody>
-            <tbody v-else-if="categories.length === 0">
-              <tr>
-                <td colspan="4" class="p-6 text-center text-gray-500">Aucune catégorie trouvée.</td>
-              </tr>
-            </tbody>
-            <tbody v-else>
-              <tr v-for="categorie in categories" :key="categorie.id" class="border-t border-gray-100">
-                <td class="px-4 py-3">
-                  <div class="flex items-center gap-3">
-                    <img
-                      loading="lazy"
-                      :src="resolveImageUrl(categorie.image)" :alt="categorie.nom"
-                      class="h-12 w-12 rounded-lg object-cover border"
-                      @error="onImageError"
-                    />
-                    <div>
-                      <div class="font-semibold text-gray-800">{{ categorie.nom }}</div>
-                      <div class="text-xs text-gray-500">{{ categorie.slug }}</div>
-                      <div v-if="categorie.createur?.nom_complet" class="text-xs text-gray-400">
-                        Ajoutée par: {{ categorie.createur.nom_complet }}
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                <td class="px-4 py-3">{{ categorie.ordre_affichage || 0 }}</td>
-                <td class="px-4 py-3">
-                  <span class="badge" :class="categorie.est_actif ? 'badge-success' : 'badge-danger'">
-                    {{ categorie.est_actif ? 'Active' : 'Inactive' }}
-                  </span>
-                </td>
-                <td class="px-4 py-3">
-                  <div class="flex items-center justify-end gap-2">
-                    <Button
-                      v-if="canManageCategorie(categorie)"
-                      variant="outline"
-                      size="sm"
-                      :icon="Pencil"
-                      :icon-size="16"
-                      @click="openEdit(categorie)"
-                    >
-                      Modifier
-                    </Button>
-                    <Button
-                      v-if="canManageCategorie(categorie)"
-                      variant="danger"
-                      size="sm"
-                      :icon="Trash2"
-                      :icon-size="16"
-                      @click="deleteCategorie(categorie)"
-                    >
-                      Supprimer
-                    </Button>
-                    <span v-else class="text-xs text-gray-400">Lecture seule</span>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+    <TableauDonnees
+      libelle="Catégories"
+      :chargement="loading"
+      :erreur="erreurListe"
+      :vide="categories.length === 0"
+      :icone="Tags"
+      :titre-vide="filtresActifs ? 'Aucune catégorie trouvée' : 'Aucune catégorie pour le moment'"
+      :texte-vide="filtresActifs ? 'Aucune catégorie ne correspond à ces filtres.' : ''"
+      @reessayer="fetchCategories"
+    >
+      <template #barre>
+        <p class="text-sm text-gray-600">{{ totalCategories }} catégorie{{ totalCategories > 1 ? 's' : '' }}</p>
+        <Button variant="outline" size="sm" :icon="RefreshCw" :icon-size="16" :loading="loading" @click="fetchCategories">
+          Actualiser
+        </Button>
+      </template>
 
-        <div class="p-4 border-t border-gray-100 flex items-center justify-between">
-          <div class="text-xs text-gray-500">
-            Page {{ currentPage }} / {{ totalPages }}
+      <!-- Mobile : une carte par catégorie -->
+      <template #cartes>
+        <li v-for="categorie in categories" :key="categorie.id" class="flex gap-3 p-4">
+          <img
+            loading="lazy"
+            :src="resolveImageUrl(categorie.image)"
+            alt=""
+            class="h-16 w-16 flex-shrink-0 rounded-xl bg-gray-100 object-cover"
+            @error="onImageError"
+          />
+          <div class="min-w-0 flex-1 space-y-2">
+            <div>
+              <p class="font-semibold text-gray-900">{{ categorie.nom }}</p>
+              <p class="text-sm text-gray-600">
+                Ordre {{ categorie.ordre_affichage || 0 }}<template v-if="categorie.createur?.nom_complet">, ajoutée par {{ categorie.createur.nom_complet }}</template>
+              </p>
+            </div>
+            <span class="badge" :class="categorie.est_actif ? 'badge-success' : 'badge-neutral'">
+              {{ categorie.est_actif ? 'Active' : 'Inactive' }}
+            </span>
+            <div v-if="canManageCategorie(categorie)" class="flex flex-wrap gap-2 pt-1">
+              <Button variant="outline" size="sm" :icon="Pencil" :icon-size="16" @click="openEdit(categorie)">
+                Modifier<span class="sr-only"> {{ categorie.nom }}</span>
+              </Button>
+              <Button variant="ghost" size="sm" :icon="Trash2" :icon-size="16" class="text-red-700 hover:bg-red-50" @click="deleteCategorie(categorie)">
+                Supprimer<span class="sr-only"> {{ categorie.nom }}</span>
+              </Button>
+            </div>
+            <p v-else class="text-sm text-gray-600">Lecture seule</p>
           </div>
-          <div class="flex gap-2">
-            <Button variant="outline" size="sm" :disabled="currentPage <= 1" @click="changePage(currentPage - 1)">
-              Précédent
-            </Button>
-            <Button variant="outline" size="sm" :disabled="currentPage >= totalPages" @click="changePage(currentPage + 1)">
-              Suivant
-            </Button>
-          </div>
-        </div>
-      </Card>
-    </div>
+        </li>
+      </template>
+
+      <!-- Desktop : tableau -->
+      <template #entete>
+        <th scope="col" class="px-4 py-3 font-semibold">Catégorie</th>
+        <th scope="col" class="px-4 py-3 text-right font-semibold">Ordre</th>
+        <th scope="col" class="px-4 py-3 font-semibold">Statut</th>
+        <th scope="col" class="px-4 py-3 text-right font-semibold">Actions</th>
+      </template>
+      <template #lignes>
+        <tr v-for="categorie in categories" :key="categorie.id">
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-3">
+              <img
+                loading="lazy"
+                :src="resolveImageUrl(categorie.image)"
+                alt=""
+                class="h-12 w-12 flex-shrink-0 rounded-lg bg-gray-100 object-cover"
+                @error="onImageError"
+              />
+              <div class="min-w-0">
+                <p class="font-semibold text-gray-900">{{ categorie.nom }}</p>
+                <p class="text-xs text-gray-600">{{ categorie.slug }}</p>
+                <p v-if="categorie.createur?.nom_complet" class="text-xs text-gray-600">
+                  Ajoutée par {{ categorie.createur.nom_complet }}
+                </p>
+              </div>
+            </div>
+          </td>
+          <td class="px-4 py-3 text-right tabular-nums">{{ categorie.ordre_affichage || 0 }}</td>
+          <td class="px-4 py-3">
+            <span class="badge" :class="categorie.est_actif ? 'badge-success' : 'badge-neutral'">
+              {{ categorie.est_actif ? 'Active' : 'Inactive' }}
+            </span>
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex items-center justify-end gap-2">
+              <template v-if="canManageCategorie(categorie)">
+                <Button variant="outline" size="sm" :icon="Pencil" :icon-size="16" @click="openEdit(categorie)">
+                  Modifier<span class="sr-only"> {{ categorie.nom }}</span>
+                </Button>
+                <Button variant="ghost" size="sm" :icon="Trash2" :icon-size="16" class="text-red-700 hover:bg-red-50" @click="deleteCategorie(categorie)">
+                  Supprimer<span class="sr-only"> {{ categorie.nom }}</span>
+                </Button>
+              </template>
+              <span v-else class="text-xs text-gray-600">Lecture seule</span>
+            </div>
+          </td>
+        </tr>
+      </template>
+
+      <template v-if="totalPages > 1" #pied>
+        <Pagination
+          :page="filtres.page"
+          :derniere="totalPages"
+          :desactive="loading"
+          libelle="Pages de catégories"
+          @update:page="(page) => mettreAJour({ page })"
+        />
+      </template>
+    </TableauDonnees>
+
+    <!-- Création / modification : tiroir, focus sur le nom -->
+    <BaseModal
+      :ouvert="showForm"
+      :modifie="saisieModifiee"
+      :titre="isEditing ? 'Modifier la catégorie' : 'Nouvelle catégorie'"
+      variante="tiroir"
+      taille="lg"
+      @fermer="closeForm"
+    >
+      <form id="formulaire-categorie" class="grid grid-cols-1 gap-5 sm:grid-cols-2" novalidate @submit.prevent="submitForm">
+        <AlertMessage v-if="formError" ref="alerteFormulaire" type="error" tabindex="-1" class="sm:col-span-2">{{ formError }}</AlertMessage>
+        <FormField v-slot="{ attrs }" label="Nom" requis>
+          <input v-model="form.nom" v-bind="attrs" type="text" class="input" data-autofocus />
+        </FormField>
+
+        <FormField v-slot="{ attrs }" label="Ordre d'affichage" aide="Les petits nombres passent en premier.">
+          <input v-model.number="form.ordre_affichage" v-bind="attrs" type="number" min="0" inputmode="numeric" class="input" />
+        </FormField>
+
+        <FormField v-slot="{ attrs }" label="Description" facultatif class="sm:col-span-2">
+          <textarea v-model="form.description" v-bind="attrs" rows="3" class="input resize-y"></textarea>
+        </FormField>
+
+        <FormField v-slot="{ attrs }" label="Image" facultatif class="sm:col-span-2">
+          <TeleversementImage
+            v-model="imageFile"
+            v-bind="attrs"
+            :image-actuelle="imageActuelle"
+            aide="Affichée sur la page d'accueil."
+            @erreur="formError = $event"
+          />
+        </FormField>
+
+        <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 sm:col-span-2">
+          <input v-model="form.est_actif" type="checkbox" class="h-5 w-5 flex-shrink-0 rounded" />
+          <span class="text-sm text-gray-800">Catégorie active (visible dans le catalogue)</span>
+        </label>
+      </form>
+
+      <template #actions>
+        <Button type="button" variant="outline" @click="closeForm">Annuler</Button>
+        <Button type="submit" form="formulaire-categorie" variant="primary" :loading="saving">
+          {{ isEditing ? 'Enregistrer' : 'Créer la catégorie' }}
+        </Button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
+import { useFiltresUrl } from '@/composables/useFiltresUrl'
+import { useErreurFormulaire } from '@/composables/useErreurFormulaire'
+import { useSaisieModifiee } from '@/composables/useSaisieModifiee'
 import api, { messageErreur } from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
-import { Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-vue-next'
-import { resolveImageUrl, onImageError, verifierImage, TAILLE_MAX_IMAGE_MO } from '@/utils/images'
+import EnTetePage from '@/components/common/EnTetePage.vue'
+import BaseModal from '@/components/common/BaseModal.vue'
+import FormField from '@/components/common/FormField.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
+import TableauDonnees from '@/components/common/TableauDonnees.vue'
+import Pagination from '@/components/common/Pagination.vue'
+import ChampRecherche from '@/components/common/ChampRecherche.vue'
+import TeleversementImage from '@/components/common/TeleversementImage.vue'
+import { Plus, Pencil, Trash2, RefreshCw, Tags } from 'lucide-vue-next'
+import { resolveImageUrl, onImageError } from '@/utils/images'
+
+const PAR_PAGE = 15
+const FILTRES_VIDES = { search: '', est_actif: '' }
 
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 const { confirmer } = useConfirm()
+
 const categories = ref([])
 const loading = ref(false)
+const erreurListe = ref('')
 const saving = ref(false)
 const showForm = ref(false)
 const isEditing = ref(false)
-const formError = ref('')
-const currentPage = ref(1)
-const perPage = ref(15)
+const { erreur: formError, alerte: alerteFormulaire, signaler: signalerErreur } = useErreurFormulaire()
+// Saisie en cours : le tiroir demande confirmation avant de l'effacer (Échap, fond, ×)
+const { figer: figerSaisie, modifie: saisieModifiee } = useSaisieModifiee(() => ({ ...form.value, image: Boolean(imageFile.value) }))
 const totalCategories = ref(0)
 
-const totalPages = computed(() => {
-  return Math.max(1, Math.ceil(totalCategories.value / perPage.value))
-})
+// Filtres et page dans l'URL
+const { filtres, mettreAJour, recharger } = useFiltresUrl({ ...FILTRES_VIDES, page: 1 }, (estActuel) => fetchCategories(estActuel))
+const filtresActifs = computed(() => Object.keys(FILTRES_VIDES).some((cle) => filtres[cle] !== ''))
+const reinitialiserFiltres = () => mettreAJour({ ...FILTRES_VIDES, page: 1 })
+const totalPages = computed(() => Math.max(1, Math.ceil(totalCategories.value / PAR_PAGE)))
 
-const filters = ref({
-  search: '',
-  est_actif: '',
-})
-
-const form = ref({
+const formulaireVide = () => ({
   id: null,
   nom: '',
   description: '',
   ordre_affichage: 0,
   est_actif: true,
 })
+const form = ref(formulaireVide())
 
 const imageFile = ref(null)
-const fileInputKey = ref(0)
-// Image déjà enregistrée (édition) et aperçu local du fichier choisi
+// Image déjà enregistrée (modification)
 const imageActuelle = ref(null)
-const apercuLocal = ref(null)
-const apercuImage = computed(() => apercuLocal.value || (imageActuelle.value ? resolveImageUrl(imageActuelle.value) : null))
-
-const libererApercu = () => {
-  if (apercuLocal.value) {
-    URL.revokeObjectURL(apercuLocal.value)
-    apercuLocal.value = null
-  }
-}
 
 const canManageCategorie = (categorie) => {
   if (authStore.isAdmin) return true
   return Number(categorie?.created_by_user_id || 0) === Number(authStore.user?.id || 0)
 }
 
-const fetchCategories = async () => {
+const fetchCategories = async (estActuel = () => true) => {
   loading.value = true
+  erreurListe.value = ''
 
   try {
-    const params = {
-      page: currentPage.value,
-      per_page: perPage.value,
-    }
-
-    if (filters.value.search) params.search = filters.value.search
-    if (filters.value.est_actif !== '') params.est_actif = filters.value.est_actif
+    const params = { page: filtres.page, per_page: PAR_PAGE }
+    if (filtres.search) params.search = filtres.search
+    if (filtres.est_actif !== '') params.est_actif = filtres.est_actif
 
     const response = await api.admin.categories.getAll(params)
+    if (!estActuel()) return
     if (response.data.success) {
       categories.value = response.data.data.data
       totalCategories.value = response.data.data.total
+
+      // Page vidée (dernière catégorie supprimée, lien trop loin) : dernière page remplie
+      if (categories.value.length === 0 && filtres.page > 1 && totalCategories.value > 0) {
+        mettreAJour({ page: Math.max(1, Number(response.data.data.last_page) || filtres.page - 1) })
+      }
     }
   } catch (error) {
-    console.error('Erreur chargement catégories:', error)
+    if (!estActuel()) return
+    erreurListe.value = messageErreur(error, 'Impossible de charger les catégories.')
   } finally {
-    loading.value = false
+    // Un chargement dépassé laisse l'indicateur au plus récent
+    if (estActuel()) loading.value = false
   }
-}
-
-const applyFilters = () => {
-  currentPage.value = 1
-  fetchCategories()
-}
-
-const resetFilters = () => {
-  filters.value.search = ''
-  filters.value.est_actif = ''
-  applyFilters()
-}
-
-let searchTimeout = null
-const handleSearch = () => {
-  clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => {
-    applyFilters()
-  }, 400)
 }
 
 const resetForm = () => {
-  form.value = {
-    id: null,
-    nom: '',
-    description: '',
-    ordre_affichage: 0,
-    est_actif: true,
-  }
+  form.value = formulaireVide()
   imageFile.value = null
   imageActuelle.value = null
-  libererApercu()
-  fileInputKey.value += 1
   formError.value = ''
 }
 
@@ -357,6 +306,7 @@ const openCreate = () => {
   resetForm()
   isEditing.value = false
   showForm.value = true
+  figerSaisie()
 }
 
 const openEdit = (categorie) => {
@@ -364,6 +314,7 @@ const openEdit = (categorie) => {
     return
   }
 
+  resetForm()
   form.value = {
     id: categorie.id,
     nom: categorie.nom,
@@ -371,36 +322,15 @@ const openEdit = (categorie) => {
     ordre_affichage: categorie.ordre_affichage || 0,
     est_actif: !!categorie.est_actif,
   }
-  imageFile.value = null
   imageActuelle.value = categorie.image || null
-  libererApercu()
-  fileInputKey.value += 1
   isEditing.value = true
   showForm.value = true
-  formError.value = ''
+  figerSaisie()
 }
 
 const closeForm = () => {
   showForm.value = false
   formError.value = ''
-}
-
-const onImageChange = (event) => {
-  const fichier = event.target.files?.[0] || null
-  libererApercu()
-
-  // Refus immédiat avec un message clair plutôt qu'un échec à l'enregistrement
-  const erreur = verifierImage(fichier)
-  if (erreur) {
-    formError.value = erreur
-    imageFile.value = null
-    fileInputKey.value += 1
-    return
-  }
-
-  formError.value = ''
-  imageFile.value = fichier
-  apercuLocal.value = fichier ? URL.createObjectURL(fichier) : null
 }
 
 const buildFormData = () => {
@@ -421,9 +351,13 @@ const buildFormData = () => {
 }
 
 const submitForm = async () => {
-  saving.value = true
   formError.value = ''
+  if (!form.value.nom.trim()) {
+    signalerErreur('Donnez un nom à la catégorie.')
+    return
+  }
 
+  saving.value = true
   try {
     const data = buildFormData()
     let response
@@ -438,11 +372,10 @@ const submitForm = async () => {
     if (response.data.success) {
       toastStore.succes(isEditing.value ? 'Catégorie mise à jour.' : 'Catégorie créée.')
       showForm.value = false
-      fetchCategories()
-      resetForm()
+      recharger()
     }
   } catch (error) {
-    formError.value = messageErreur(error, 'Erreur lors de l\'enregistrement.')
+    signalerErreur(messageErreur(error, 'Erreur lors de l\'enregistrement.'))
   } finally {
     saving.value = false
   }
@@ -464,21 +397,9 @@ const deleteCategorie = async (categorie) => {
   try {
     await api.admin.categories.remove(categorie.id)
     toastStore.succes('Catégorie supprimée.')
-    fetchCategories()
+    recharger()
   } catch (error) {
     toastStore.erreur(messageErreur(error, 'Erreur lors de la suppression.'))
   }
 }
-
-const changePage = (page) => {
-  if (page < 1 || page > totalPages.value) return
-  currentPage.value = page
-  fetchCategories()
-}
-
-onBeforeUnmount(libererApercu)
-
-onMounted(() => {
-  fetchCategories()
-})
 </script>

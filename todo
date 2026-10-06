@@ -1,4 +1,5 @@
 Tous les points de cette liste ont été traités (branche amelioration/audit-complet).
+Restent les petits défauts reportés de la revue finale et les actions hors code (plus bas).
 
 [x] "unread-count" qui tourne sans arrêt
     -> un seul onglet interroge le serveur, toutes les 2 minutes, avec un
@@ -110,12 +111,77 @@ Tous les points de cette liste ont été traités (branche amelioration/audit-co
        et paquets Composer). apk upgrade dans l'image et paquets mis à jour
        (Laravel 12.69, Guzzle 7.15.5, Symfony 7.4.19…).
 
+[x] Audit complet (octobre 2026) : revue de code, sécurité, design
+    -> paiement NotchPay : montant vérifié avant confirmation, commande figée
+       pendant un paiement ; commande payée non annulable par le client ;
+       panier sans doublon ; CSV neutralisé ; jetons expirant après 30 jours ;
+       pagination bornée ; téléphones validés ; mots de passe de 8 caractères ;
+       limites de débit ; CORS restreint ; en-têtes de sécurité et CSP ;
+       HTTPS par Caddy en production ; dépendances à jour ; actions GitHub
+       épinglées ; gitleaks en CI.
+    -> design : composants partagés, espace de gestion en tiroirs et cartes
+       mobiles, tableau de bord lisible, vitrine avec photos, animations
+       sobres, icônes et aperçus de partage.
+    -> revue finale (code, sécurité, accessibilité) corrigée : connexion d'un
+       compte non bloquable par un tiers (alerte au journal à la place),
+       « Payer » qui rouvrait un lien NotchPay devenu trop élevé, rapport d'un
+       mois clos réécrit au premier téléchargement, catégories tronquées à 100
+       dans le formulaire produit, listes de gestion écrasées par une réponse
+       lente, « Aucun montant débité » affiché pendant la vérification d'un
+       paiement, vitrine et pagination accessibles au clavier, erreurs des
+       tiroirs visibles, bouton « Modifier » des adresses, puces de 44 px,
+       tiroirs de gestion qui ne perdent plus une saisie en cours.
+    -> Docker vérifié : image PHP 8.4 sans faille CRITICAL/HIGH corrigeable
+       (Trivy), PHP-FPM sans aucun secret dans son environnement, CSP sans
+       violation (les polices ne sont plus inlinées), manifeste au bon type.
+
+---
+
+Petits défauts reportés (revue finale, sans urgence) :
+
+- Annulation client : les notifications partent pendant que la commande et
+  les produits sont encore verrouillés (CommandeController::cancel).
+- Panne du serveur : sans réponse de /auth/user, chaque navigation relance
+  la requête et les pages à rôle traitent l'utilisateur en invité.
+- Message aux admins quand une commande est annulée après un paiement
+  confirmé : il annonce un faux écart de montant (Paiements.php).
+- Deux ajouts simultanés au panier peuvent dépasser le stock dans le panier
+  (le checkout refuse toujours la survente).
+- Accessibilité : étoile « vedette » des rapports et badges sous le voile
+  « Rupture de stock » trop pâles ; Échap ne ferme les menus de l'en-tête que
+  depuis la liste ; cartes radio peu contrastées au repos ; contour de focus
+  rogné sur les tableaux défilables, les miniatures et les catégories ;
+  libellé « Ajouté » absent du nom du bouton ; boutons « Réessayer », liens
+  du pied, fil d'Ariane et liens tel: sous 44 px ; formulaire « Ma boutique »
+  sans aide ni erreur reliées aux champs ; défilement animé malgré
+  « réduire les animations » ; reflet des squelettes animé en repeint.
+- Code : formats de dates et montants du graphique à ranger dans
+  utils/format.js ; deux messages d'erreur sans messageErreur().
+- Interface (Web Interface Guidelines) : barre du navigateur blanche en thème
+  sombre (theme-color) ; double appui qui zoome sur les boutons − / + ; barre
+  du bas qui peut masquer l'élément focalisé sur mobile ; taille de fichier
+  formatée à la main ; champs de formulaire sans autocomplete ; vignettes
+  sans width/height ; noms de marque sans translate="no" ; clavier ouvert
+  d'office dans les tiroirs sur mobile ; pas d'alerte si l'onglet se ferme
+  avec une saisie en cours.
+
 ---
 
 À faire par toi, hors code :
 
-1. Changer les secrets présents dans l'historique git (.env.docker y a été
-   commité) : APP_KEY, mots de passe MySQL et identifiants SMTP.
+1. Secrets de l'historique git (.env.docker commité du 09/03 au 11/09/2026,
+   dépôt GitHub public : à considérer comme connus de tous) :
+   - révoquer la clé API SendGrid (SendGrid > Settings > API Keys) ;
+   - remplacer APP_KEY partout où l'ancienne a servi ;
+   - changer les mots de passe MySQL patiserie_password / root_password là où
+     ils seraient réutilisés ;
+   - activer GitHub > Settings > Code security : Secret scanning + Push protection.
+   La CI refuse désormais tout nouveau secret (job gitleaks) et le hook local
+   bloque git add/commit des .env et de backups/.
+   - Actions GitHub : vérifier dans l'onglet Actions qu'aucun workflow n'a
+     tourné entre le 19/03/2026 17:43 et le 20/03/2026 05:40 UTC (tags piégés
+     de trivy-action, CVE-2026-33634). S'il y en a eu un, considérer comme
+     exposés les secrets du dépôt de l'époque et les remplacer.
 2. En local (XAMPP), passer MAIL_MAILER=log dans backend/.env si tu ne veux pas
    que les tests de commandes envoient de vrais e-mails (factures, nouvelles
    commandes) par Brevo.
@@ -126,7 +192,13 @@ Tous les points de cette liste ont été traités (branche amelioration/audit-co
    aussi dans .env.docker (aujourd'hui vide, donc pas de paiement en ligne en
    Docker) et déclarer le webhook https://<domaine>/api/v1/webhooks/notchpay.
 5. CD : créer les secrets DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY,
-   DEPLOY_KNOWN_HOSTS (et la variable DEPLOY_URL) ; déposer .env.docker dans
-   le dossier de déploiement du serveur.
+   DEPLOY_KNOWN_HOSTS (et la variable DEPLOY_URL, en https://) ; déposer
+   .env.docker dans le dossier de déploiement du serveur.
+   HTTPS (Caddy) : dans ce .env.docker, renseigner DOMAINE (sans https://),
+   APP_URL et FRONTEND_URL en https://<domaine>, TRUSTED_PROXIES et
+   NOTCHPAY_CALLBACK_URL ; faire pointer le DNS du domaine (A / AAAA) vers le
+   serveur et ouvrir les ports 80 et 443. Caddy obtient le certificat seul.
+   Au premier déploiement, les jetons de plus de 30 jours sont refusés :
+   chacun se reconnecte une fois.
 6. Redémarrer php artisan serve et npm run dev pour profiter d'OPcache et du
    proxy Vite (MySQL de XAMPP doit tourner).

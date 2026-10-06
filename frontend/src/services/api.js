@@ -8,6 +8,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useVilleStore } from '@/stores/ville'
 import { useToastStore } from '@/stores/toast'
 import router from '@/router'
+// Chaque valeur insérée dans un chemin est encodée (voir utils/url.js)
+import { segment } from '@/utils/url'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api/v1',
@@ -157,70 +159,70 @@ export default {
 
   categories: {
     getAll: () => api.get('/categories', { params: avecVille() }),
-    getOne: (slug) => api.get(`/categories/${slug}`, { params: avecVille() }),
+    getOne: (slug) => api.get(`/categories/${segment(slug)}`, { params: avecVille() }),
   },
 
   // Produits
   produits: {
     getAll: (params) => api.get('/produits', { params: avecVille(params) }),
-    getOne: (slug) => api.get(`/produits/${slug}`),
-    getSimilar: (slug) => api.get(`/produits/${slug}/similar`, { params: avecVille() }),
+    getOne: (slug) => api.get(`/produits/${segment(slug)}`),
+    getSimilar: (slug) => api.get(`/produits/${segment(slug)}/similar`, { params: avecVille() }),
   },
 
   // Panier
   panier: {
     get: () => api.get('/panier'),
     add: (data) => api.post('/panier', data),
-    update: (id, data) => api.put(`/panier/${id}`, data),
-    remove: (id) => api.delete(`/panier/${id}`),
+    update: (id, data) => api.put(`/panier/${segment(id)}`, data),
+    remove: (id) => api.delete(`/panier/${segment(id)}`),
     clear: () => api.delete('/panier'),
   },
 
   // Commandes
   commandes: {
     getAll: (params) => api.get('/commandes', { params }),
-    getOne: (id) => api.get(`/commandes/${id}`),
+    getOne: (id) => api.get(`/commandes/${segment(id)}`),
     create: (data) => api.post('/commandes', data),
-    update: (id, data) => api.put(`/commandes/${id}`, data),
-    cancel: (id) => api.post(`/commandes/${id}/cancel`),
-    payer: (id) => api.post(`/commandes/${id}/payer`),
-    facture: (id) => api.get(`/commandes/${id}/facture`, fichierPdf),
+    update: (id, data) => api.put(`/commandes/${segment(id)}`, data),
+    cancel: (id) => api.post(`/commandes/${segment(id)}/cancel`),
+    payer: (id) => api.post(`/commandes/${segment(id)}/payer`),
+    facture: (id) => api.get(`/commandes/${segment(id)}/facture`, fichierPdf),
     stats: () => api.get('/commandes/stats'),
   },
 
   // Paiements mobile money (NotchPay)
   paiements: {
-    verifier: (reference) => api.get(`/paiements/${encodeURIComponent(reference)}`),
+    verifier: (reference) => api.get(`/paiements/${segment(reference)}`),
   },
 
   // Adresses
   adresses: {
     getAll: () => api.get('/adresses'),
-    getOne: (id) => api.get(`/adresses/${id}`),
+    getOne: (id) => api.get(`/adresses/${segment(id)}`),
     create: (data) => api.post('/adresses', data),
-    update: (id, data) => api.put(`/adresses/${id}`, data),
-    remove: (id) => api.delete(`/adresses/${id}`),
+    update: (id, data) => api.put(`/adresses/${segment(id)}`, data),
+    remove: (id) => api.delete(`/adresses/${segment(id)}`),
   },
 
   // Notifications
   notifications: {
     getAll: (params) => api.get('/notifications', { params }),
-    markAsRead: (id) => api.post(`/notifications/${id}/mark-read`),
+    markAsRead: (id) => api.post(`/notifications/${segment(id)}/mark-read`),
     markAllAsRead: () => api.post('/notifications/mark-all-read'),
     unreadCount: () => api.get('/notifications/unread-count'),
-    remove: (id) => api.delete(`/notifications/${id}`),
+    remove: (id) => api.delete(`/notifications/${segment(id)}`),
     clearRead: () => api.delete('/notifications/clear-read'),
   },
 
   // Livraison : quartiers par ville (adresses), villes et minimum d'un vendeur
   livraison: {
     quartiers: (params) => api.get('/livraison/quartiers', { params }),
-    vendeur: (vendeurId) => api.get(`/livraison/vendeur/${vendeurId}`),
+    vendeur: (vendeurId) => api.get(`/livraison/vendeur/${segment(vendeurId)}`),
   },
 
   // Pages publiques des vendeurs
   vendeurs: {
-    getOne: (id) => api.get(`/vendeurs/${id}`),
+    getOne: (id) => api.get(`/vendeurs/${segment(id)}`),
   },
 
   // Espace vendeur
@@ -247,10 +249,10 @@ export default {
     },
     commandes: {
       getAll: (params) => api.get(getCommandesPrefix(), { params }),
-      getOne: (id) => api.get(`${getCommandesPrefix()}/${id}`),
-      updateStatus: (id, data) => api.patch(`${getCommandesPrefix()}/${id}/status`, data),
-      confirmPayment: (id, data) => api.post(`${getCommandesPrefix()}/${id}/confirm-payment`, data),
-      facture: (id) => api.get(`${getCommandesPrefix()}/${id}/facture`, fichierPdf),
+      getOne: (id) => api.get(`${getCommandesPrefix()}/${segment(id)}`),
+      updateStatus: (id, data) => api.patch(`${getCommandesPrefix()}/${segment(id)}/status`, data),
+      confirmPayment: (id, data) => api.post(`${getCommandesPrefix()}/${segment(id)}/confirm-payment`, data),
+      facture: (id) => api.get(`${getCommandesPrefix()}/${segment(id)}/facture`, fichierPdf),
     },
     rapports: {
       list: () => api.get('/admin/rapports'),
@@ -263,14 +265,14 @@ export default {
     },
     categories: {
       getAll: (params) => api.get(`${getCataloguePrefix()}/categories`, { params }),
-      getOne: (id) => api.get(`${getCataloguePrefix()}/categories/${id}`),
+      getOne: (id) => api.get(`${getCataloguePrefix()}/categories/${segment(id)}`),
       create: (data) => api.post(`${getCataloguePrefix()}/categories`, data, {
         headers: { 'Content-Type': 'multipart/form-data' }
       }),
-      update: (id, data) => api.post(`${getCataloguePrefix()}/categories/${id}`, data, {
+      update: (id, data) => api.post(`${getCataloguePrefix()}/categories/${segment(id)}`, data, {
         headers: { 'Content-Type': 'multipart/form-data' }
       }),
-      remove: (id) => api.delete(`${getCataloguePrefix()}/categories/${id}`),
+      remove: (id) => api.delete(`${getCataloguePrefix()}/categories/${segment(id)}`),
     },
     // Réglages de la boutique : durée du panier, frais de livraison, conditions vendeurs
     reglages: {
@@ -279,34 +281,34 @@ export default {
     },
     parametres: {
       getAll: (params) => api.get('/admin/parametres', { params }),
-      getOne: (id) => api.get(`/admin/parametres/${id}`),
+      getOne: (id) => api.get(`/admin/parametres/${segment(id)}`),
       create: (data) => api.post('/admin/parametres', data),
-      update: (id, data) => api.put(`/admin/parametres/${id}`, data),
-      remove: (id) => api.delete(`/admin/parametres/${id}`),
+      update: (id, data) => api.put(`/admin/parametres/${segment(id)}`, data),
+      remove: (id) => api.delete(`/admin/parametres/${segment(id)}`),
     },
     produits: {
       getAll: (params) => api.get(`${getCataloguePrefix()}/produits`, { params }),
-      getOne: (id) => api.get(`${getCataloguePrefix()}/produits/${id}`),
+      getOne: (id) => api.get(`${getCataloguePrefix()}/produits/${segment(id)}`),
       create: (data) => api.post(`${getCataloguePrefix()}/produits`, data, {
         headers: { 'Content-Type': 'multipart/form-data' }
       }),
-      update: (id, data) => api.post(`${getCataloguePrefix()}/produits/${id}`, data, {
+      update: (id, data) => api.post(`${getCataloguePrefix()}/produits/${segment(id)}`, data, {
         headers: { 'Content-Type': 'multipart/form-data' }
       }),
-      remove: (id) => api.delete(`${getCataloguePrefix()}/produits/${id}`),
+      remove: (id) => api.delete(`${getCataloguePrefix()}/produits/${segment(id)}`),
     },
     users: {
       getAll: (params) => api.get('/admin/users', { params }),
-      getOne: (id) => api.get(`/admin/users/${id}`),
-      updateStatus: (id, data) => api.patch(`/admin/users/${id}/status`, data),
-      updateRole: (id, data) => api.patch(`/admin/users/${id}/role`, data),
-      updateVedette: (id, data) => api.patch(`/admin/users/${id}/vedette`, data),
+      getOne: (id) => api.get(`/admin/users/${segment(id)}`),
+      updateStatus: (id, data) => api.patch(`/admin/users/${segment(id)}/status`, data),
+      updateRole: (id, data) => api.patch(`/admin/users/${segment(id)}/role`, data),
+      updateVedette: (id, data) => api.patch(`/admin/users/${segment(id)}/vedette`, data),
     },
     quartiers: {
       getAll: (params) => api.get('/admin/quartiers', { params }),
       create: (data) => api.post('/admin/quartiers', data),
-      update: (id, data) => api.put(`/admin/quartiers/${id}`, data),
-      remove: (id) => api.delete(`/admin/quartiers/${id}`),
+      update: (id, data) => api.put(`/admin/quartiers/${segment(id)}`, data),
+      remove: (id) => api.delete(`/admin/quartiers/${segment(id)}`),
     }
   }
 }

@@ -58,9 +58,12 @@ class NotchPay
     }
 
     /**
-     * Statut du paiement chez NotchPay (null si inconnu ou injoignable).
+     * État du paiement chez NotchPay (null si inconnu ou injoignable) : statut, montant
+     * réellement payé et devise (null quand l'API ne les renvoie pas).
+     *
+     * @return array{statut: ?string, montant: ?int, devise: ?string}|null
      */
-    public static function statut(string $reference): ?string
+    public static function statut(string $reference): ?array
     {
         try {
             $reponse = self::requete()->get('/payments/'.rawurlencode($reference));
@@ -68,7 +71,17 @@ class NotchPay
             return null;
         }
 
-        return $reponse->successful() ? $reponse->json('transaction.status') : null;
+        if (! $reponse->successful()) {
+            return null;
+        }
+
+        $montant = $reponse->json('transaction.amount');
+
+        return [
+            'statut' => $reponse->json('transaction.status'),
+            'montant' => is_numeric($montant) ? (int) round((float) $montant) : null,
+            'devise' => $reponse->json('transaction.currency'),
+        ];
     }
 
     public static function signatureValide(string $corps, ?string $signature): bool

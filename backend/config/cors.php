@@ -5,11 +5,12 @@ return [
 
     'allowed_methods' => ['*'],
 
-    // Origines autorisées, séparées par des virgules (ex. https://choukrane.cm).
-    // En Docker, le SPA et l'API partagent la même origine : aucune requête cross-origin.
+    // Origines autorisées, séparées par des virgules (ex. https://choukrane.cm). Par défaut,
+    // seulement l'adresse du SPA (FRONTEND_URL) ; vide : aucune requête cross-origin (Docker,
+    // où le SPA et l'API partagent la même origine). « * » n'est à utiliser qu'en dépannage.
     'allowed_origins' => array_values(array_filter(array_map(
-        'trim',
-        explode(',', env('CORS_ALLOWED_ORIGINS', '*'))
+        fn (string $origine) => rtrim(trim($origine), '/'),
+        explode(',', (string) env('CORS_ALLOWED_ORIGINS', env('FRONTEND_URL', 'http://localhost:5173')))
     ))),
 
     'allowed_origins_patterns' => [],

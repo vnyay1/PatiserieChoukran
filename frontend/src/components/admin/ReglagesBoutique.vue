@@ -15,7 +15,7 @@ File: src/components/admin/ReglagesBoutique.vue
 
     <form v-else class="grid grid-cols-1 md:grid-cols-2 gap-6" @submit.prevent="enregistrer">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2" for="reglage-panier">
+        <label class="label" for="reglage-panier">
           Vider les paniers inactifs après
         </label>
         <div class="flex gap-2">
@@ -31,13 +31,13 @@ File: src/components/admin/ReglagesBoutique.vue
             <option v-for="(minutes, unite) in UNITES" :key="unite" :value="unite">{{ unite }}</option>
           </select>
         </div>
-        <p class="text-xs text-gray-500 mt-1">
+        <p class="aide">
           Délai sans ajout ni modification avant que le panier du client soit vidé (5 minutes à 30 jours).
         </p>
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2" for="reglage-frais">Frais de livraison</label>
+        <label class="label" for="reglage-frais">Frais de livraison</label>
         <div class="relative">
           <input
             id="reglage-frais"
@@ -50,16 +50,16 @@ File: src/components/admin/ReglagesBoutique.vue
           />
           <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">FCFA</span>
         </div>
-        <p class="text-xs text-gray-500 mt-1">Payés par le client pour chaque commande livrée.</p>
+        <p class="aide">Payés par le client pour chaque commande livrée.</p>
       </div>
 
       <div class="md:col-span-2">
-        <label class="block text-sm font-medium text-gray-700 mb-2" for="reglage-conditions">Conditions des vendeurs</label>
+        <label class="label" for="reglage-conditions">Conditions des vendeurs</label>
         <textarea id="reglage-conditions" v-model="form.conditions_vendeur" rows="6" class="input resize-y" required></textarea>
-        <p class="text-xs text-gray-500 mt-1">Texte que chaque vendeur accepte en complétant son profil boutique.</p>
+        <p class="aide">Texte que chaque vendeur accepte en complétant son profil boutique.</p>
       </div>
 
-      <p v-if="erreur" class="text-sm text-red-600 md:col-span-2">{{ erreur }}</p>
+      <p v-if="erreur" role="alert" class="text-sm font-medium text-red-700 md:col-span-2">{{ erreur }}</p>
 
       <div class="md:col-span-2">
         <Button type="submit" variant="primary" :loading="saving">Enregistrer les réglages</Button>

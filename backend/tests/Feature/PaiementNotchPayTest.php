@@ -195,12 +195,140 @@ class PaiementNotchPayTest extends TestCase
         $this->postJson("/api/v1/commandes/{$especes->id}/payer")->assertStatus(422);
     }
 
+    public function test_payer_ne_rouvre_pas_un_paiement_dont_une_autre_commande_a_ete_annulee(): void
+    {
+        // Paiement de 4 000 pour deux commandes de 2 000 ; le vendeur B annule la sienne ensuite
+        [$paiement, $commandes] = $this->paiementEnAttente();
+        $paiement->update(['url_paiement' => 'https://pay.notchpay.co/ancien']);
+        $commandes->last()->changerStatut('annulee', $this->vendeurB->id, 'Rupture de stock');
+
+        Http::fake([
+            'api.notchpay.co/payments/trx.test_1' => Http::response(['transaction' => ['reference' => 'trx.test_1', 'status' => 'pending']]),
+            'api.notchpay.co/payments' => Http::response(['authorization_url' => 'https://pay.notchpay.co/nouveau', 'transaction' => ['reference' => 'trx.test_2']], 201),
+        ]);
+
+        // L'ancien lien ferait payer 4 000 pour une commande qui n'en doit plus que 2 000
+        Sanctum::actingAs($this->client);
+        $this->postJson("/api/v1/commandes/{$commandes->first()->id}/payer")
+            ->assertOk()
+            ->assertJsonPath('data.url_paiement', 'https://pay.notchpay.co/nouveau');
+
+        $commande = $commandes->first()->fresh();
+        $this->assertNotSame($paiement->id, $commande->paiement_id);
+        $this->assertEquals(2000, (float) $commande->paiement->montant);
+        Http::assertSent(fn (RequeteHttp $requete) => $requete->url() === 'https://api.notchpay.co/payments' && $requete['amount'] === 2000);
+    }
+
     public function test_le_callback_sur_l_api_renvoie_vers_la_page_de_retour_du_spa(): void
     {
         config(['app.frontend_url' => 'http://localhost:5173']);
 
         $this->get('/payments/callback?reference=trx.abc&status=complete')
             ->assertRedirect('http://localhost:5173/paiement/retour?reference=trx.abc&status=complete');
+    }
+
+    public function test_le_montant_exact_en_xaf_confirme_les_commandes(): void
+    {
+        [$paiement] = $this->paiementEnAttente();
+        $this->statutNotchPay(['status' => 'complete', 'amount' => 4000, 'currency' => 'XAF']);
+
+        Sanctum::actingAs($this->client);
+        $this->getJson("/api/v1/paiements/{$paiement->reference}")->assertOk()->assertJsonPath('data.statut', 'complete');
+
+        $this->assertSame(2, Commande::where('statut_paiement', 'paye')->count());
+    }
+
+    public function test_un_montant_recu_different_ne_confirme_pas_les_commandes_et_previent_l_admin(): void
+    {
+        $admin = $this->creerUtilisateur('admin');
+        [$paiement, $commandes] = $this->paiementEnAttente();
+        $this->statutNotchPay(['status' => 'complete', 'amount' => 2500, 'currency' => 'XAF']);
+
+        Sanctum::actingAs($this->client);
+        // L'argent est bien arrivé chez NotchPay : le paiement est terminé…
+        $this->getJson("/api/v1/paiements/{$paiement->reference}")->assertOk()->assertJsonPath('data.statut', 'complete');
+
+        // … mais les commandes attendent une vérification humaine
+        foreach ($commandes as $commande) {
+            $this->assertSame('en_attente', $commande->fresh()->statut_paiement);
+        }
+        $this->assertDatabaseHas('notifications', ['user_id' => $admin->id, 'type' => 'systeme']);
+    }
+
+    public function test_une_commande_dont_le_total_a_change_apres_le_debut_du_paiement_n_est_pas_confirmee(): void
+    {
+        $admin = $this->creerUtilisateur('admin');
+        [$paiement, $commandes] = $this->paiementEnAttente();
+        // Frais de livraison ajoutés après l'ouverture du paiement de 4000 FCFA
+        $commandes->first()->update(['montant_livraison' => 1500, 'montant_total' => 3500]);
+        $this->statutNotchPay(['status' => 'complete', 'amount' => 4000, 'currency' => 'XAF']);
+
+        Sanctum::actingAs($this->client);
+        $this->getJson("/api/v1/paiements/{$paiement->reference}")->assertOk();
+
+        $this->assertSame(0, Commande::where('statut_paiement', 'paye')->count());
+        $this->assertDatabaseHas('notifications', ['user_id' => $admin->id, 'type' => 'systeme']);
+    }
+
+    public function test_la_livraison_ne_change_plus_pendant_un_paiement_en_cours(): void
+    {
+        [, $commandes] = $this->paiementEnAttente();
+        $this->statutNotchPay(['status' => 'pending']);
+        $commande = $commandes->first();
+        $adresse = $this->creerAdresse($this->client, $this->creerQuartier());
+        $this->livrerVille($this->vendeurA);
+
+        Sanctum::actingAs($this->client);
+        $this->putJson("/api/v1/commandes/{$commande->id}", [
+            'type_livraison' => 'livraison',
+            'adresse_livraison_id' => $adresse->id,
+            'telephone_livraison' => '+237690000999',
+        ])->assertStatus(422);
+        $this->assertSame('retrait_boutique', $commande->fresh()->type_livraison);
+        $this->assertEquals(2000, (float) $commande->fresh()->montant_total);
+
+        // Les instructions pour le vendeur restent modifiables
+        $this->putJson("/api/v1/commandes/{$commande->id}", ['instructions_speciales' => 'Sonner deux fois'])->assertOk();
+    }
+
+    public function test_un_paiement_expire_libere_la_commande(): void
+    {
+        [, $commandes] = $this->paiementEnAttente();
+        $this->statutNotchPay(['status' => 'expired']);
+        $commande = $commandes->first();
+        $adresse = $this->creerAdresse($this->client, $this->creerQuartier());
+        $this->livrerVille($this->vendeurA);
+
+        Sanctum::actingAs($this->client);
+        $this->putJson("/api/v1/commandes/{$commande->id}", [
+            'type_livraison' => 'livraison',
+            'adresse_livraison_id' => $adresse->id,
+            'telephone_livraison' => '+237690000999',
+        ])->assertOk();
+        $this->assertSame('livraison', $commande->fresh()->type_livraison);
+    }
+
+    public function test_une_commande_payee_ne_change_plus_de_livraison(): void
+    {
+        $commande = $this->creerCommande($this->client, $this->vendeurA, ['statut_paiement' => 'paye']);
+        $adresse = $this->creerAdresse($this->client, $this->creerQuartier());
+        $this->livrerVille($this->vendeurA);
+
+        Sanctum::actingAs($this->client);
+        $this->putJson("/api/v1/commandes/{$commande->id}", [
+            'type_livraison' => 'livraison',
+            'adresse_livraison_id' => $adresse->id,
+            'telephone_livraison' => '+237690000999',
+        ])->assertStatus(422);
+        $this->assertSame('retrait_boutique', $commande->fresh()->type_livraison);
+    }
+
+    // Réponse de GET /payments/trx.test_1 (paiement créé par paiementEnAttente())
+    private function statutNotchPay(array $transaction): void
+    {
+        Http::fake([
+            'api.notchpay.co/payments/trx.test_1' => Http::response(['transaction' => ['reference' => 'trx.test_1', ...$transaction]]),
+        ]);
     }
 
     private function remplirPanier(): void

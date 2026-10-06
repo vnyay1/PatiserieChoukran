@@ -42,3 +42,6 @@ Schedule::command('panier:purge-expired')->everyFiveMinutes();
 
 // Le 1er de chaque mois : rapport du mois écoulé, prêt dans l'espace admin
 Schedule::command('rapports:mensuels')->monthlyOn(1, '06:00');
+
+// Jetons de connexion expirés depuis plus d'un jour (SANCTUM_EXPIRATION) : supprimés
+Schedule::command('sanctum:prune-expired --hours=24')->daily();

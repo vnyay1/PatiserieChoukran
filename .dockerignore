@@ -35,6 +35,8 @@ backend/storage/framework/cache/data/*
 backend/storage/framework/sessions/*
 backend/storage/framework/views/*
 backend/storage/app/public/*
+# Factures et rapports générés en développement (disque local privé)
+backend/storage/app/private
 !**/.gitignore
 
 # Outillage inutile en production
@@ -42,8 +44,13 @@ backend/tests
 backend/phpunit.xml
 backend/pint.json
 frontend/eslint.config.js
+backend/.phpunit.result.cache
 
 # Divers
 **/.DS_Store
 **/Thumbs.db
 docker-compose*.yml
+backups
+todo
+.vscode
+.superpowers

@@ -47,7 +47,9 @@ return [
     |
     */
 
-    'expiration' => null,
+    // Jetons gardés en localStorage par le SPA : durée de vie bornée (30 jours par défaut),
+    // comptée depuis la connexion. Les jetons expirés sont purgés chaque jour (routes/console.php).
+    'expiration' => (int) env('SANCTUM_EXPIRATION', 43200) ?: null,
 
     /*
     |--------------------------------------------------------------------------

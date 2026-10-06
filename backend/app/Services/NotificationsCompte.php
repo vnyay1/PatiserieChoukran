@@ -30,6 +30,26 @@ class NotificationsCompte
     }
 
     /**
+     * Paiement NotchPay terminé mais dont le montant ne correspond pas aux commandes :
+     * les commandes ne sont pas confirmées, un admin vérifie (et rembourse ou confirme).
+     */
+    public static function paiementAVerifier(string $reference, ?int $montantRecu, int $montantDu): void
+    {
+        $recu = $montantRecu === null ? 'un montant non communiqué' : number_format($montantRecu, 0, ',', ' ').' FCFA';
+        $du = number_format($montantDu, 0, ',', ' ');
+
+        User::admins()->actifs()->get()->each(function (User $admin) use ($reference, $recu, $du) {
+            NotificationsCommande::creer(
+                $admin,
+                "Paiement {$reference} à vérifier",
+                "NotchPay a encaissé {$recu} alors que les commandes rattachées totalisent {$du} FCFA. Elles n'ont pas été confirmées automatiquement : vérifiez le paiement avant de les confirmer ou de rembourser le client.",
+                '/admin/commandes',
+                'systeme'
+            );
+        });
+    }
+
+    /**
      * Rapport mensuel des vendeurs généré par la tâche planifiée : les admins sont prévenus.
      */
     public static function rapportMensuelDisponible(string $libelleMois, string $mois): void

@@ -221,18 +221,23 @@ class Commande extends Model
 
     public function changerStatut($nouveauStatut, $userId = null, $commentaire = null)
     {
-        if (! $this->peutPasserA($nouveauStatut)) {
-            throw new RegleMetierException(sprintf(
-                'Impossible de passer la commande %s de « %s » à « %s ».',
-                $this->numero_commande,
-                self::libelleStatut($this->statut),
-                self::libelleStatut($nouveauStatut)
-            ));
-        }
+        $ancienStatut = null;
 
-        $ancienStatut = $this->statut;
+        DB::transaction(function () use (&$ancienStatut, $nouveauStatut, $userId, $commentaire) {
+            // Relue sous verrou : deux requêtes simultanées (double clic, client et vendeur)
+            // ne peuvent pas annuler deux fois ni remettre deux fois le stock
+            $this->relireVerrouillee();
 
-        DB::transaction(function () use ($ancienStatut, $nouveauStatut, $userId, $commentaire) {
+            if (! $this->peutPasserA($nouveauStatut)) {
+                throw new RegleMetierException(sprintf(
+                    'Impossible de passer la commande %s de « %s » à « %s ».',
+                    $this->numero_commande,
+                    self::libelleStatut($this->statut),
+                    self::libelleStatut($nouveauStatut)
+                ));
+            }
+
+            $ancienStatut = $this->statut;
             $this->statut = $nouveauStatut;
             $this->save();
 
@@ -277,27 +282,70 @@ class Commande extends Model
      */
     public function confirmerPaiement(?string $reference = null): void
     {
-        if ($this->isAnnulee()) {
-            throw new RegleMetierException('Impossible de confirmer le paiement d\'une commande annulée.');
-        }
+        DB::transaction(function () use ($reference) {
+            // Vendeur, admin et NotchPay peuvent confirmer en même temps : une seule fois
+            $this->relireVerrouillee();
 
-        if ($this->isPaid()) {
-            throw new RegleMetierException('Le paiement de cette commande est déjà confirmé.');
-        }
+            if ($this->isAnnulee()) {
+                throw new RegleMetierException('Impossible de confirmer le paiement d\'une commande annulée.');
+            }
 
-        $this->update([
-            'statut_paiement' => 'paye',
-            'date_paiement' => now(),
-            'reference_paiement' => $reference,
-        ]);
+            if ($this->isPaid()) {
+                throw new RegleMetierException('Le paiement de cette commande est déjà confirmé.');
+            }
+
+            $this->update([
+                'statut_paiement' => 'paye',
+                'date_paiement' => now(),
+                'reference_paiement' => $reference,
+            ]);
+        });
 
         $this->loadMissing('user');
         NotificationsCommande::paiementConfirme($this);
     }
 
+    // État de la ligne relu avec un verrou d'écriture (à appeler dans une transaction)
+    private function relireVerrouillee(): void
+    {
+        $this->setRawAttributes(static::whereKey($this->getKey())->lockForUpdate()->firstOrFail()->getAttributes(), true);
+    }
+
     public function isPaid()
     {
         return $this->statut_paiement === 'paye';
+    }
+
+    // Paiement en ligne ouvert chez NotchPay depuis moins d'un jour, sans réponse définitive.
+    // Au-delà, un paiement resté sans nouvelle ne bloque plus la commande (NotchPay l'a expiré).
+    public function paiementEnCours(): bool
+    {
+        return $this->paiement_id !== null
+            && $this->paiement?->statut === Paiement::STATUT_EN_ATTENTE
+            && $this->paiement->created_at?->gt(now()->subDay());
+    }
+
+    // Argent reçu par NotchPay mais montant discordant : un admin vérifie avant toute suite
+    public function paiementAVerifier(): bool
+    {
+        return ! $this->isPaid() && $this->paiement?->statut === Paiement::STATUT_COMPLETE;
+    }
+
+    // Montant, livraison et moyen de paiement ne changent plus : payée, paiement ouvert,
+    // ou paiement reçu en cours de vérification
+    public function montantFige(): bool
+    {
+        return $this->isPaid() || $this->paiementEnCours() || $this->paiementAVerifier();
+    }
+
+    // Motif affiché au client quand la commande est figée
+    public function motifMontantFige(string $action): string
+    {
+        return match (true) {
+            $this->isPaid() => "Cette commande est déjà payée : contactez le vendeur pour {$action}, il organisera le remboursement.",
+            $this->paiementAVerifier() => "Un paiement a été reçu pour cette commande et est en cours de vérification : contactez le vendeur pour {$action}.",
+            default => "Un paiement en ligne est en cours pour cette commande : terminez-le ou attendez son expiration pour {$action}.",
+        };
     }
 
     public function isLivree()

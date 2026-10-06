@@ -30,7 +30,7 @@ class NotificationController extends Controller
             }
         }
 
-        $notifications = $query->paginate($request->get('per_page', 20));
+        $notifications = $query->paginate($this->parPage($request, 20));
 
         return response()->json([
             'success' => true,

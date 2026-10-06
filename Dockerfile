@@ -33,6 +33,9 @@ WORKDIR /app
 # Même origine que l'API : le SPA appelle /api/v1 en relatif.
 ARG VITE_API_URL=/api/v1
 ENV VITE_API_URL=${VITE_API_URL}
+# Adresse publique (https://…) : rend absolue l'image de partage d'index.html ; vide par défaut
+ARG VITE_URL_PUBLIQUE=
+ENV VITE_URL_PUBLIQUE=${VITE_URL_PUBLIQUE}
 
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -43,7 +46,9 @@ RUN npm run build
 # ---------------------------------------------------------------------------
 # 3. Image finale
 # ---------------------------------------------------------------------------
-FROM php:8.2-fpm-alpine AS app
+# PHP 8.4 : la branche 8.2 ne reçoit plus de correctifs de sécurité après le 31/12/2026
+# (composer.json garde ^8.2 pour XAMPP ; la CI teste les deux versions)
+FROM php:8.4-fpm-alpine AS app
 
 ENV APP_ROOT=/var/www/html \
     SPA_ROOT=/var/www/spa \
@@ -94,6 +99,7 @@ COPY docker/php/opcache.ini  /usr/local/etc/php/conf.d/zz-opcache.ini
 COPY docker/php-fpm/www.conf /usr/local/etc/php-fpm.d/zz-www.conf
 COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY docker/nginx/site.conf  /etc/nginx/http.d/default.conf
+COPY docker/nginx/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY docker/supervisord.conf /etc/supervisord.conf
 COPY docker/entrypoint.sh    /usr/local/bin/entrypoint
 

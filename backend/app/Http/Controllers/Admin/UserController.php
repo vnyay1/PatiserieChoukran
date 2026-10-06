@@ -45,7 +45,7 @@ class UserController extends Controller
 
         $users = $query->withCount('commandes')
             ->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 15));
+            ->paginate($this->parPage($request));
 
         return response()->json([
             'success' => true,
@@ -58,7 +58,8 @@ class UserController extends Controller
      */
     public function show($id)
     {
-        $user = User::with(['commandes', 'adresses'])
+        // Le détail n'affiche que les dernières commandes : inutile de charger tout l'historique
+        $user = User::with(['commandes' => fn ($query) => $query->latest()->limit(5), 'adresses'])
             ->withCount('commandes')
             ->findOrFail($id);
 

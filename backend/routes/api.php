@@ -83,8 +83,9 @@ Route::prefix('v1')->group(function () {
         Route::prefix('auth')->group(function () {
             Route::post('logout', [AuthController::class, 'logout']);
             Route::get('user', [AuthController::class, 'user']);
-            Route::put('profile', [AuthController::class, 'updateProfile']);
-            Route::post('change-password', [AuthController::class, 'changePassword']);
+            // Limiteur « sensible » (AppServiceProvider) : 5 essais par minute et par compte
+            Route::put('profile', [AuthController::class, 'updateProfile'])->middleware('throttle:sensible');
+            Route::post('change-password', [AuthController::class, 'changePassword'])->middleware('throttle:sensible');
         });
 
         Route::middleware('client')->group(function () {
@@ -106,7 +107,8 @@ Route::prefix('v1')->group(function () {
                 Route::put('/{id}', [CommandeController::class, 'update']);
                 Route::post('/{id}/cancel', [CommandeController::class, 'cancel']);
                 Route::get('/{id}/facture', [FactureController::class, 'client'])->whereNumber('id');
-                Route::post('/{id}/payer', [PaiementController::class, 'payer'])->whereNumber('id');
+                // Chaque appel ouvre un paiement chez NotchPay
+                Route::post('/{id}/payer', [PaiementController::class, 'payer'])->whereNumber('id')->middleware('throttle:paiement');
             });
 
             // Retour du client depuis la page de paiement NotchPay

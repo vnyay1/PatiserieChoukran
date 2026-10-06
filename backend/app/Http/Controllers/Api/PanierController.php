@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Panier;
 use App\Models\Produit;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -41,7 +42,7 @@ class PanierController extends Controller
         $this->purgeExpiredPanier($request);
 
         $validated = $request->validate([
-            'produit_id' => 'required|exists:produits,id',
+            'produit_id' => 'required|integer|exists:produits,id',
             'quantite' => 'required|integer|min:1',
         ]);
 
@@ -55,46 +56,63 @@ class PanierController extends Controller
             ], 400);
         }
 
-        // Vérifier si le produit existe déjà dans le panier
-        $panierItem = Panier::where('user_id', $request->user()->id)
-            ->where('produit_id', $validated['produit_id'])
-            ->first();
-
-        // Le stock doit couvrir la quantité déjà au panier + celle ajoutée
-        $dejaAuPanier = $panierItem?->quantite ?? 0;
-        if ($produit->stock_disponible < $dejaAuPanier + $validated['quantite']) {
-            $reste = max(0, $produit->stock_disponible - $dejaAuPanier);
-
-            return response()->json([
-                'success' => false,
-                'message' => $reste > 0
-                    ? "Stock insuffisant : vous pouvez encore ajouter {$reste} unité(s) de ce produit."
-                    : ($dejaAuPanier > 0
-                        ? 'Tout le stock disponible de ce produit est déjà dans votre panier.'
-                        : 'Ce produit est en rupture de stock.'),
-            ], 400);
+        try {
+            $refus = $this->ajouterAuPanier($request->user()->id, $produit, $validated['quantite']);
+        } catch (UniqueConstraintViolationException) {
+            // Deux ajouts simultanés du même produit (double clic) : l'autre requête vient
+            // de créer la ligne (une seule par produit), celle-ci la complète
+            $refus = $this->ajouterAuPanier($request->user()->id, $produit, $validated['quantite']);
         }
 
-        if ($panierItem) {
-            // Mettre à jour la quantité (et le prix, s'il a changé depuis le premier ajout)
-            $panierItem->quantite += $validated['quantite'];
-            $panierItem->prix_unitaire_actuel = $produit->prix_actuel;
-            $panierItem->vendeur_id = $produit->created_by_user_id;
-            $panierItem->calculerSousTotal();
-        } else {
-            Panier::create([
-                'user_id' => $request->user()->id,
-                'produit_id' => $validated['produit_id'],
-                'vendeur_id' => $produit->created_by_user_id,
-                'quantite' => $validated['quantite'],
-                'prix_unitaire_actuel' => $produit->prix_actuel,
-                'sous_total' => $produit->prix_actuel * $validated['quantite'],
-            ]);
+        if ($refus) {
+            return response()->json(['success' => false, 'message' => $refus], 400);
         }
 
         Panier::prolonger($request->user()->id);
 
         return $this->reponsePanier($request, 'Produit ajouté au panier', 201);
+    }
+
+    /**
+     * Ajoute la quantité à la ligne du produit (créée au besoin). Renvoie le motif du
+     * refus quand le stock ne couvre pas la quantité déjà au panier + celle ajoutée.
+     */
+    private function ajouterAuPanier(int $userId, Produit $produit, int $quantite): ?string
+    {
+        $ligne = Panier::where('user_id', $userId)->where('produit_id', $produit->id)->first();
+
+        $dejaAuPanier = $ligne?->quantite ?? 0;
+        if ($produit->stock_disponible < $dejaAuPanier + $quantite) {
+            $reste = max(0, $produit->stock_disponible - $dejaAuPanier);
+
+            return $reste > 0
+                ? "Stock insuffisant : vous pouvez encore ajouter {$reste} unité(s) de ce produit."
+                : ($dejaAuPanier > 0
+                    ? 'Tout le stock disponible de ce produit est déjà dans votre panier.'
+                    : 'Ce produit est en rupture de stock.');
+        }
+
+        if ($ligne) {
+            // Incrément atomique (aucune unité perdue entre deux ajouts simultanés), prix actualisé
+            Panier::whereKey($ligne->id)->increment('quantite', $quantite, [
+                'prix_unitaire_actuel' => $produit->prix_actuel,
+                'vendeur_id' => $produit->created_by_user_id,
+            ]);
+            $ligne->refresh()->calculerSousTotal();
+
+            return null;
+        }
+
+        Panier::create([
+            'user_id' => $userId,
+            'produit_id' => $produit->id,
+            'vendeur_id' => $produit->created_by_user_id,
+            'quantite' => $quantite,
+            'prix_unitaire_actuel' => $produit->prix_actuel,
+            'sous_total' => $produit->prix_actuel * $quantite,
+        ]);
+
+        return null;
     }
 
     /**

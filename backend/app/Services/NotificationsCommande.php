@@ -73,7 +73,9 @@ class NotificationsCommande
                 : 'Votre commande est prête : vous pouvez venir la récupérer.',
             'en_livraison' => 'Votre commande est en route vers vous.',
             'livree' => 'Votre commande a été livrée. Merci et bonne dégustation !',
-            'annulee' => 'Votre commande a été annulée.',
+            'annulee' => $commande->isPaid()
+                ? 'Votre commande a été annulée. Le vendeur vous contactera pour le remboursement de votre paiement.'
+                : 'Votre commande a été annulée.',
         ];
 
         $message = $messages[$commande->statut] ?? 'Le statut de votre commande a changé.';

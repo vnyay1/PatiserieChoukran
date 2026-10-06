@@ -28,7 +28,7 @@ class QuartierController extends Controller
 
         $quartiers = $query->orderBy('ville')
             ->orderBy('nom')
-            ->paginate($request->get('per_page', 50));
+            ->paginate($this->parPage($request, 50));
 
         return response()->json([
             'success' => true,

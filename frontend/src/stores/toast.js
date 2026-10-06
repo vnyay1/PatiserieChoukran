@@ -7,13 +7,16 @@ import { defineStore } from 'pinia'
 
 let prochainId = 1
 
+// Minuteries hors de l'état réactif : { id: { reste, debut, minuterie } }
+const minuteries = new Map()
+
 export const useToastStore = defineStore('toast', {
   state: () => ({
     toasts: [],
   }),
 
   actions: {
-    afficher(message, type = 'info', duree = 4000) {
+    afficher(message, type = 'info', duree = 5000) {
       if (!message) return null
 
       // Pas de doublon : le même message déjà affiché n'est pas empilé
@@ -24,7 +27,8 @@ export const useToastStore = defineStore('toast', {
       this.toasts.push({ id, message, type })
 
       if (duree > 0) {
-        setTimeout(() => this.retirer(id), duree)
+        minuteries.set(id, { reste: duree, debut: 0, minuterie: null })
+        this.reprendre(id)
       }
       return id
     },
@@ -33,7 +37,7 @@ export const useToastStore = defineStore('toast', {
       return this.afficher(message, 'success', duree)
     },
 
-    erreur(message, duree = 6000) {
+    erreur(message, duree = 8000) {
       return this.afficher(message, 'error', duree)
     },
 
@@ -41,7 +45,26 @@ export const useToastStore = defineStore('toast', {
       return this.afficher(message, 'info', duree)
     },
 
+    // Survol ou focus : le message reste affiché le temps de le lire
+    suspendre(id) {
+      const suivi = minuteries.get(id)
+      if (!suivi || !suivi.minuterie) return
+      clearTimeout(suivi.minuterie)
+      suivi.minuterie = null
+      suivi.reste -= Date.now() - suivi.debut
+    },
+
+    reprendre(id) {
+      const suivi = minuteries.get(id)
+      if (!suivi || suivi.minuterie) return
+      suivi.debut = Date.now()
+      suivi.minuterie = setTimeout(() => this.retirer(id), Math.max(suivi.reste, 1500))
+    },
+
     retirer(id) {
+      const suivi = minuteries.get(id)
+      if (suivi?.minuterie) clearTimeout(suivi.minuterie)
+      minuteries.delete(id)
       this.toasts = this.toasts.filter((toast) => toast.id !== id)
     },
   },

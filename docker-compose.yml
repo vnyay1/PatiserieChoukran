@@ -35,6 +35,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # Aucun processus ne peut regagner de privilèges (binaires setuid)
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     networks:
       - app_net
@@ -58,6 +61,9 @@ services:
       timeout: 5s
       retries: 15
       start_period: 30s
+    # Aucun processus ne peut regagner de privilèges (binaires setuid)
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     networks:
       - app_net
@@ -69,11 +75,15 @@ services:
       PMA_PORT: 3306
       UPLOAD_LIMIT: 64M
     # Aucun identifiant prérempli : on se connecte avec ceux de .env.docker.
+    # Accessible depuis ce poste seulement (pas depuis le réseau local)
     ports:
-      - "${PHPMYADMIN_PORT:-8081}:80"
+      - "127.0.0.1:${PHPMYADMIN_PORT:-8081}:80"
     depends_on:
       db:
         condition: service_healthy
+    # Aucun processus ne peut regagner de privilèges (binaires setuid)
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     networks:
       - app_net

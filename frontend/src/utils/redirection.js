@@ -3,11 +3,13 @@
 // File: src/utils/redirection.js
 // ===================================
 
+import { cheminInterne } from '@/utils/url'
+
 // La garde du router ajoute ?redirect=/page-demandee : on y renvoie l'utilisateur.
 // Seuls les chemins internes sont acceptés (pas de redirection vers un site externe).
 export const destinationApresConnexion = (route, authStore) => {
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-  if (redirect.startsWith('/') && !redirect.startsWith('//')) {
+  const redirect = cheminInterne(route.query.redirect)
+  if (redirect) {
     return redirect
   }
 

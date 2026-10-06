@@ -4,132 +4,161 @@ File: src/views/VendeurProfil.vue
 =================================== -->
 
 <template>
-  <div class="vendeur-profil-page bg-cream min-h-screen pb-20">
-    <div class="container mx-auto px-4 py-6 max-w-6xl">
-      <div v-if="loading" class="space-y-4">
-        <div class="skeleton h-48 rounded-elegant"></div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          <div v-for="n in 4" :key="n" class="skeleton h-64 rounded-elegant"></div>
-        </div>
+  <div class="container mx-auto max-w-6xl pb-6 pt-6 md:pt-8">
+    <div v-if="loading" class="space-y-6" aria-busy="true">
+      <div class="skeleton h-48 rounded-elegant"></div>
+      <div class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+        <div v-for="n in 4" :key="n" class="skeleton aspect-square rounded-elegant"></div>
       </div>
+      <span class="sr-only">Chargement de la boutique…</span>
+    </div>
 
-      <div v-else-if="!vendeur" class="text-center py-16">
-        <div class="text-6xl mb-4">🏪</div>
-        <h1 class="font-display text-2xl font-bold text-gray-800 mb-2">Boutique introuvable</h1>
-        <p class="text-gray-600 mb-6">Ce vendeur n'existe pas ou ne vend plus sur Choukrane pour le moment.</p>
-        <Button variant="primary" @click="router.push('/produits')">Voir tous les produits</Button>
-      </div>
+    <!-- Erreur réseau ou serveur : distincte d'une boutique introuvable -->
+    <div v-else-if="erreurBoutique">
+      <h1 class="sr-only">Boutique</h1>
+      <AlertMessage type="error">
+        Impossible de charger cette boutique pour le moment.
+        <button type="button" class="lien ml-1" @click="charger">Réessayer</button>
+      </AlertMessage>
+    </div>
 
-      <template v-else>
-        <!-- En-tête de la boutique -->
-        <Card padding="lg" class="mb-8">
-          <div class="flex flex-col sm:flex-row gap-6 items-center sm:items-start">
-            <div class="h-28 w-28 flex-shrink-0 rounded-elegant border bg-white overflow-hidden flex items-center justify-center">
+    <EmptyState
+      v-else-if="!vendeur"
+      :icone="Store"
+      niveau="h1"
+      titre="Boutique introuvable"
+      texte="Ce vendeur n'existe pas ou ne vend plus sur Choukrane pour le moment."
+    >
+      <Button to="/produits" variant="primary">Voir tous les produits</Button>
+    </EmptyState>
+
+    <template v-else>
+      <!-- En-tête de la boutique -->
+      <section class="card mb-10 overflow-hidden" aria-labelledby="nom-boutique">
+        <div class="h-20 bg-gradient-peach sm:h-24" aria-hidden="true"></div>
+        <div class="px-5 pb-6 sm:px-8">
+          <div class="-mt-12 flex flex-col items-center gap-5 sm:flex-row sm:items-end">
+            <div class="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-surface bg-plaque shadow-card sm:h-28 sm:w-28">
               <img
                 v-if="vendeur.logo_boutique"
                 :src="resolveImageUrl(vendeur.logo_boutique, { placeholder: false })"
                 :alt="`Logo de ${vendeur.nom_complet}`"
                 class="h-full w-full object-contain"
               />
-              <Store v-else :size="40" class="text-gray-300" />
+              <Store v-else :size="40" class="text-gray-400" aria-hidden="true" />
             </div>
-
-            <div class="flex-1 min-w-0 text-center sm:text-left">
-              <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-2">
-                <h1 class="font-display text-2xl md:text-3xl font-bold text-gray-800">
-                  {{ vendeur.nom_complet }}
-                </h1>
-                <span
-                  v-if="vendeur.est_vendeur_vedette"
-                  class="bg-gold-500 text-white px-2 py-1 rounded-full text-xs font-bold inline-flex items-center"
-                >
-                  <Star :size="12" class="mr-1" fill="white" />
-                  Vedette
+            <div class="min-w-0 text-center sm:pb-1 sm:text-left">
+              <div class="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                <h1 id="nom-boutique" class="text-2xl md:text-3xl">{{ vendeur.nom_complet }}</h1>
+                <span v-if="vendeur.est_vendeur_vedette" class="badge bg-gold-500 text-on-gold">
+                  <Star :size="12" fill="currentColor" aria-hidden="true" />
+                  Vendeur vedette
                 </span>
               </div>
-
-              <p class="text-gray-700 whitespace-pre-line mb-4">{{ vendeur.description_boutique }}</p>
-
-              <div class="flex flex-wrap justify-center sm:justify-start gap-x-6 gap-y-2 text-sm text-gray-600">
-                <a :href="`mailto:${vendeur.email}`" class="inline-flex items-center gap-2 text-gold-700 hover:text-gold-800">
-                  <Mail :size="16" />
-                  {{ vendeur.email }}
-                </a>
-                <span class="inline-flex items-center gap-2">
-                  <MapPin :size="16" />
-                  {{ vendeur.villes_livraison?.length ? `Livre à ${vendeur.villes_livraison.map(formatVille).join(' et ')}` : 'Retrait en boutique uniquement' }}
-                </span>
-                <span class="inline-flex items-center gap-2">
-                  <Truck :size="16" />
-                  {{ vendeur.montant_minimum_livraison > 0
-                    ? `Livraison dès ${formatPrice(vendeur.montant_minimum_livraison)} FCFA d'achat`
-                    : 'Livraison sans minimum d\'achat' }}
-                </span>
-                <span class="inline-flex items-center gap-2">
-                  <Calendar :size="16" />
-                  Vendeur depuis {{ formatDate(vendeur.membre_depuis, { month: 'long', year: 'numeric' }) }}
-                </span>
-              </div>
+              <p class="mt-1 text-sm text-gray-600">
+                Vendeur depuis {{ formatDate(vendeur.membre_depuis, { month: 'long', year: 'numeric' }) }}
+              </p>
             </div>
           </div>
-        </Card>
 
-        <!-- Produits de la boutique -->
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="font-display text-xl font-bold text-gray-800">
-            Ses produits
-            <span class="text-gray-500 font-normal text-base">({{ totalProduits }})</span>
-          </h2>
+          <p class="mx-auto mt-5 max-w-3xl whitespace-pre-line text-center text-gray-700 sm:mx-0 sm:text-left">{{ vendeur.description_boutique }}</p>
+
+          <!-- Infos de livraison en texte (comme sur la fiche produit) ; seul l'e-mail est un lien -->
+          <ul class="mt-5 flex flex-col items-center gap-x-6 gap-y-2 text-sm text-gray-700 sm:flex-row sm:flex-wrap">
+            <li class="flex items-center gap-2">
+              <MapPin :size="17" class="flex-shrink-0 text-gold-600" aria-hidden="true" />
+              {{ vendeur.villes_livraison?.length ? `Livre à ${vendeur.villes_livraison.map(formatVille).join(' et ')}` : 'Retrait en boutique uniquement' }}
+            </li>
+            <li class="flex items-center gap-2">
+              <Truck :size="17" class="flex-shrink-0 text-gold-600" aria-hidden="true" />
+              {{ vendeur.montant_minimum_livraison > 0
+                ? `Livraison dès ${formatPrice(vendeur.montant_minimum_livraison)} FCFA d'achat`
+                : 'Livraison sans minimum d\'achat' }}
+            </li>
+            <li v-if="vendeur.email">
+              <a :href="`mailto:${vendeur.email}`" class="lien inline-flex min-h-11 items-center gap-2">
+                <Mail :size="17" class="flex-shrink-0" aria-hidden="true" />
+                {{ vendeur.email }}
+              </a>
+            </li>
+          </ul>
         </div>
+      </section>
 
-        <div v-if="loadingProduits && produits.length === 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          <div v-for="n in 4" :key="n" class="skeleton h-64 rounded-elegant"></div>
-        </div>
+      <!-- Produits de la boutique -->
+      <section aria-labelledby="titre-produits-vendeur">
+        <h2 id="titre-produits-vendeur" class="mb-5">
+          Ses créations
+          <span v-if="produits.length || !erreurProduits" class="font-body text-base font-normal text-gray-600">({{ totalProduits }})</span>
+        </h2>
 
-        <p v-else-if="produits.length === 0" class="text-gray-600 text-center py-10">
-          Ce vendeur n'a pas encore de produit disponible.
-        </p>
+        <ul v-if="loadingProduits && produits.length === 0" class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4" aria-hidden="true">
+          <li v-for="n in 4" :key="n" class="skeleton aspect-square rounded-elegant"></li>
+        </ul>
+
+        <AlertMessage v-else-if="erreurProduits && produits.length === 0" type="error">
+          Impossible de charger les créations de ce vendeur.
+          <button type="button" class="lien ml-1" @click="chargerProduits(1)">Réessayer</button>
+        </AlertMessage>
+
+        <EmptyState
+          v-else-if="produits.length === 0"
+          :icone="PackageOpen"
+          niveau="h3"
+          titre="Aucun produit pour le moment"
+          texte="Ce vendeur n'a pas encore de produit disponible."
+        />
 
         <template v-else>
-          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            <ProduitCard v-for="produit in produits" :key="produit.id" :produit="produit" />
-          </div>
-          <div v-if="page < dernierePage" class="text-center mt-8">
+          <ul class="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+            <li v-for="produit in produits" :key="produit.id">
+              <ProduitCard :produit="produit" />
+            </li>
+          </ul>
+          <AlertMessage v-if="erreurProduits" type="error" class="mt-8">
+            Impossible de charger la suite des créations.
+            <button type="button" class="lien ml-1" @click="chargerProduits(page + 1)">Réessayer</button>
+          </AlertMessage>
+          <div v-else-if="page < dernierePage" class="mt-8 text-center">
             <Button variant="outline" :loading="loadingProduits" @click="chargerProduits(page + 1)">
               Voir plus de produits
             </Button>
           </div>
         </template>
-      </template>
-    </div>
+      </section>
+    </template>
   </div>
 </template>
 
 <script setup>
 import { ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import api from '@/services/api'
-import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 import ProduitCard from '@/components/produits/ProduitCard.vue'
 import { resolveImageUrl } from '@/utils/images'
 import { formatPrice, formatDate } from '@/utils/format'
-import { Store, Star, Mail, Truck, Calendar, MapPin } from 'lucide-vue-next'
+import { Store, Star, Mail, Truck, MapPin, PackageOpen } from 'lucide-vue-next'
 import { formatVille } from '@/utils/villes'
+import { titrePage } from '@/utils/titre'
 
 const route = useRoute()
-const router = useRouter()
 
 const loading = ref(true)
 const vendeur = ref(null)
 const produits = ref([])
 const loadingProduits = ref(false)
+const erreurBoutique = ref(false)
+const erreurProduits = ref(false)
 const page = ref(1)
 const dernierePage = ref(1)
 const totalProduits = ref(0)
 
 const chargerProduits = async (numeroPage = 1) => {
   loadingProduits.value = true
+  erreurProduits.value = false
   try {
     // ville: undefined -> la ville choisie ne filtre pas la vitrine du vendeur (ses villes sont affichées)
     const response = await api.produits.getAll({ vendeur_id: route.params.id, ville: undefined, page: numeroPage, per_page: 12 })
@@ -139,6 +168,7 @@ const chargerProduits = async (numeroPage = 1) => {
     dernierePage.value = pagination.last_page
     totalProduits.value = pagination.total
   } catch (error) {
+    erreurProduits.value = true
     console.error('Erreur chargement produits du vendeur:', error)
   } finally {
     loadingProduits.value = false
@@ -147,16 +177,19 @@ const chargerProduits = async (numeroPage = 1) => {
 
 const charger = async () => {
   loading.value = true
+  erreurBoutique.value = false
   vendeur.value = null
   produits.value = []
 
   try {
     const response = await api.vendeurs.getOne(route.params.id)
     vendeur.value = response.data.data
-    document.title = `${vendeur.value.nom_complet} - Pâtisserie`
+    document.title = titrePage(vendeur.value.nom_complet)
     await chargerProduits(1)
-  } catch {
+  } catch (error) {
     vendeur.value = null
+    // 404 : vendeur inconnu, inactif ou profil incomplet ; toute autre erreur peut se réessayer
+    erreurBoutique.value = error.response?.status !== 404
   } finally {
     loading.value = false
   }

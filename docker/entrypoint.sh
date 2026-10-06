@@ -101,5 +101,10 @@ php artisan event:cache --no-interaction
 # et les téléversements échoueraient.
 chown -R www-data:www-data bootstrap/cache storage
 
+# Les mots de passe MySQL ne servent qu'au conteneur db (.env.docker est commun aux deux) : la file
+# d'attente et le planificateur, lancés par supervisord avec cet environnement, n'ont pas à les
+# connaître. PHP-FPM n'hérite d'aucune variable (clear_env = yes dans docker/php-fpm/www.conf).
+unset MYSQL_ROOT_PASSWORD MYSQL_PASSWORD
+
 log "Démarrage des services."
 exec "$@"

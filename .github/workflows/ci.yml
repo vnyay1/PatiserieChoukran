@@ -20,31 +20,68 @@ env:
   NODE_VERSION: '22'
 
 jobs:
-  backend:
-    name: Backend — tests & style
+  # Aucun secret dans les commits poussés (l'ancien .env.docker est resté dans
+  # l'historique : ses secrets ont été révoqués, seuls les nouveaux commits sont scannés).
+  secrets:
+    name: Secrets — gitleaks
     runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Commits poussés sans secret
+        env:
+          AVANT: ${{ github.event.before }}
+          BASE_PR: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -n "$BASE_PR" ]; then
+            plage="$BASE_PR..HEAD"
+          elif [ -n "$AVANT" ] && [ "$AVANT" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$AVANT^{commit}" 2>/dev/null; then
+            plage="$AVANT..HEAD"
+          else
+            # Nouvelle branche : ses commits absents de master
+            plage="origin/master..HEAD"
+          fi
+          echo "Commits analysés : $plage"
+          # safe.directory : le dépôt monté appartient à l'utilisateur du runner, pas à celui de l'image
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
+            zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            git --log-opts="$plage" --redact --verbose .
+
+  backend:
+    name: Backend — tests & style (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+
+    # 8.2 : XAMPP en développement ; 8.4 : l'image Docker de production
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.4']
 
     defaults:
       run:
         working-directory: backend
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Installer PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
-          php-version: ${{ env.PHP_VERSION }}
+          php-version: ${{ matrix.php }}
           extensions: mbstring, intl, pdo_sqlite, sqlite3, gd, bcmath, zip
           coverage: none
           tools: composer:v2
 
       - name: Cache Composer
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/composer/files
-          key: composer-${{ runner.os }}-php${{ env.PHP_VERSION }}-${{ hashFiles('backend/composer.lock') }}
-          restore-keys: composer-${{ runner.os }}-php${{ env.PHP_VERSION }}-
+          key: composer-${{ runner.os }}-php${{ matrix.php }}-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-php${{ matrix.php }}-
 
       - name: Installer les dépendances
         run: composer install --no-interaction --prefer-dist --no-progress
@@ -56,6 +93,10 @@ jobs:
 
       - name: Style de code (Pint)
         run: ./vendor/bin/pint --test
+
+      # Paquets PHP embarqués dans l'image : aucun avis de sécurité connu
+      - name: Audit des dépendances (Composer)
+        run: composer audit --no-dev
 
       - name: Tests
         run: composer test
@@ -86,10 +127,10 @@ jobs:
         working-directory: backend
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Installer PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: ${{ env.PHP_VERSION }}
           extensions: mbstring, intl, pdo_mysql, gd, bcmath, zip
@@ -97,7 +138,7 @@ jobs:
           tools: composer:v2
 
       - name: Cache Composer
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/composer/files
           key: composer-${{ runner.os }}-php${{ env.PHP_VERSION }}-${{ hashFiles('backend/composer.lock') }}
@@ -138,10 +179,10 @@ jobs:
         working-directory: frontend
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Installer Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -150,12 +191,23 @@ jobs:
       - name: Installer les dépendances
         run: npm ci
 
+      # Trivy ne voit que le SPA compilé : les paquets npm livrés au navigateur sont audités ici
+      - name: Audit des dépendances (npm)
+        run: npm audit --omit=dev --audit-level=high
+
       # Sans --fix : la CI signale les problèmes, elle ne les masque pas.
       - name: Lint (ESLint)
         run: npm run lint
 
+      - name: Tests des utilitaires (node --test)
+        run: npm test
+
       - name: Build
         run: npm run build
+
+      # La CSP de production (font-src 'self') refuse les polices en data: URI
+      - name: Aucune police inlinée dans le CSS
+        run: "! grep -l 'url(data:font' dist/assets/*.css"
 
   docker:
     name: Image Docker — build, scan & smoke test
@@ -163,13 +215,13 @@ jobs:
     needs: [backend, frontend]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Configurer Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Construire l'image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: Dockerfile
@@ -183,7 +235,7 @@ jobs:
       # changement de code signifie qu'une nouvelle faille a été publiée (mettre à jour
       # les paquets Composer concernés ; l'image fait déjà apk upgrade).
       - name: Scan de vulnérabilités (Trivy)
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         env:
           # Miroirs de la base de vulnérabilités : ghcr.io seul limite souvent les téléchargements
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -231,6 +283,15 @@ jobs:
           echo "→ SPA"
           curl -fsS "$base/" | grep -q '<div id="app"'
 
+          # nginx n'hérite pas des add_header du bloc server : chaque type de réponse est vérifié
+          echo "→ en-têtes de sécurité (page du SPA, route du routeur, fichier statique, API)"
+          script=$(curl -fsS "$base/" | grep -o 'src="/assets/[^"]*\.js"' | head -n 1 | cut -d'"' -f2)
+          for chemin in / /produits "$script" /api/v1/produits; do
+            entetes=$(curl -fsS -o /dev/null -D - "$base$chemin")
+            echo "$entetes" | grep -qi '^content-security-policy:' || { echo "::error::CSP absente sur $chemin"; exit 1; }
+            echo "$entetes" | grep -qi '^x-content-type-options: *nosniff' || { echo "::error::nosniff absent sur $chemin"; exit 1; }
+          done
+
           echo "→ /up"
           curl -fsS "$base/up" > /dev/null
 
@@ -253,10 +314,12 @@ jobs:
           echo "→ worker et planificateur en cours d'exécution"
           docker compose exec -T app sh -c 'pgrep -f "queue:work" >/dev/null && pgrep -f "schedule:work" >/dev/null'
 
+      # Sans .env.docker, la pile n'a jamais démarré (échec plus tôt, au scan par exemple) :
+      # compose refuserait de lire sa configuration et ajouterait deux échecs trompeurs
       - name: Journaux en cas d'échec
-        if: failure()
+        if: failure() && hashFiles('.env.docker') != ''
         run: docker compose logs --no-color
 
       - name: Arrêter la pile
-        if: always()
+        if: always() && hashFiles('.env.docker') != ''
         run: docker compose down -v

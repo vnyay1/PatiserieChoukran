@@ -1,326 +1,307 @@
 <!-- ===================================
-ADMIN - GESTION DES PRODUITS
+ADMIN / VENDEUR - GESTION DES PRODUITS
 File: src/views/admin/AdminProduits.vue
 =================================== -->
-
+<!--
+  Filtres et page dans l'URL (appliqués dès qu'ils changent). Liste dans TableauDonnees : cartes
+  sur mobile, tableau dès md. Création et modification dans un tiroir (BaseModal) : focus sur le
+  premier champ, rendu au bouton d'origine à la fermeture.
+-->
 <template>
-  <div class="admin-produits-page bg-cream min-h-screen pb-20">
-    <div class="container mx-auto px-4 py-6 max-w-6xl">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div>
-          <h1 class="font-display text-2xl md:text-3xl font-bold text-gold-600">
-            Administration Produits
-          </h1>
-          <p class="text-gray-600 text-sm">
-            Ajouter, modifier et supprimer les produits du catalogue.
-          </p>
-        </div>
+  <div class="container mx-auto max-w-6xl pb-6 pt-6 md:pt-8">
+    <EnTetePage titre="Produits" sous-titre="Ajouter, modifier et retirer les produits du catalogue.">
+      <template #actions>
         <Button variant="primary" :icon="Plus" :icon-size="18" @click="openCreate">
           Nouveau produit
         </Button>
-      </div>
+      </template>
+    </EnTetePage>
 
-      <Card padding="md" class="mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Recherche</label>
-            <div class="relative">
-              <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" :size="18" />
-              <input
-                v-model="filters.search"
-                type="search"
-                placeholder="Nom ou description..."
-                class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 focus:border-gold-500 focus:ring-2 focus:ring-gold-200 outline-none"
-                @input="handleSearch"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Catégorie</label>
-            <select v-model="filters.categorie_id" class="input">
-              <option value="">Toutes</option>
-              <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-                {{ cat.nom }}
-              </option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Disponibilité</label>
-            <select v-model="filters.est_disponible" class="input">
-              <option value="">Toutes</option>
-              <option value="1">Disponibles</option>
-              <option value="0">Indisponibles</option>
-            </select>
-          </div>
-
-          <div class="md:col-span-4 flex flex-wrap gap-3">
-            <Button variant="outline" @click="resetFilters">
-              Réinitialiser
-            </Button>
-            <Button variant="primary" @click="applyFilters">
-              Appliquer
-            </Button>
-          </div>
+    <Card padding="md" class="mb-6">
+      <div class="grid grid-cols-1 items-end gap-4 md:grid-cols-4">
+        <ChampRecherche
+          id="filtre-produits-recherche"
+          v-model="filtres.search"
+          libelle="Recherche"
+          libelle-visible
+          placeholder="Nom ou description…"
+          class="md:col-span-2"
+          @rechercher="mettreAJour({ page: 1 })"
+        />
+        <div>
+          <label for="filtre-produits-categorie" class="label">Catégorie</label>
+          <select id="filtre-produits-categorie" v-model="filtres.categorie_id" class="input" @change="mettreAJour({ page: 1 })">
+            <option value="">Toutes</option>
+            <option v-for="cat in categories" :key="cat.id" :value="String(cat.id)">
+              {{ cat.nom }}
+            </option>
+          </select>
         </div>
-      </Card>
-
-      <Card v-if="showForm" padding="lg" class="mb-6">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="font-display text-xl font-bold text-gray-800">
-            {{ isEditing ? 'Modifier le produit' : 'Ajouter un produit' }}
-          </h2>
-          <button class="text-sm text-gray-500 hover:text-gray-700" @click="closeForm">
-            Fermer
-          </button>
+        <div>
+          <label for="filtre-produits-disponibilite" class="label">Disponibilité</label>
+          <select id="filtre-produits-disponibilite" v-model="filtres.est_disponible" class="input" @change="mettreAJour({ page: 1 })">
+            <option value="">Toutes</option>
+            <option value="1">Disponibles</option>
+            <option value="0">Indisponibles</option>
+          </select>
         </div>
-
-        <form class="grid grid-cols-1 md:grid-cols-2 gap-4" @submit.prevent="submitForm">
-          <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
-            <input v-model="form.nom" type="text" class="input" required />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Catégorie *</label>
-            <select v-model="form.categorie_id" class="input" required>
-              <option value="">Sélectionner...</option>
-              <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-                {{ cat.nom }}
-              </option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Stock *</label>
-            <input v-model.number="form.stock_disponible" type="number" min="0" class="input" required />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Prix (FCFA) *</label>
-            <input v-model.number="form.prix_unitaire" type="number" min="0" step="0.01" class="input" required />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Prix promo (FCFA)</label>
-            <input
-              v-model="form.prix_promo"
-              type="number"
-              min="0"
-              step="0.01"
-              class="input"
-              :disabled="!form.promo_active"
-              :class="!form.promo_active ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''"
-            />
-            <p class="text-xs text-gray-500 mt-1">Activez pour appliquer le prix promo</p>
-          </div>
-
-          <div class="md:col-span-2">
-            <label class="inline-flex items-center gap-2">
-              <input
-                v-model="form.promo_active"
-                type="checkbox"
-                class="rounded border-gray-300 text-gold-600 focus:ring-gold-500"
-              />
-              <span class="text-sm text-gray-700">Activer le prix promotionnel</span>
-            </label>
-          </div>
-
-          <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-            <textarea v-model="form.description" rows="4" class="input resize-none"></textarea>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Image principale</label>
-            <div class="flex items-center gap-3">
-              <img
-                v-if="apercuPrincipale"
-                loading="lazy"
-                :src="apercuPrincipale"
-                alt="Aperçu de l'image principale"
-                class="h-16 w-16 flex-shrink-0 rounded-lg object-cover border"
-                @error="onImageError"
-              />
-              <input
-                :key="fileInputKey"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                class="input"
-                @change="onImagePrincipale"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Images secondaires (4 max.)</label>
-            <input
-              :key="fileInputKey + 1"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              multiple
-              class="input"
-              @change="onImagesSecondaires"
-            />
-            <p class="text-xs text-gray-500 mt-1">
-              <template v-if="imagesSecondaires.length">{{ imagesSecondaires.length }} image(s) sélectionnée(s).</template>
-              <template v-else-if="isEditing && nbImagesSecondairesActuelles">
-                {{ nbImagesSecondairesActuelles }} image(s) actuelle(s) : un nouvel envoi les remplace.
-              </template>
-            </p>
-          </div>
-
-          <p class="md:col-span-2 text-xs text-gray-500 -mt-2">
-            JPEG, PNG ou WebP, {{ TAILLE_MAX_IMAGE_MO }} Mo maximum par image.
-          </p>
-
-          <div class="md:col-span-2 flex flex-wrap gap-4">
-            <label class="inline-flex items-center gap-2">
-              <input
-                v-model="form.est_disponible"
-                type="checkbox"
-                class="rounded border-gray-300 text-gold-600 focus:ring-gold-500"
-              />
-              <span class="text-sm text-gray-700">Produit disponible</span>
-            </label>
-          </div>
-
-          <div class="md:col-span-2 flex gap-3">
-            <Button type="submit" variant="primary" :loading="saving">
-              {{ isEditing ? 'Enregistrer' : 'Créer le produit' }}
-            </Button>
-            <Button type="button" variant="outline" @click="closeForm">
-              Annuler
-            </Button>
-          </div>
-
-          <p v-if="formError" class="text-sm text-red-600 md:col-span-2">
-            {{ formError }}
-          </p>
-        </form>
-      </Card>
-
-      <Card padding="none">
-        <div class="p-4 border-b border-gray-100 flex items-center justify-between">
-          <div class="text-sm text-gray-600">
-            {{ totalProduits }} produit{{ totalProduits > 1 ? 's' : '' }}
-          </div>
-          <Button variant="outline" size="sm" :icon="RefreshCw" :icon-size="16" @click="fetchProduits">
-            Actualiser
+        <div class="flex md:col-span-4 md:justify-end">
+          <Button variant="outline" size="sm" :disabled="!filtresActifs" @click="reinitialiserFiltres">
+            Réinitialiser les filtres
           </Button>
         </div>
+      </div>
+    </Card>
 
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-sm">
-            <thead class="bg-gray-50 text-gray-600">
-              <tr>
-                <th class="text-left font-semibold px-4 py-3">Produit</th>
-                <th class="text-left font-semibold px-4 py-3">Prix</th>
-                <th class="text-left font-semibold px-4 py-3">Stock</th>
-                <th class="text-left font-semibold px-4 py-3">Statut</th>
-                <th class="text-right font-semibold px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody v-if="loading">
-              <tr>
-                <td colspan="5" class="p-6 text-center text-gray-500">Chargement...</td>
-              </tr>
-            </tbody>
-            <tbody v-else-if="produits.length === 0">
-              <tr>
-                <td colspan="5" class="p-6 text-center text-gray-500">Aucun produit trouvé.</td>
-              </tr>
-            </tbody>
-            <tbody v-else>
-              <tr v-for="produit in produits" :key="produit.id" class="border-t border-gray-100">
-                <td class="px-4 py-3">
-                  <div class="flex items-center gap-3">
-                    <img
-                      loading="lazy"
-                      :src="resolveImageUrl(produit.image_principale)" :alt="produit.nom"
-                      class="h-12 w-12 rounded-lg object-cover border"
-                      @error="onImageError"
-                    />
-                    <div>
-                      <div class="font-semibold text-gray-800">{{ produit.nom }}</div>
-                      <div class="text-xs text-gray-500">{{ produit.categorie?.nom || 'Sans catégorie' }}</div>
-                    </div>
-                    <div v-if="isAdmin && produit.createur?.nom_complet" class="font-semibold text-gray-400">
-                      {{ produit.createur.nom_complet }}
-                    </div>
-                  </div>
-                </td>
-                <td class="px-4 py-3">
-                  <div class="font-semibold text-gray-800">
-                    {{ formatPrice(produit.prix_promo || produit.prix_unitaire) }} FCFA
-                  </div>
-                  <div v-if="produit.prix_promo" class="text-xs text-gray-400 line-through">
-                    {{ formatPrice(produit.prix_unitaire) }} FCFA
-                  </div>
-                </td>
-                <td class="px-4 py-3">{{ produit.stock_disponible }}</td>
-                <td class="px-4 py-3">
-                  <div class="flex flex-wrap gap-2">
-                    <span class="badge" :class="produit.est_disponible ? 'badge-success' : 'badge-danger'">
-                      {{ produit.est_disponible ? 'Disponible' : 'Indisponible' }}
-                    </span>
-                    <span v-if="produit.createur?.est_vendeur_vedette" class="badge badge-primary" title="Vendeur mis en vedette par l'admin">Vedette</span>
-                  </div>
-                </td>
-                <td class="px-4 py-3">
-                  <div class="flex items-center justify-end gap-2">
-                    <Button variant="outline" size="sm" :icon="Pencil" :icon-size="16" @click="openEdit(produit)">
-                      Modifier
-                    </Button>
-                    <Button variant="danger" size="sm" :icon="Trash2" :icon-size="16" @click="deleteProduit(produit)">
-                      Supprimer
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+    <TableauDonnees
+      libelle="Produits"
+      :chargement="loading"
+      :erreur="erreurListe"
+      :vide="produits.length === 0"
+      :icone="PackageOpen"
+      :titre-vide="filtresActifs ? 'Aucun produit trouvé' : 'Aucun produit pour le moment'"
+      :texte-vide="filtresActifs ? 'Aucun produit ne correspond à ces filtres.' : 'Ajoutez votre premier produit pour l\'afficher dans le catalogue.'"
+      @reessayer="fetchProduits"
+    >
+      <template #barre>
+        <p class="text-sm text-gray-600">{{ totalProduits }} produit{{ totalProduits > 1 ? 's' : '' }}</p>
+        <Button variant="outline" size="sm" :icon="RefreshCw" :icon-size="16" :loading="loading" @click="fetchProduits">
+          Actualiser
+        </Button>
+      </template>
 
-        <div class="p-4 border-t border-gray-100 flex items-center justify-between">
-          <div class="text-xs text-gray-500">
-            Page {{ currentPage }} / {{ totalPages }}
+      <!-- Mobile : une carte par produit -->
+      <template #cartes>
+        <li v-for="produit in produits" :key="produit.id" class="flex gap-3 p-4">
+          <img
+            loading="lazy"
+            :src="resolveImageUrl(produit.image_principale)"
+            alt=""
+            class="h-16 w-16 flex-shrink-0 rounded-xl bg-gray-100 object-cover"
+            @error="onImageError"
+          />
+          <div class="min-w-0 flex-1 space-y-2">
+            <div>
+              <p class="font-semibold text-gray-900">{{ produit.nom }}</p>
+              <p class="text-sm text-gray-600">
+                {{ produit.categorie?.nom || 'Sans catégorie' }}<template v-if="isAdmin && produit.createur?.nom_complet">, {{ produit.createur.nom_complet }}</template>
+              </p>
+            </div>
+            <p class="flex flex-wrap items-baseline gap-x-3">
+              <span class="price text-base">{{ formatPrice(produit.prix_promo || produit.prix_unitaire) }} FCFA</span>
+              <span v-if="produit.prix_promo" class="price-old text-xs">{{ formatPrice(produit.prix_unitaire) }} FCFA</span>
+              <span class="text-sm text-gray-600">Stock : {{ produit.stock_disponible }}</span>
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <span class="badge" :class="produit.est_disponible ? 'badge-success' : 'badge-danger'">
+                {{ produit.est_disponible ? 'Disponible' : 'Indisponible' }}
+              </span>
+              <span v-if="produit.createur?.est_vendeur_vedette" class="badge badge-primary">Vendeur vedette</span>
+            </div>
+            <div class="flex flex-wrap gap-2 pt-1">
+              <Button variant="outline" size="sm" :icon="Pencil" :icon-size="16" @click="openEdit(produit)">
+                Modifier<span class="sr-only"> {{ produit.nom }}</span>
+              </Button>
+              <Button variant="ghost" size="sm" :icon="Trash2" :icon-size="16" class="text-red-700 hover:bg-red-50" @click="deleteProduit(produit)">
+                Supprimer<span class="sr-only"> {{ produit.nom }}</span>
+              </Button>
+            </div>
           </div>
-          <div class="flex gap-2">
-            <Button variant="outline" size="sm" :disabled="currentPage <= 1" @click="changePage(currentPage - 1)">
-              Précédent
-            </Button>
-            <Button variant="outline" size="sm" :disabled="currentPage >= totalPages" @click="changePage(currentPage + 1)">
-              Suivant
-            </Button>
-          </div>
-        </div>
-      </Card>
-    </div>
+        </li>
+      </template>
+
+      <!-- Desktop : tableau -->
+      <template #entete>
+        <th scope="col" class="px-4 py-3 font-semibold">Produit</th>
+        <th scope="col" class="px-4 py-3 font-semibold">Prix</th>
+        <th scope="col" class="px-4 py-3 text-right font-semibold">Stock</th>
+        <th scope="col" class="px-4 py-3 font-semibold">Statut</th>
+        <th scope="col" class="px-4 py-3 text-right font-semibold">Actions</th>
+      </template>
+      <template #lignes>
+        <tr v-for="produit in produits" :key="produit.id">
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-3">
+              <img
+                loading="lazy"
+                :src="resolveImageUrl(produit.image_principale)"
+                alt=""
+                class="h-12 w-12 flex-shrink-0 rounded-lg bg-gray-100 object-cover"
+                @error="onImageError"
+              />
+              <div class="min-w-0">
+                <p class="font-semibold text-gray-900">{{ produit.nom }}</p>
+                <p class="text-xs text-gray-600">
+                  {{ produit.categorie?.nom || 'Sans catégorie' }}<template v-if="isAdmin && produit.createur?.nom_complet">, {{ produit.createur.nom_complet }}</template>
+                </p>
+              </div>
+            </div>
+          </td>
+          <td class="whitespace-nowrap px-4 py-3">
+            <p class="font-semibold text-gray-900">{{ formatPrice(produit.prix_promo || produit.prix_unitaire) }} FCFA</p>
+            <p v-if="produit.prix_promo" class="price-old text-xs">{{ formatPrice(produit.prix_unitaire) }} FCFA</p>
+          </td>
+          <td class="px-4 py-3 text-right tabular-nums">{{ produit.stock_disponible }}</td>
+          <td class="px-4 py-3">
+            <div class="flex flex-wrap gap-2">
+              <span class="badge" :class="produit.est_disponible ? 'badge-success' : 'badge-danger'">
+                {{ produit.est_disponible ? 'Disponible' : 'Indisponible' }}
+              </span>
+              <span v-if="produit.createur?.est_vendeur_vedette" class="badge badge-primary">Vendeur vedette</span>
+            </div>
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex items-center justify-end gap-2">
+              <Button variant="outline" size="sm" :icon="Pencil" :icon-size="16" @click="openEdit(produit)">
+                Modifier<span class="sr-only"> {{ produit.nom }}</span>
+              </Button>
+              <Button variant="ghost" size="sm" :icon="Trash2" :icon-size="16" class="text-red-700 hover:bg-red-50" @click="deleteProduit(produit)">
+                Supprimer<span class="sr-only"> {{ produit.nom }}</span>
+              </Button>
+            </div>
+          </td>
+        </tr>
+      </template>
+
+      <template v-if="totalPages > 1" #pied>
+        <Pagination
+          :page="filtres.page"
+          :derniere="totalPages"
+          :desactive="loading"
+          libelle="Pages de produits"
+          @update:page="(page) => mettreAJour({ page })"
+        />
+      </template>
+    </TableauDonnees>
+
+    <!-- Création / modification : tiroir, focus sur le nom -->
+    <BaseModal
+      :ouvert="showForm"
+      :modifie="saisieModifiee"
+      :titre="isEditing ? 'Modifier le produit' : 'Nouveau produit'"
+      variante="tiroir"
+      taille="lg"
+      @fermer="closeForm"
+    >
+      <form id="formulaire-produit" class="grid grid-cols-1 gap-5 sm:grid-cols-2" novalidate @submit.prevent="submitForm">
+        <AlertMessage v-if="formError" ref="alerteFormulaire" type="error" tabindex="-1" class="sm:col-span-2">{{ formError }}</AlertMessage>
+        <FormField v-slot="{ attrs }" label="Nom" requis class="sm:col-span-2">
+          <input v-model="form.nom" v-bind="attrs" type="text" class="input" data-autofocus />
+        </FormField>
+
+        <FormField v-slot="{ attrs }" label="Catégorie" requis>
+          <select v-model="form.categorie_id" v-bind="attrs" class="input">
+            <option value="">Choisir…</option>
+            <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+              {{ cat.nom }}
+            </option>
+          </select>
+        </FormField>
+
+        <FormField v-slot="{ attrs }" label="Stock" requis>
+          <input v-model.number="form.stock_disponible" v-bind="attrs" type="number" min="0" inputmode="numeric" class="input" />
+        </FormField>
+
+        <FormField v-slot="{ attrs }" label="Prix (FCFA)" requis>
+          <input v-model.number="form.prix_unitaire" v-bind="attrs" type="number" min="0" step="0.01" inputmode="decimal" class="input" />
+        </FormField>
+
+        <FormField v-slot="{ attrs }" label="Prix promotionnel (FCFA)" :aide="form.promo_active ? '' : 'Cochez « Activer le prix promotionnel » pour le saisir.'">
+          <input
+            v-model="form.prix_promo"
+            v-bind="attrs"
+            type="number"
+            min="0"
+            step="0.01"
+            inputmode="decimal"
+            class="input"
+            :disabled="!form.promo_active"
+          />
+        </FormField>
+
+        <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 sm:col-span-2">
+          <input v-model="form.promo_active" type="checkbox" class="h-5 w-5 flex-shrink-0 rounded" />
+          <span class="text-sm text-gray-800">Activer le prix promotionnel</span>
+        </label>
+
+        <FormField v-slot="{ attrs }" label="Description" facultatif class="sm:col-span-2">
+          <textarea v-model="form.description" v-bind="attrs" rows="4" class="input resize-y"></textarea>
+        </FormField>
+
+        <FormField v-slot="{ attrs }" label="Image principale" class="sm:col-span-2">
+          <TeleversementImage
+            v-model="imagePrincipale"
+            v-bind="attrs"
+            :image-actuelle="imagePrincipaleActuelle"
+            @erreur="formError = $event"
+          />
+        </FormField>
+
+        <FormField v-slot="{ attrs }" label="Images secondaires (4 au plus)" facultatif class="sm:col-span-2" :aide="aideImagesSecondaires">
+          <input
+            :key="fileInputKey"
+            v-bind="attrs"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            class="input"
+            @change="onImagesSecondaires"
+          />
+        </FormField>
+
+        <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 sm:col-span-2">
+          <input v-model="form.est_disponible" type="checkbox" class="h-5 w-5 flex-shrink-0 rounded" />
+          <span class="text-sm text-gray-800">Produit disponible à la vente</span>
+        </label>
+      </form>
+
+      <template #actions>
+        <Button type="button" variant="outline" @click="closeForm">Annuler</Button>
+        <Button type="submit" form="formulaire-produit" variant="primary" :loading="saving">
+          {{ isEditing ? 'Enregistrer' : 'Créer le produit' }}
+        </Button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed } from 'vue'
 import api, { messageErreur } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
+import { useFiltresUrl } from '@/composables/useFiltresUrl'
+import { useErreurFormulaire } from '@/composables/useErreurFormulaire'
+import { useSaisieModifiee } from '@/composables/useSaisieModifiee'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
-import { Plus, Search, Pencil, Trash2, RefreshCw } from 'lucide-vue-next'
+import EnTetePage from '@/components/common/EnTetePage.vue'
+import BaseModal from '@/components/common/BaseModal.vue'
+import FormField from '@/components/common/FormField.vue'
+import AlertMessage from '@/components/common/AlertMessage.vue'
+import TableauDonnees from '@/components/common/TableauDonnees.vue'
+import Pagination from '@/components/common/Pagination.vue'
+import ChampRecherche from '@/components/common/ChampRecherche.vue'
+import TeleversementImage from '@/components/common/TeleversementImage.vue'
+import { Plus, Pencil, Trash2, RefreshCw, PackageOpen } from 'lucide-vue-next'
 import { resolveImageUrl, onImageError, verifierImage, TAILLE_MAX_IMAGE_MO } from '@/utils/images'
+import { formatPrice } from '@/utils/format'
+import { chargerToutesLesPages } from '@/utils/pagination'
+
+const PAR_PAGE = 12
+const FILTRES_VIDES = { search: '', categorie_id: '', est_disponible: '' }
 
 const produits = ref([])
 const categories = ref([])
 const loading = ref(false)
+const erreurListe = ref('')
 const saving = ref(false)
 const showForm = ref(false)
 const isEditing = ref(false)
-const formError = ref('')
-const currentPage = ref(1)
-const perPage = ref(12)
+const { erreur: formError, alerte: alerteFormulaire, signaler: signalerErreur } = useErreurFormulaire()
+// Saisie en cours : le tiroir demande confirmation avant de l'effacer (Échap, fond, ×)
+const { figer: figerSaisie, modifie: saisieModifiee } = useSaisieModifiee(() => ({ ...form.value, image: Boolean(imagePrincipale.value), secondaires: imagesSecondaires.value.length }))
 const totalProduits = ref(0)
 
 const authStore = useAuthStore()
@@ -328,127 +309,89 @@ const toastStore = useToastStore()
 const { confirmer } = useConfirm()
 const isAdmin = computed(() => authStore.isAdmin)
 
-const totalPages = computed(() => {
-  return Math.max(1, Math.ceil(totalProduits.value / perPage.value))
-})
+// Filtres et page dans l'URL
+const { filtres, mettreAJour, recharger } = useFiltresUrl({ ...FILTRES_VIDES, page: 1 }, (estActuel) => fetchProduits(estActuel))
+const filtresActifs = computed(() => Object.keys(FILTRES_VIDES).some((cle) => filtres[cle] !== ''))
+const reinitialiserFiltres = () => mettreAJour({ ...FILTRES_VIDES, page: 1 })
+const totalPages = computed(() => Math.max(1, Math.ceil(totalProduits.value / PAR_PAGE)))
 
-const filters = ref({
-  search: '',
+const formulaireVide = () => ({
+  id: null,
   categorie_id: '',
-  est_disponible: '',
+  nom: '',
+  description: '',
+  prix_unitaire: '',
+  prix_promo: '',
+  promo_active: false,
+  stock_disponible: 0,
+  est_disponible: true,
 })
-
-  const form = ref({
-    id: null,
-    categorie_id: '',
-    nom: '',
-    description: '',
-    prix_unitaire: '',
-    prix_promo: '',
-    promo_active: false,
-    stock_disponible: 0,
-    est_disponible: true,
-  })
+const form = ref(formulaireVide())
 
 const imagePrincipale = ref(null)
 const imagesSecondaires = ref([])
-// Image déjà enregistrée (édition) et aperçu local du nouveau fichier
+// Images déjà enregistrées (modification)
 const imagePrincipaleActuelle = ref(null)
 const nbImagesSecondairesActuelles = ref(0)
-const apercuLocal = ref(null)
-const apercuPrincipale = computed(() => {
-  return apercuLocal.value || (imagePrincipaleActuelle.value ? resolveImageUrl(imagePrincipaleActuelle.value) : null)
-})
-
-const libererApercu = () => {
-  if (apercuLocal.value) {
-    URL.revokeObjectURL(apercuLocal.value)
-    apercuLocal.value = null
-  }
-}
+// Change pour vider le champ des images secondaires
 const fileInputKey = ref(0)
 
-const formatPrice = (price) => {
-  return new Intl.NumberFormat('fr-FR').format(price || 0)
-}
+const aideImagesSecondaires = computed(() => {
+  const formats = `JPEG, PNG ou WebP, ${TAILLE_MAX_IMAGE_MO} Mo maximum par image.`
+  if (imagesSecondaires.value.length) {
+    return `${formats} ${imagesSecondaires.value.length} image(s) choisie(s).`
+  }
+  if (isEditing.value && nbImagesSecondairesActuelles.value) {
+    return `${formats} ${nbImagesSecondairesActuelles.value} image(s) actuelle(s) : un nouvel envoi les remplace.`
+  }
+  return formats
+})
 
 const fetchCategories = async () => {
   try {
-    const response = await api.admin.categories.getAll({ per_page: 200 })
-    if (response.data.success) {
-      categories.value = Array.isArray(response.data.data)
-        ? response.data.data
-        : (response.data.data?.data || [])
-    }
+    categories.value = await chargerToutesLesPages(api.admin.categories.getAll)
   } catch (error) {
     console.error('Erreur chargement catégories:', error)
   }
 }
 
-const fetchProduits = async () => {
+const fetchProduits = async (estActuel = () => true) => {
   loading.value = true
+  erreurListe.value = ''
 
   try {
-    const params = {
-      page: currentPage.value,
-      per_page: perPage.value,
-    }
-
-    if (filters.value.search) params.search = filters.value.search
-    if (filters.value.categorie_id) params.categorie_id = filters.value.categorie_id
-    if (filters.value.est_disponible !== '') params.est_disponible = filters.value.est_disponible
+    const params = { page: filtres.page, per_page: PAR_PAGE }
+    if (filtres.search) params.search = filtres.search
+    if (filtres.categorie_id) params.categorie_id = filtres.categorie_id
+    if (filtres.est_disponible !== '') params.est_disponible = filtres.est_disponible
 
     const response = await api.admin.produits.getAll(params)
-
+    if (!estActuel()) return
     if (response.data.success) {
       produits.value = response.data.data.data
       totalProduits.value = response.data.data.total
+
+      // Page vidée (dernier produit supprimé, lien trop loin) : dernière page remplie
+      if (produits.value.length === 0 && filtres.page > 1 && totalProduits.value > 0) {
+        mettreAJour({ page: Math.max(1, Number(response.data.data.last_page) || filtres.page - 1) })
+      }
     }
   } catch (error) {
-    console.error('Erreur chargement produits:', error)
+    if (!estActuel()) return
+    erreurListe.value = messageErreur(error, 'Impossible de charger les produits.')
   } finally {
-    loading.value = false
+    // Un chargement dépassé laisse l'indicateur au plus récent
+    if (estActuel()) loading.value = false
   }
-}
-
-const applyFilters = () => {
-  currentPage.value = 1
-  fetchProduits()
-}
-
-const resetFilters = () => {
-  filters.value.search = ''
-  filters.value.categorie_id = ''
-  filters.value.est_disponible = ''
-  applyFilters()
-}
-
-let searchTimeout = null
-const handleSearch = () => {
-  clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => {
-    applyFilters()
-  }, 400)
 }
 
 const resetForm = () => {
-  form.value = {
-    id: null,
-    categorie_id: '',
-    nom: '',
-    description: '',
-    prix_unitaire: '',
-    prix_promo: '',
-    promo_active: false,
-    stock_disponible: 0,
-    est_disponible: true,
-  }
+  form.value = formulaireVide()
   imagePrincipale.value = null
   imagesSecondaires.value = []
   imagePrincipaleActuelle.value = null
   nbImagesSecondairesActuelles.value = 0
-  libererApercu()
-  fileInputKey.value += 2
+  fileInputKey.value += 1
   formError.value = ''
 }
 
@@ -456,9 +399,11 @@ const openCreate = () => {
   resetForm()
   isEditing.value = false
   showForm.value = true
+  figerSaisie()
 }
 
 const openEdit = (produit) => {
+  resetForm()
   form.value = {
     id: produit.id,
     categorie_id: produit.categorie_id,
@@ -470,37 +415,16 @@ const openEdit = (produit) => {
     stock_disponible: produit.stock_disponible,
     est_disponible: !!produit.est_disponible,
   }
-  imagePrincipale.value = null
-  imagesSecondaires.value = []
   imagePrincipaleActuelle.value = produit.image_principale || null
   nbImagesSecondairesActuelles.value = produit.images_secondaires?.length || 0
-  libererApercu()
-  fileInputKey.value += 2
   isEditing.value = true
   showForm.value = true
-  formError.value = ''
+  figerSaisie()
 }
 
 const closeForm = () => {
   showForm.value = false
   formError.value = ''
-}
-
-const onImagePrincipale = (event) => {
-  const fichier = event.target.files?.[0] || null
-  libererApercu()
-
-  const erreur = verifierImage(fichier)
-  if (erreur) {
-    formError.value = erreur
-    imagePrincipale.value = null
-    event.target.value = ''
-    return
-  }
-
-  formError.value = ''
-  imagePrincipale.value = fichier
-  apercuLocal.value = fichier ? URL.createObjectURL(fichier) : null
 }
 
 const onImagesSecondaires = (event) => {
@@ -511,7 +435,7 @@ const onImagesSecondaires = (event) => {
     : fichiers.map(verifierImage).find(Boolean)
 
   if (erreur) {
-    formError.value = erreur
+    signalerErreur(erreur)
     imagesSecondaires.value = []
     event.target.value = ''
     return
@@ -552,15 +476,18 @@ const buildFormData = () => {
 }
 
 const submitForm = async () => {
-  saving.value = true
   formError.value = ''
 
+  if (!form.value.nom.trim() || !form.value.categorie_id || form.value.prix_unitaire === '') {
+    signalerErreur('Renseignez au moins le nom, la catégorie et le prix.')
+    return
+  }
   if (form.value.promo_active && (form.value.prix_promo === '' || form.value.prix_promo === null)) {
-    formError.value = 'Veuillez renseigner un prix promo ou désactiver la promotion.'
-    saving.value = false
+    signalerErreur('Renseignez un prix promotionnel ou désactivez la promotion.')
     return
   }
 
+  saving.value = true
   try {
     const data = buildFormData()
     let response
@@ -575,11 +502,10 @@ const submitForm = async () => {
     if (response.data.success) {
       toastStore.succes(isEditing.value ? 'Produit mis à jour.' : 'Produit créé.')
       showForm.value = false
-      fetchProduits()
-      resetForm()
+      recharger()
     }
   } catch (error) {
-    formError.value = messageErreur(error, 'Erreur lors de l\'enregistrement.')
+    signalerErreur(messageErreur(error, 'Erreur lors de l\'enregistrement.'))
   } finally {
     saving.value = false
   }
@@ -597,7 +523,7 @@ const deleteProduit = async (produit) => {
   try {
     await api.admin.produits.remove(produit.id)
     toastStore.succes('Produit supprimé.')
-    fetchProduits()
+    recharger()
   } catch (error) {
     // Produit présent dans des commandes : on propose de le retirer de la vente
     if (error.response?.data?.peut_desactiver) {
@@ -620,22 +546,11 @@ const rendreIndisponible = async (produit) => {
     data.append('_method', 'PUT')
     await api.admin.produits.update(produit.id, data)
     toastStore.succes(`« ${produit.nom} » n'est plus proposé à la vente.`)
-    fetchProduits()
+    recharger()
   } catch (error) {
     toastStore.erreur(messageErreur(error, 'Impossible de modifier le produit.'))
   }
 }
 
-const changePage = (page) => {
-  if (page < 1 || page > totalPages.value) return
-  currentPage.value = page
-  fetchProduits()
-}
-
-onBeforeUnmount(libererApercu)
-
-onMounted(() => {
-  fetchCategories()
-  fetchProduits()
-})
+fetchCategories()
 </script>

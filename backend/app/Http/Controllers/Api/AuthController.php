@@ -4,8 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\Telephone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -16,14 +20,14 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $request->merge([
-            'telephone' => $this->normalizeTelephone($request->telephone),
+            'telephone' => Telephone::normaliser($request->telephone),
         ]);
 
         $validated = $request->validate([
             'nom_complet' => 'required|string|max:255',
-            'telephone' => 'required|string|unique:users,telephone|regex:/^\+237[0-9]{9}$/',
+            'telephone' => ['required', 'string', 'unique:users,telephone', Telephone::REGLE],
             'email' => 'nullable|email|unique:users,email',
-            'mot_de_passe' => 'required|string|min:6|confirmed',
+            'mot_de_passe' => $this->regleNouveauMotDePasse(),
         ]);
 
         $user = User::create([
@@ -48,13 +52,32 @@ class AuthController extends Controller
         ], 201);
     }
 
+    // Échecs de connexion sur un même compte en une heure à partir desquels le journal alerte
+    private const SEUIL_ALERTE_ECHECS = 50;
+
+    /**
+     * Attaque répartie sur de nombreuses adresses : signalée au journal sans bloquer le compte
+     * (son titulaire doit toujours pouvoir se connecter). Une alerte par heure et par compte.
+     */
+    private static function signalerEchecsRepetes(User $user): void
+    {
+        $cle = 'echecs-connexion|'.$user->id;
+        RateLimiter::hit($cle, 3600);
+
+        if (RateLimiter::attempts($cle) === self::SEUIL_ALERTE_ECHECS) {
+            Log::warning('Connexion : '.self::SEUIL_ALERTE_ECHECS.' échecs de connexion en une heure sur un même compte', [
+                'utilisateur' => $user->id,
+            ]);
+        }
+    }
+
     /**
      * Connexion utilisateur
      */
     public function login(Request $request)
     {
         $request->merge([
-            'telephone' => $this->normalizeTelephone($request->telephone),
+            'telephone' => Telephone::normaliser($request->telephone),
         ]);
 
         $request->validate([
@@ -67,6 +90,10 @@ class AuthController extends Controller
 
         // Vérifier si l'utilisateur existe et si le mot de passe est correct
         if (! $user || ! Hash::check($request->mot_de_passe, $user->mot_de_passe)) {
+            if ($user) {
+                self::signalerEchecsRepetes($user);
+            }
+
             throw ValidationException::withMessages([
                 'telephone' => ['Les identifiants fournis sont incorrects.'],
             ]);
@@ -129,12 +156,13 @@ class AuthController extends Controller
 
         if ($request->has('telephone')) {
             $request->merge([
-                'telephone' => $this->normalizeTelephone($request->telephone),
+                'telephone' => Telephone::normaliser($request->telephone),
             ]);
         }
 
-        if ($request->has('email')) {
-            $email = trim((string) $request->email);
+        // Un tableau est laissé tel quel : la règle « email » le refusera (422, pas 500)
+        if (is_string($request->input('email'))) {
+            $email = trim($request->input('email'));
             $request->merge([
                 'email' => $email === '' ? null : $email,
             ]);
@@ -158,8 +186,22 @@ class AuthController extends Controller
             'nom_complet' => 'sometimes|string|max:255',
             // L'e-mail fait partie du profil boutique obligatoire d'un vendeur
             'email' => ($user->isVendeur() ? 'sometimes|required' : 'sometimes|nullable').'|email|unique:users,email,'.$user->id,
-            'telephone' => 'sometimes|string|unique:users,telephone,'.$user->id.'|regex:/^\+237[0-9]{9}$/',
+            'telephone' => ['sometimes', 'string', 'unique:users,telephone,'.$user->id, Telephone::REGLE],
         ]);
+
+        // Le téléphone sert à se connecter : un jeton volé ne doit pas suffire à en changer
+        // (le vrai titulaire se retrouverait enfermé dehors)
+        if (isset($validated['telephone']) && $validated['telephone'] !== $user->telephone) {
+            $request->validate([
+                'mot_de_passe_actuel' => ['bail', 'required', 'string', function (string $attribut, mixed $valeur, \Closure $echec) use ($user) {
+                    if (! is_string($valeur) || ! Hash::check($valeur, $user->mot_de_passe)) {
+                        $echec('Le mot de passe actuel est incorrect.');
+                    }
+                }],
+            ], [
+                'mot_de_passe_actuel.required' => 'Saisissez votre mot de passe actuel pour changer de numéro de téléphone.',
+            ]);
+        }
 
         $user->update($validated);
 
@@ -177,7 +219,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'ancien_mot_de_passe' => 'required|string',
-            'nouveau_mot_de_passe' => 'required|string|min:6|confirmed',
+            'nouveau_mot_de_passe' => $this->regleNouveauMotDePasse(),
         ]);
 
         $user = $request->user();
@@ -203,26 +245,14 @@ class AuthController extends Controller
         ]);
     }
 
-    private function normalizeTelephone(?string $telephone): ?string
+    // Nouveau mot de passe : 8 caractères au moins, et jamais une valeur déjà hachée (le cast
+    // « hashed » l'enregistrerait telle quelle, contournant la longueur minimale)
+    private function regleNouveauMotDePasse(): array
     {
-        if ($telephone === null) {
-            return null;
-        }
-
-        $cleaned = preg_replace('/[\s-]+/', '', trim($telephone));
-
-        if ($cleaned === '') {
-            return $cleaned;
-        }
-
-        if (str_starts_with($cleaned, '+')) {
-            return $cleaned;
-        }
-
-        if (str_starts_with($cleaned, '237')) {
-            return '+'.$cleaned;
-        }
-
-        return '+237'.$cleaned;
+        return ['required', 'string', 'confirmed', Password::min(8), function (string $attribut, mixed $valeur, \Closure $echec) {
+            if (is_string($valeur) && Hash::isHashed($valeur)) {
+                $echec('Choisissez un autre mot de passe.');
+            }
+        }];
     }
 }

@@ -91,7 +91,11 @@ export const useAuthStore = defineStore('auth', {
         }
       } catch (error) {
         console.error('Erreur récupération utilisateur:', error)
-        this.clearSession()
+        // Jeton refusé (expiré, révoqué) : session vidée. Réseau coupé ou serveur lent :
+        // le jeton est gardé, la garde du routeur réessaiera à la navigation suivante
+        if (error.response?.status === 401) {
+          this.clearSession()
+        }
       }
     },
 

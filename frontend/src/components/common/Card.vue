@@ -2,11 +2,15 @@
 5. COMPOSANT CARD RÉUTILISABLE
 File: src/components/common/Card.vue
 =================================== -->
-
+<!--
+  Une carte n'est jamais cliquable elle-même (un <div> n'est pas atteignable au clavier) :
+  pour une carte-lien, placer un <router-link class="after:absolute after:inset-0"> dans
+  son titre (lien étiré) et garder `hoverable` pour l'effet de survol.
+-->
 <template>
-  <div :class="cardClasses" @click="handleClick">
+  <component :is="tag" :class="cardClasses">
     <slot />
-  </div>
+  </component>
 </template>
 
 <script setup>
@@ -19,37 +23,27 @@ const props = defineProps({
   },
   padding: {
     type: String,
-    default: 'md', // none, sm, md, lg
+    default: 'md',
     validator: (value) => ['none', 'sm', 'md', 'lg'].includes(value)
   },
-  clickable: {
-    type: Boolean,
-    default: false
+  tag: {
+    type: String,
+    default: 'div'
   }
 })
 
-const emit = defineEmits(['click'])
-
-const cardClasses = computed(() => {
-  const base = 'card'
-  
-  const paddings = {
-    none: '',
-    sm: 'p-4',
-    md: 'p-6',
-    lg: 'p-8'
-  }
-
-  const hover = props.hoverable ? 'hover:shadow-elegant-lg transform hover:-translate-y-1' : ''
-  const group = props.hoverable ? 'group' : ''
-  const cursor = props.clickable ? 'cursor-pointer' : ''
-
-  return `${base} ${paddings[props.padding]} ${hover} ${group} ${cursor}`
-})
-
-const handleClick = (event) => {
-  if (props.clickable) {
-    emit('click', event)
-  }
+const PADDINGS = {
+  none: '',
+  sm: 'p-4',
+  md: 'p-4 sm:p-6',
+  lg: 'p-5 sm:p-8'
 }
+
+const cardClasses = computed(() => [
+  'card',
+  PADDINGS[props.padding],
+  props.hoverable
+    ? 'group relative transition-[box-shadow,transform] duration-200 ease-douce hover:shadow-elegant motion-safe:hover:-translate-y-0.5 focus-within:shadow-elegant'
+    : '',
+])
 </script>
