@@ -156,6 +156,7 @@ File: src/views/admin/AdminCategories.vue
     <!-- Création / modification : tiroir, focus sur le nom -->
     <BaseModal
       :ouvert="showForm"
+      :modifie="saisieModifiee"
       :titre="isEditing ? 'Modifier la catégorie' : 'Nouvelle catégorie'"
       variante="tiroir"
       taille="lg"
@@ -208,6 +209,7 @@ import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useFiltresUrl } from '@/composables/useFiltresUrl'
 import { useErreurFormulaire } from '@/composables/useErreurFormulaire'
+import { useSaisieModifiee } from '@/composables/useSaisieModifiee'
 import api, { messageErreur } from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
@@ -236,6 +238,8 @@ const saving = ref(false)
 const showForm = ref(false)
 const isEditing = ref(false)
 const { erreur: formError, alerte: alerteFormulaire, signaler: signalerErreur } = useErreurFormulaire()
+// Saisie en cours : le tiroir demande confirmation avant de l'effacer (Échap, fond, ×)
+const { figer: figerSaisie, modifie: saisieModifiee } = useSaisieModifiee(() => ({ ...form.value, image: Boolean(imageFile.value) }))
 const totalCategories = ref(0)
 
 // Filtres et page dans l'URL
@@ -302,6 +306,7 @@ const openCreate = () => {
   resetForm()
   isEditing.value = false
   showForm.value = true
+  figerSaisie()
 }
 
 const openEdit = (categorie) => {
@@ -320,6 +325,7 @@ const openEdit = (categorie) => {
   imageActuelle.value = categorie.image || null
   isEditing.value = true
   showForm.value = true
+  figerSaisie()
 }
 
 const closeForm = () => {

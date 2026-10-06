@@ -133,6 +133,7 @@ File: src/views/admin/AdminParametres.vue
     <!-- Création / modification : tiroir, focus sur la clé -->
     <BaseModal
       :ouvert="showForm"
+      :modifie="saisieModifiee"
       :titre="isEditing ? 'Modifier le paramètre' : 'Nouveau paramètre'"
       variante="tiroir"
       taille="lg"
@@ -207,6 +208,7 @@ import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useFiltresUrl } from '@/composables/useFiltresUrl'
 import { useErreurFormulaire } from '@/composables/useErreurFormulaire'
+import { useSaisieModifiee } from '@/composables/useSaisieModifiee'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import EnTetePage from '@/components/common/EnTetePage.vue'
@@ -233,6 +235,8 @@ const saving = ref(false)
 const showForm = ref(false)
 const isEditing = ref(false)
 const { erreur: formError, alerte: alerteFormulaire, signaler: signalerErreur } = useErreurFormulaire()
+// Saisie en cours : le tiroir demande confirmation avant de l'effacer (Échap, fond, ×)
+const { figer: figerSaisie, modifie: saisieModifiee } = useSaisieModifiee(() => ({ ...form.value }))
 const totalParametres = ref(0)
 
 // Filtres et page dans l'URL
@@ -293,6 +297,7 @@ const openCreate = () => {
   formError.value = ''
   isEditing.value = false
   showForm.value = true
+  figerSaisie()
 }
 
 const openEdit = (param) => {
@@ -307,6 +312,7 @@ const openEdit = (param) => {
   formError.value = ''
   isEditing.value = true
   showForm.value = true
+  figerSaisie()
 }
 
 const closeForm = () => {

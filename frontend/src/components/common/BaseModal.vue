@@ -6,7 +6,8 @@ File: src/components/common/BaseModal.vue
   Toutes les fenêtres (confirmation, adresse, filtres, menu mobile…) passent par ici :
   - role="dialog" + aria-modal, titre relié par aria-labelledby ;
   - focus piégé dans la fenêtre, rendu à l'élément déclencheur à la fermeture ;
-  - Échap et clic sur le fond ferment (sauf `fermable: false`) ;
+  - Échap et clic sur le fond ferment (sauf `fermable: false`) ; avec une saisie en cours
+    (`modifie`), Échap, le fond et × demandent d'abord s'il faut l'abandonner ;
   - le reste de l'application (#app) devient inerte et ne défile plus.
   Variantes : `centre` (défaut), `feuille` (tiroir bas sur mobile, centrée dès sm), `tiroir` (panneau droit).
   Focus initial : l'élément marqué `data-autofocus`, sinon la fenêtre elle-même (le titre est lu).
@@ -83,6 +84,7 @@ const definirInerte = () => {
 <script setup>
 import { ref, watch, nextTick, onBeforeUnmount, useId } from 'vue'
 import { X } from 'lucide-vue-next'
+import { useConfirm } from '@/composables/useConfirm'
 
 const props = defineProps({
   ouvert: {
@@ -115,6 +117,12 @@ const props = defineProps({
   libelleFermer: {
     type: String,
     default: 'Fermer'
+  },
+  // Formulaire modifié depuis son ouverture (useSaisieModifiee) : fermer demande confirmation.
+  // Le bouton « Annuler » de la page reste un abandon explicite, sans question.
+  modifie: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -160,8 +168,24 @@ const focusables = () => [...(panneau.value?.querySelectorAll(SELECTEUR_FOCUSABL
 
 const estAuSommet = () => pile[pile.length - 1] === jeton
 
-const fermer = () => {
-  if (props.fermable) emit('fermer')
+const { confirmer } = useConfirm()
+let confirmationEnCours = false
+
+const fermer = async () => {
+  if (!props.fermable || confirmationEnCours) return
+  if (props.modifie) {
+    confirmationEnCours = true
+    const abandonner = await confirmer({
+      titre: 'Abandonner la saisie ?',
+      message: 'Les informations saisies dans ce formulaire seront perdues.',
+      libelleConfirmer: 'Abandonner',
+      libelleAnnuler: 'Continuer la saisie',
+      danger: true,
+    })
+    confirmationEnCours = false
+    if (!abandonner) return
+  }
+  emit('fermer')
 }
 
 const fermerParFond = () => fermer()

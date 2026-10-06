@@ -149,6 +149,7 @@ File: src/views/admin/AdminQuartiers.vue
     <!-- Création / modification : tiroir, focus sur le nom -->
     <BaseModal
       :ouvert="formulaireOuvert"
+      :modifie="saisieModifiee"
       :titre="form.id ? 'Modifier le quartier' : 'Nouveau quartier'"
       variante="tiroir"
       @fermer="formulaireOuvert = false"
@@ -186,6 +187,7 @@ import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useFiltresUrl } from '@/composables/useFiltresUrl'
 import { useErreurFormulaire } from '@/composables/useErreurFormulaire'
+import { useSaisieModifiee } from '@/composables/useSaisieModifiee'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import EnTetePage from '@/components/common/EnTetePage.vue'
@@ -212,6 +214,8 @@ const dernierePage = ref(1)
 const total = ref(0)
 const formulaireOuvert = ref(false)
 const { erreur: erreurFormulaire, alerte: alerteFormulaire, signaler: signalerErreur } = useErreurFormulaire()
+// Saisie en cours : le tiroir demande confirmation avant de l'effacer (Échap, fond, ×)
+const { figer: figerSaisie, modifie: saisieModifiee } = useSaisieModifiee(() => ({ ...form.value }))
 const form = ref({ id: null, nom: '', ville: VILLES[0].valeur, actif: true })
 
 // Filtres et page dans l'URL
@@ -250,12 +254,14 @@ const ouvrirCreation = () => {
   form.value = { id: null, nom: '', ville: filtres.ville || VILLES[0].valeur, actif: true }
   erreurFormulaire.value = ''
   formulaireOuvert.value = true
+  figerSaisie()
 }
 
 const ouvrirModification = (quartier) => {
   form.value = { id: quartier.id, nom: quartier.nom, ville: quartier.ville, actif: Boolean(quartier.actif) }
   erreurFormulaire.value = ''
   formulaireOuvert.value = true
+  figerSaisie()
 }
 
 const enregistrer = async () => {
