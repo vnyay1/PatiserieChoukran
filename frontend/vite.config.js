@@ -56,6 +56,10 @@ export default defineConfig(({ mode }) => {
       postcss: './postcss.config.js',
     },
     build: {
+      // Polices jamais inlinées en data: URI (Vite inline les fichiers de moins de 4 Kio) : la CSP
+      // de production (font-src 'self') les refuserait. En fichiers, elles ne sont téléchargées que
+      // si leur plage de caractères (unicode-range) sert sur la page.
+      assetsInlineLimit: (fichier) => (/\.(woff2?|ttf|otf)$/.test(fichier) ? false : undefined),
       rolldownOptions: {
         output: {
           // Bibliothèques dans un fichier à part : il reste en cache d'un déploiement à l'autre

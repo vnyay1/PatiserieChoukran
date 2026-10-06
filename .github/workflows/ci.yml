@@ -205,6 +205,10 @@ jobs:
       - name: Build
         run: npm run build
 
+      # La CSP de production (font-src 'self') refuse les polices en data: URI
+      - name: Aucune police inlinée dans le CSS
+        run: "! grep -l 'url(data:font' dist/assets/*.css"
+
   docker:
     name: Image Docker — build, scan & smoke test
     runs-on: ubuntu-latest
