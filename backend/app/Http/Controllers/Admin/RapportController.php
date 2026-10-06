@@ -73,17 +73,10 @@ class RapportController extends Controller
             ]);
         }
 
-        $disque = Storage::disk(RapportMensuelVendeurs::DISQUE);
         $chemin = RapportMensuelVendeurs::chemin($mois, $format);
-
-        if (RapportMensuelVendeurs::estClos($mois)) {
-            if (! $disque->exists($chemin)) {
-                RapportMensuelVendeurs::stocker($mois);
-            }
-            $contenu = $disque->get($chemin);
-        } else {
-            $contenu = RapportMensuelVendeurs::contenu($mois, $format);
-        }
+        $contenu = RapportMensuelVendeurs::estClos($mois)
+            ? RapportMensuelVendeurs::archive($mois, $format)
+            : RapportMensuelVendeurs::contenu($mois, $format);
 
         return response($contenu, 200, [
             'Content-Type' => $format === 'pdf' ? 'application/pdf' : 'text/csv; charset=UTF-8',

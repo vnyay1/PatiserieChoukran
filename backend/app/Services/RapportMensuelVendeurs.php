@@ -156,16 +156,28 @@ class RapportMensuelVendeurs
     public static function csv(CarbonImmutable $mois): string
     {
         $rapport = self::donnees($mois);
-        $flux = fopen('php://temp', 'r+');
-
-        fwrite($flux, "\xEF\xBB\xBF");
-        fputcsv($flux, array_values(self::COLONNES), ';', '"', '');
+        $lignes = [array_values(self::COLONNES)];
 
         foreach ([...$rapport['vendeurs'], $rapport['totaux']] as $ligne) {
-            fputcsv($flux, array_map(
-                fn (string $cle) => is_float($ligne[$cle]) ? (int) round($ligne[$cle]) : self::celluleTexte($ligne[$cle]),
+            $lignes[] = array_map(
+                fn (string $cle) => is_float($ligne[$cle]) ? (int) round($ligne[$cle]) : $ligne[$cle],
                 array_keys(self::COLONNES)
-            ), ';', '"', '');
+            );
+        }
+
+        return self::ecrireCsv($lignes);
+    }
+
+    /**
+     * @param  iterable<array<int, mixed>>  $lignes
+     */
+    private static function ecrireCsv(iterable $lignes): string
+    {
+        $flux = fopen('php://temp', 'r+');
+        fwrite($flux, "\xEF\xBB\xBF");
+
+        foreach ($lignes as $ligne) {
+            fputcsv($flux, array_map(fn (mixed $cellule) => self::celluleTexte($cellule), $ligne), ';', '"', '');
         }
 
         rewind($flux);
@@ -173,6 +185,26 @@ class RapportMensuelVendeurs
         fclose($flux);
 
         return $contenu;
+    }
+
+    /**
+     * @return list<array<int, string|null>>
+     */
+    private static function lireCsv(string $contenu): array
+    {
+        $flux = fopen('php://temp', 'r+');
+        fwrite($flux, str_starts_with($contenu, "\xEF\xBB\xBF") ? substr($contenu, 3) : $contenu);
+        rewind($flux);
+
+        $lignes = [];
+        while (($ligne = fgetcsv($flux, null, ';', '"', '')) !== false) {
+            if ($ligne !== [null]) {
+                $lignes[] = $ligne;
+            }
+        }
+        fclose($flux);
+
+        return $lignes;
     }
 
     /**
@@ -189,10 +221,33 @@ class RapportMensuelVendeurs
     {
         $cle = $mois->format('Y-m');
         // csv-v2 : CSV neutralisés contre l'injection de formules ; ceux stockés avant ce
-        // correctif ne sont plus servis (régénérés à la demande)
+        // correctif ne sont plus servis tels quels (repris par archive())
         $dossier = $format === 'csv' ? "rapports/{$cle}/csv-v2" : "rapports/{$cle}";
 
         return "{$dossier}/rapport-vendeurs-{$cle}.{$format}";
+    }
+
+    /**
+     * Fichier d'un mois clos : celui de l'archive, créé au premier téléchargement s'il manque.
+     * Seul le format demandé est écrit : l'autre fichier archivé n'est jamais refait avec des
+     * données qui ont pu changer depuis (commande annulée, vendeur renommé). Un CSV archivé avant
+     * la neutralisation des formules garde ses chiffres, cellules neutralisées.
+     */
+    public static function archive(CarbonImmutable $mois, string $format): string
+    {
+        $disque = Storage::disk(self::DISQUE);
+        $chemin = self::chemin($mois, $format);
+
+        if (! $disque->exists($chemin)) {
+            $cle = $mois->format('Y-m');
+            $ancienCsv = "rapports/{$cle}/rapport-vendeurs-{$cle}.csv";
+
+            $disque->put($chemin, $format === 'csv' && $disque->exists($ancienCsv)
+                ? self::ecrireCsv(self::lireCsv($disque->get($ancienCsv)))
+                : self::contenu($mois, $format));
+        }
+
+        return $disque->get($chemin);
     }
 
     /**

@@ -115,16 +115,33 @@ class RapportMensuelTest extends TestCase
         }
     }
 
-    public function test_un_csv_stocke_avant_la_neutralisation_n_est_plus_servi(): void
+    public function test_un_csv_archive_avant_la_neutralisation_garde_ses_chiffres_et_perd_ses_formules(): void
     {
-        // Fichier d'un mois clos généré avant le correctif, avec une formule active
-        Storage::disk('local')->put('rapports/2026-08/rapport-vendeurs-2026-08.csv', "\xEF\xBB\xBFVendeur\n=HYPERLINK(\"http://pirate.test\";\"x\")\n");
+        // Fichier d'un mois clos archivé avant le correctif : ses chiffres restent ceux de l'archive
+        // (pas ceux du jour), seule sa formule est neutralisée
+        Storage::disk('local')->put('rapports/2026-08/rapport-vendeurs-2026-08.csv', "\xEF\xBB\xBFVendeur;\"Chiffre d'affaires\"\n".'"=HYPERLINK(""http://pirate.test"";""x"")";12000'."\n");
         Sanctum::actingAs($this->admin);
 
         $contenu = $this->get('/api/v1/admin/rapports/mensuel?mois=2026-08&format=csv')->assertOk()->getContent();
 
-        $this->assertStringNotContainsString('HYPERLINK', $contenu);
-        $this->assertStringContainsString('Jean', $contenu);
+        $this->assertStringStartsWith("\xEF\xBB\xBF", $contenu);
+        $lignes = array_map(fn ($ligne) => str_getcsv($ligne, ';', '"', ''), array_values(array_filter(explode("\n", substr($contenu, 3)))));
+        $this->assertSame([
+            ['Vendeur', "Chiffre d'affaires"],
+            ['\'=HYPERLINK("http://pirate.test";"x")', '12000'],
+        ], $lignes);
+    }
+
+    public function test_telecharger_un_format_manquant_d_un_mois_clos_ne_reecrit_pas_l_autre(): void
+    {
+        // Août archivé le 1er septembre ; son CSV manque (dossier csv-v2 créé depuis)
+        Storage::disk('local')->put('rapports/2026-08/rapport-vendeurs-2026-08.pdf', '%PDF archivé le 1er septembre');
+        Sanctum::actingAs($this->admin);
+
+        $this->get('/api/v1/admin/rapports/mensuel?mois=2026-08&format=csv')->assertOk();
+
+        $this->assertSame('%PDF archivé le 1er septembre', Storage::disk('local')->get('rapports/2026-08/rapport-vendeurs-2026-08.pdf'));
+        Storage::disk('local')->assertExists('rapports/2026-08/csv-v2/rapport-vendeurs-2026-08.csv');
     }
 
     public function test_le_pdf_est_telechargeable(): void
