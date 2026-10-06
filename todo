@@ -1,4 +1,5 @@
 Tous les points de cette liste ont été traités (branche amelioration/audit-complet).
+Restent les petits défauts reportés de la revue finale et les actions hors code (plus bas).
 
 [x] "unread-count" qui tourne sans arrêt
     -> un seul onglet interroge le serveur, toutes les 2 minutes, avec un
@@ -121,6 +122,40 @@ Tous les points de cette liste ont été traités (branche amelioration/audit-co
     -> design : composants partagés, espace de gestion en tiroirs et cartes
        mobiles, tableau de bord lisible, vitrine avec photos, animations
        sobres, icônes et aperçus de partage.
+    -> revue finale (code, sécurité, accessibilité) corrigée : connexion d'un
+       compte non bloquable par un tiers (alerte au journal à la place),
+       « Payer » qui rouvrait un lien NotchPay devenu trop élevé, rapport d'un
+       mois clos réécrit au premier téléchargement, catégories tronquées à 100
+       dans le formulaire produit, listes de gestion écrasées par une réponse
+       lente, « Aucun montant débité » affiché pendant la vérification d'un
+       paiement, vitrine et pagination accessibles au clavier, erreurs des
+       tiroirs visibles, bouton « Modifier » des adresses, puces de 44 px.
+    -> Docker vérifié : image PHP 8.4 sans faille CRITICAL/HIGH corrigeable
+       (Trivy), PHP-FPM sans aucun secret dans son environnement, CSP sans
+       violation (les polices ne sont plus inlinées), manifeste au bon type.
+
+---
+
+Petits défauts reportés (revue finale, sans urgence) :
+
+- Annulation client : les notifications partent pendant que la commande et
+  les produits sont encore verrouillés (CommandeController::cancel).
+- Panne du serveur : sans réponse de /auth/user, chaque navigation relance
+  la requête et les pages à rôle traitent l'utilisateur en invité.
+- Message aux admins quand une commande est annulée après un paiement
+  confirmé : il annonce un faux écart de montant (Paiements.php).
+- Deux ajouts simultanés au panier peuvent dépasser le stock dans le panier
+  (le checkout refuse toujours la survente).
+- Accessibilité : étoile « vedette » des rapports et badges sous le voile
+  « Rupture de stock » trop pâles ; Échap ne ferme les menus de l'en-tête que
+  depuis la liste ; cartes radio peu contrastées au repos ; contour de focus
+  rogné sur les tableaux défilables, les miniatures et les catégories ;
+  libellé « Ajouté » absent du nom du bouton ; boutons « Réessayer », liens
+  du pied, fil d'Ariane et liens tel: sous 44 px ; formulaire « Ma boutique »
+  sans aide ni erreur reliées aux champs ; défilement animé malgré
+  « réduire les animations » ; reflet des squelettes animé en repeint.
+- Code : formats de dates et montants du graphique à ranger dans
+  utils/format.js ; deux messages d'erreur sans messageErreur().
 
 ---
 
