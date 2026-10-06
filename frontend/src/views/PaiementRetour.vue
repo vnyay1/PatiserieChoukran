@@ -75,7 +75,7 @@ import {
   CheckCircle2, Hourglass, XCircle, Ban, TimerOff, SearchX, WifiOff, ShieldCheck, RefreshCw, Lock,
 } from 'lucide-vue-next'
 import { formatPrice } from '@/utils/format'
-import { oublierReferencePaiement, referencePaiementMemorisee } from '@/utils/paiement'
+import { messageRetourPaiement, oublierReferencePaiement, referencePaiementMemorisee } from '@/utils/paiement'
 
 // Le webhook confirme le paiement côté serveur ; ici on relit le statut quelques fois
 const INTERVALLE_MS = 4000
@@ -130,15 +130,7 @@ const lienRelance = computed(() => (commandesPayables.value.length === 1
 
 const actionPrincipale = computed(() => ['en_attente', 'erreur'].includes(etatAffiche.value) || peutRelancer.value)
 
-const message = computed(() => {
-  if (erreur.value) {
-    return erreur.value
-  }
-  if (etatAffiche.value === 'en_attente') {
-    return 'NotchPay n\'a pas encore confirmé la transaction. Vous pouvez revenir plus tard : la commande sera marquée payée dès la confirmation.'
-  }
-  return 'Aucun montant n\'a été débité. Vous pouvez relancer le paiement depuis le détail de la commande.'
-})
+const message = computed(() => messageRetourPaiement(etatAffiche.value, erreur.value))
 
 const arreter = () => {
   clearTimeout(minuterie)
