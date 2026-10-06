@@ -10,7 +10,7 @@ File: src/components/common/CarteRadio.vue
   se remplace par le slot par défaut ; le slot « visuel » accueille une icône ou un logo.
 -->
 <template>
-  <label class="carte-radio">
+  <label class="carte-radio" :class="{ 'carte-radio--action': action }">
     <input v-model="choix" type="radio" :name="name" :value="value" :disabled="disabled" class="sr-only" />
     <slot name="visuel" />
     <span class="min-w-0 flex-1">
@@ -54,12 +54,24 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  // Bouton posé en haut à droite, hors du label (« Modifier ») : sa place est réservée et le
+  // contenu s'aligne en haut. Une classe passée par la page n'y suffirait pas : le style scopé
+  // de la carte l'emporte sur les utilitaires (spécificité 0,2,0).
+  action: {
+    type: Boolean,
+    default: false,
+  },
 })
 </script>
 
 <style scoped>
 .carte-radio {
   @apply relative flex min-h-[4.5rem] cursor-pointer items-center gap-3 rounded-2xl border-2 border-gray-200 bg-surface p-4 transition-colors hover:border-gray-300;
+}
+
+/* Icône seule (44 px) sous sm, « Modifier » en toutes lettres au-delà */
+.carte-radio--action {
+  @apply items-start pr-14 sm:pr-32;
 }
 
 .carte-radio:has(:checked) {

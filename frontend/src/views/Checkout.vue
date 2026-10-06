@@ -94,7 +94,7 @@ File: src/views/Checkout.vue
                       name="adresse_livraison_id"
                       :value="adresse.id"
                       :coche="false"
-                      class="items-start pr-16"
+                      action
                     >
                       <template #visuel>
                         <MapPin :size="20" class="mt-0.5 flex-shrink-0 text-gold-600" aria-hidden="true" />
