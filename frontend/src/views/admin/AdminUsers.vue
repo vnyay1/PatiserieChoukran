@@ -408,7 +408,7 @@ const toastStore = useToastStore()
 const { confirmer } = useConfirm()
 
 // Filtres (vedette=1) et page dans l'URL
-const { filtres, mettreAJour } = useFiltresUrl({ ...FILTRES_VIDES, page: 1 }, () => fetchUsers())
+const { filtres, mettreAJour, recharger } = useFiltresUrl({ ...FILTRES_VIDES, page: 1 }, (estActuel) => fetchUsers(estActuel))
 const filtresActifs = computed(() => Object.keys(FILTRES_VIDES).some((cle) => filtres[cle] !== ''))
 const reinitialiserFiltres = () => mettreAJour({ ...FILTRES_VIDES, page: 1 })
 const totalPages = computed(() => Math.max(1, Math.ceil(totalUsers.value / PAR_PAGE)))
@@ -432,7 +432,7 @@ const formatAdresse = (adresse) => {
   return [adresse.zone, adresse.quartier, formatVille(adresse.ville), adresse.complement_adresse].filter(Boolean).join(', ')
 }
 
-const fetchUsers = async () => {
+const fetchUsers = async (estActuel = () => true) => {
   loading.value = true
   error.value = ''
 
@@ -444,6 +444,7 @@ const fetchUsers = async () => {
     if (filtres.vedette === '1') params.vedette = 1
 
     const response = await api.admin.users.getAll(params)
+    if (!estActuel()) return
     if (response.data.success) {
       users.value = response.data.data.data
       totalUsers.value = response.data.data.total
@@ -456,9 +457,11 @@ const fetchUsers = async () => {
       error.value = 'Impossible de charger les utilisateurs.'
     }
   } catch (err) {
+    if (!estActuel()) return
     error.value = messageErreur(err, 'Erreur lors du chargement des utilisateurs.')
   } finally {
-    loading.value = false
+    // Un chargement dépassé laisse l'indicateur au plus récent
+    if (estActuel()) loading.value = false
   }
 }
 
@@ -555,7 +558,7 @@ const toggleVedette = async (user) => {
     if (selectedUser.value?.id === user.id) selectedUser.value.est_vendeur_vedette = vedette
     toastStore.succes(response.data.message || 'Mise en avant mise à jour.')
     if (filtres.vedette === '1' && !vedette) {
-      fetchUsers()
+      recharger()
     }
   } catch (err) {
     toastStore.erreur(messageErreur(err, 'Impossible de modifier la mise en avant.'))

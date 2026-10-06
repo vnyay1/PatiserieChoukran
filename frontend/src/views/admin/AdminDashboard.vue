@@ -207,7 +207,7 @@ const topProduits = ref([])
 const dernieresCommandes = ref([])
 
 // Période et vendeur dans l'URL (?periode=semaine&vendeur_id=4)
-const { filtres, mettreAJour } = useFiltresUrl({ periode: 'mois', vendeur_id: '' }, () => fetchStats())
+const { filtres, mettreAJour } = useFiltresUrl({ periode: 'mois', vendeur_id: '' }, (estActuel) => fetchStats(estActuel))
 
 const hasVendeurFilter = computed(() => Boolean(filtres.vendeur_id))
 const selectedVendeur = computed(() => {
@@ -251,7 +251,7 @@ const chartData = computed(() => {
   return jours
 })
 
-const fetchStats = async () => {
+const fetchStats = async (estActuel = () => true) => {
   loading.value = true
   error.value = ''
 
@@ -264,6 +264,7 @@ const fetchStats = async () => {
     }
 
     const response = await api.admin.dashboard.stats(params)
+    if (!estActuel()) return
     if (response.data.success) {
       stats.value = response.data.data.stats || stats.value
       ventesParJour.value = response.data.data.ventes_par_jour || []
@@ -274,10 +275,14 @@ const fetchStats = async () => {
       error.value = 'Impossible de charger les statistiques.'
     }
   } catch (err) {
+    if (!estActuel()) return
     error.value = err.response?.data?.message || 'Erreur lors du chargement du tableau de bord.'
   } finally {
-    loading.value = false
-    premierChargement.value = false
+    // Un chargement dépassé laisse l'indicateur au plus récent
+    if (estActuel()) {
+      loading.value = false
+      premierChargement.value = false
+    }
   }
 }
 </script>

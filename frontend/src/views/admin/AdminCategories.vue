@@ -239,7 +239,7 @@ const formError = ref('')
 const totalCategories = ref(0)
 
 // Filtres et page dans l'URL
-const { filtres, mettreAJour } = useFiltresUrl({ ...FILTRES_VIDES, page: 1 }, () => fetchCategories())
+const { filtres, mettreAJour, recharger } = useFiltresUrl({ ...FILTRES_VIDES, page: 1 }, (estActuel) => fetchCategories(estActuel))
 const filtresActifs = computed(() => Object.keys(FILTRES_VIDES).some((cle) => filtres[cle] !== ''))
 const reinitialiserFiltres = () => mettreAJour({ ...FILTRES_VIDES, page: 1 })
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCategories.value / PAR_PAGE)))
@@ -262,7 +262,7 @@ const canManageCategorie = (categorie) => {
   return Number(categorie?.created_by_user_id || 0) === Number(authStore.user?.id || 0)
 }
 
-const fetchCategories = async () => {
+const fetchCategories = async (estActuel = () => true) => {
   loading.value = true
   erreurListe.value = ''
 
@@ -272,6 +272,7 @@ const fetchCategories = async () => {
     if (filtres.est_actif !== '') params.est_actif = filtres.est_actif
 
     const response = await api.admin.categories.getAll(params)
+    if (!estActuel()) return
     if (response.data.success) {
       categories.value = response.data.data.data
       totalCategories.value = response.data.data.total
@@ -282,9 +283,11 @@ const fetchCategories = async () => {
       }
     }
   } catch (error) {
+    if (!estActuel()) return
     erreurListe.value = messageErreur(error, 'Impossible de charger les catégories.')
   } finally {
-    loading.value = false
+    // Un chargement dépassé laisse l'indicateur au plus récent
+    if (estActuel()) loading.value = false
   }
 }
 
@@ -363,7 +366,7 @@ const submitForm = async () => {
     if (response.data.success) {
       toastStore.succes(isEditing.value ? 'Catégorie mise à jour.' : 'Catégorie créée.')
       showForm.value = false
-      fetchCategories()
+      recharger()
     }
   } catch (error) {
     formError.value = messageErreur(error, 'Erreur lors de l\'enregistrement.')
@@ -388,7 +391,7 @@ const deleteCategorie = async (categorie) => {
   try {
     await api.admin.categories.remove(categorie.id)
     toastStore.succes('Catégorie supprimée.')
-    fetchCategories()
+    recharger()
   } catch (error) {
     toastStore.erreur(messageErreur(error, 'Erreur lors de la suppression.'))
   }

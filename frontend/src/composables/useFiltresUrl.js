@@ -1,13 +1,16 @@
 // Filtres d'une liste gardés dans l'URL (?statut=…&page=…), comme le catalogue :
 // un lien partagé, un rafraîchissement ou le bouton retour retrouvent la même vue.
-// L'URL fait foi : auChangement() (le chargement de la liste) est appelé au montage de la page
-// (après le setup : la fonction peut être déclarée plus bas) et à chaque changement de la query.
+// L'URL fait foi : auChangement(estActuel) (le chargement de la liste) est appelé au montage de
+// la page (après le setup : la fonction peut être déclarée plus bas) et à chaque changement de la
+// query. Le chargement n'applique sa réponse que si estActuel() : une réponse lente d'une recherche
+// dépassée ne remplace pas la liste. Après une action (suppression…), recharger().
 //
-//   const { filtres, mettreAJour } = useFiltresUrl({ search: '', statut: '', page: 1 }, () => fetchListe())
+//   const { filtres, mettreAJour, recharger } = useFiltresUrl({ search: '', statut: '', page: 1 }, (estActuel) => fetchListe(estActuel))
 //   <select v-model="filtres.statut" @change="mettreAJour({ page: 1 })">
 //   <Pagination :page="filtres.page" @update:page="(page) => mettreAJour({ page })" />
 import { onMounted, reactive, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { creerSuiviRequetes } from '@/utils/suiviRequetes'
 
 export function useFiltresUrl (defauts, auChangement) {
   const route = useRoute()
@@ -27,6 +30,9 @@ export function useFiltresUrl (defauts, auChangement) {
 
   const filtres = reactive(lire())
 
+  const nouvelleRequete = creerSuiviRequetes()
+  const recharger = () => auChangement(nouvelleRequete())
+
   // Seules les valeurs différentes du défaut vont dans l'URL
   const versQuery = () => Object.fromEntries(Object.entries(filtres)
     .filter(([cle, valeur]) => valeur !== '' && valeur !== null && valeur !== undefined && valeur !== defauts[cle])
@@ -42,7 +48,7 @@ export function useFiltresUrl (defauts, auChangement) {
     Object.assign(filtres, changements)
     const query = versQuery()
     if (memeQuery(query, route.query)) {
-      auChangement()
+      recharger()
       return
     }
     router.replace({ query })
@@ -56,11 +62,11 @@ export function useFiltresUrl (defauts, auChangement) {
       // Pendant la navigation vers une autre page, la query change aussi : ignorée
       if (route.name !== nomRoute) return
       Object.assign(filtres, lire())
-      auChangement()
+      recharger()
     },
   )
 
-  onMounted(() => auChangement())
+  onMounted(() => recharger())
 
-  return { filtres, mettreAJour, reinitialiser }
+  return { filtres, mettreAJour, reinitialiser, recharger }
 }

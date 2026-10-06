@@ -236,7 +236,7 @@ const formError = ref('')
 const totalParametres = ref(0)
 
 // Filtres et page dans l'URL
-const { filtres, mettreAJour } = useFiltresUrl({ ...FILTRES_VIDES, page: 1 }, () => fetchParametres())
+const { filtres, mettreAJour, recharger } = useFiltresUrl({ ...FILTRES_VIDES, page: 1 }, (estActuel) => fetchParametres(estActuel))
 const filtresActifs = computed(() => Object.keys(FILTRES_VIDES).some((cle) => filtres[cle] !== ''))
 const reinitialiserFiltres = () => mettreAJour({ ...FILTRES_VIDES, page: 1 })
 const totalPages = computed(() => Math.max(1, Math.ceil(totalParametres.value / PAR_PAGE)))
@@ -259,7 +259,7 @@ const formatValeur = (valeur, type) => {
   return valeur
 }
 
-const fetchParametres = async () => {
+const fetchParametres = async (estActuel = () => true) => {
   loading.value = true
   erreurListe.value = ''
 
@@ -269,6 +269,7 @@ const fetchParametres = async () => {
     if (filtres.type) params.type = filtres.type
 
     const response = await api.admin.parametres.getAll(params)
+    if (!estActuel()) return
     if (response.data.success) {
       parametres.value = response.data.data.data
       totalParametres.value = response.data.data.total
@@ -279,9 +280,11 @@ const fetchParametres = async () => {
       }
     }
   } catch (error) {
+    if (!estActuel()) return
     erreurListe.value = messageErreur(error, 'Impossible de charger les paramètres.')
   } finally {
-    loading.value = false
+    // Un chargement dépassé laisse l'indicateur au plus récent
+    if (estActuel()) loading.value = false
   }
 }
 
@@ -354,7 +357,7 @@ const submitForm = async () => {
     if (response.data.success) {
       toastStore.succes(isEditing.value ? 'Paramètre mis à jour.' : 'Paramètre créé.')
       showForm.value = false
-      fetchParametres()
+      recharger()
     }
   } catch (error) {
     formError.value = messageErreur(error, 'Erreur lors de l\'enregistrement.')
@@ -375,7 +378,7 @@ const deleteParametre = async (param) => {
   try {
     await api.admin.parametres.remove(param.id)
     toastStore.succes('Paramètre supprimé.')
-    fetchParametres()
+    recharger()
   } catch (error) {
     toastStore.erreur(messageErreur(error, 'Erreur lors de la suppression.'))
   }

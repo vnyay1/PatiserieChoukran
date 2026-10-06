@@ -214,10 +214,10 @@ const erreurFormulaire = ref('')
 const form = ref({ id: null, nom: '', ville: VILLES[0].valeur, actif: true })
 
 // Filtres et page dans l'URL
-const { filtres, mettreAJour } = useFiltresUrl({ search: '', ville: '', page: 1 }, () => charger())
+const { filtres, mettreAJour, recharger } = useFiltresUrl({ search: '', ville: '', page: 1 }, (estActuel) => charger(estActuel))
 const filtresActifs = computed(() => Boolean(filtres.search || filtres.ville))
 
-const charger = async () => {
+const charger = async (estActuel = () => true) => {
   loading.value = true
   erreurListe.value = ''
   try {
@@ -226,6 +226,7 @@ const charger = async () => {
     if (filtres.ville) params.ville = filtres.ville
 
     const response = await api.admin.quartiers.getAll(params)
+    if (!estActuel()) return
     const pagination = response.data.data
     quartiers.value = pagination.data
     dernierePage.value = pagination.last_page
@@ -236,9 +237,11 @@ const charger = async () => {
       mettreAJour({ page: Math.max(1, Number(pagination.last_page) || filtres.page - 1) })
     }
   } catch (error) {
+    if (!estActuel()) return
     erreurListe.value = messageErreur(error, 'Impossible de charger les quartiers.')
   } finally {
-    loading.value = false
+    // Un chargement dépassé laisse l'indicateur au plus récent
+    if (estActuel()) loading.value = false
   }
 }
 
@@ -272,7 +275,7 @@ const enregistrer = async () => {
     }
     toastStore.succes(form.value.id ? 'Quartier mis à jour.' : 'Quartier ajouté.')
     formulaireOuvert.value = false
-    await charger()
+    await recharger()
   } catch (error) {
     erreurFormulaire.value = messageErreur(error, 'Impossible d\'enregistrer le quartier.')
   } finally {
@@ -305,7 +308,7 @@ const supprimer = async (quartier) => {
   try {
     await api.admin.quartiers.remove(quartier.id)
     toastStore.succes('Quartier supprimé.')
-    await charger()
+    await recharger()
   } catch (error) {
     toastStore.erreur(messageErreur(error, 'Impossible de supprimer le quartier.'))
   }

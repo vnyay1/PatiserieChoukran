@@ -306,7 +306,7 @@ const { confirmer } = useConfirm()
 const isAdmin = computed(() => authStore.isAdmin)
 
 // Filtres et page dans l'URL
-const { filtres, mettreAJour } = useFiltresUrl({ ...FILTRES_VIDES, page: 1 }, () => fetchProduits())
+const { filtres, mettreAJour, recharger } = useFiltresUrl({ ...FILTRES_VIDES, page: 1 }, (estActuel) => fetchProduits(estActuel))
 const filtresActifs = computed(() => Object.keys(FILTRES_VIDES).some((cle) => filtres[cle] !== ''))
 const reinitialiserFiltres = () => mettreAJour({ ...FILTRES_VIDES, page: 1 })
 const totalPages = computed(() => Math.max(1, Math.ceil(totalProduits.value / PAR_PAGE)))
@@ -351,7 +351,7 @@ const fetchCategories = async () => {
   }
 }
 
-const fetchProduits = async () => {
+const fetchProduits = async (estActuel = () => true) => {
   loading.value = true
   erreurListe.value = ''
 
@@ -362,6 +362,7 @@ const fetchProduits = async () => {
     if (filtres.est_disponible !== '') params.est_disponible = filtres.est_disponible
 
     const response = await api.admin.produits.getAll(params)
+    if (!estActuel()) return
     if (response.data.success) {
       produits.value = response.data.data.data
       totalProduits.value = response.data.data.total
@@ -372,9 +373,11 @@ const fetchProduits = async () => {
       }
     }
   } catch (error) {
+    if (!estActuel()) return
     erreurListe.value = messageErreur(error, 'Impossible de charger les produits.')
   } finally {
-    loading.value = false
+    // Un chargement dépassé laisse l'indicateur au plus récent
+    if (estActuel()) loading.value = false
   }
 }
 
@@ -493,7 +496,7 @@ const submitForm = async () => {
     if (response.data.success) {
       toastStore.succes(isEditing.value ? 'Produit mis à jour.' : 'Produit créé.')
       showForm.value = false
-      fetchProduits()
+      recharger()
     }
   } catch (error) {
     formError.value = messageErreur(error, 'Erreur lors de l\'enregistrement.')
@@ -514,7 +517,7 @@ const deleteProduit = async (produit) => {
   try {
     await api.admin.produits.remove(produit.id)
     toastStore.succes('Produit supprimé.')
-    fetchProduits()
+    recharger()
   } catch (error) {
     // Produit présent dans des commandes : on propose de le retirer de la vente
     if (error.response?.data?.peut_desactiver) {
@@ -537,7 +540,7 @@ const rendreIndisponible = async (produit) => {
     data.append('_method', 'PUT')
     await api.admin.produits.update(produit.id, data)
     toastStore.succes(`« ${produit.nom} » n'est plus proposé à la vente.`)
-    fetchProduits()
+    recharger()
   } catch (error) {
     toastStore.erreur(messageErreur(error, 'Impossible de modifier le produit.'))
   }

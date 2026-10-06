@@ -436,7 +436,7 @@ const confirmingPaymentId = ref(null)
 const telechargementFacture = ref(false)
 
 // Filtres, vue (historique=1) et page dans l'URL
-const { filtres, mettreAJour } = useFiltresUrl({ ...FILTRES_VIDES, historique: '', page: 1 }, () => fetchCommandes())
+const { filtres, mettreAJour, recharger } = useFiltresUrl({ ...FILTRES_VIDES, historique: '', page: 1 }, (estActuel) => fetchCommandes(estActuel))
 
 const estHistorique = computed(() => filtres.historique === '1')
 const filtresActifs = computed(() => Object.keys(FILTRES_VIDES).some((cle) => filtres[cle] !== ''))
@@ -527,7 +527,7 @@ const fetchVendeurs = async () => {
   }
 }
 
-const fetchCommandes = async () => {
+const fetchCommandes = async (estActuel = () => true) => {
   loading.value = true
   error.value = ''
 
@@ -540,6 +540,7 @@ const fetchCommandes = async () => {
     if (estHistorique.value) params.historique = 1
 
     const response = await api.admin.commandes.getAll(params)
+    if (!estActuel()) return
     if (response.data.success) {
       const pagination = response.data.data || {}
       commandes.value = pagination.data || []
@@ -553,9 +554,11 @@ const fetchCommandes = async () => {
       error.value = 'Impossible de charger les commandes.'
     }
   } catch (err) {
+    if (!estActuel()) return
     error.value = messageErreur(err, 'Erreur lors du chargement des commandes.')
   } finally {
-    loading.value = false
+    // Un chargement dépassé laisse l'indicateur au plus récent
+    if (estActuel()) loading.value = false
   }
 }
 
@@ -589,7 +592,7 @@ const onStatusChange = async (commande, event) => {
       if (selectedCommande.value?.id === commande.id) {
         closeDetail()
       }
-      await fetchCommandes()
+      await recharger()
       fetchStatsVendeur()
       notifyVendeurBadgeRefresh()
     }
@@ -621,7 +624,7 @@ const confirmPayment = async (commande) => {
       if (selectedCommande.value?.id === commande.id) {
         closeDetail()
       }
-      await fetchCommandes()
+      await recharger()
       fetchStatsVendeur()
       notifyVendeurBadgeRefresh()
     }
