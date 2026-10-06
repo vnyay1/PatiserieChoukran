@@ -227,21 +227,6 @@
            disabled:cursor-not-allowed disabled:opacity-55;
   }
 
-  /* Écran tactile : les variantes compactes (btn-sm, icônes de 36 px) retrouvent 44 px au doigt */
-  @media (pointer: coarse) {
-    .btn-sm {
-      @apply min-h-11;
-    }
-
-    .btn-icone {
-      @apply min-h-11 min-w-11;
-    }
-
-    .puce {
-      @apply min-h-11;
-    }
-  }
-
   .card {
     @apply overflow-hidden rounded-elegant border border-gray-200/70 bg-surface shadow-card;
   }
@@ -319,6 +304,22 @@
     @apply inline-flex min-h-10 items-center gap-2 rounded-full border border-gray-300 bg-surface px-4 text-sm font-semibold text-gray-700
            transition-colors duration-150 hover:border-gray-400 hover:bg-gray-50
            aria-pressed:border-gold-500 aria-pressed:bg-gold-500 aria-pressed:text-on-gold;
+  }
+
+  /* Écran tactile : les variantes compactes (btn-sm, icônes de 36 px, puces) retrouvent 44 px au doigt.
+     Après leurs définitions de base : à spécificité égale, la dernière règle l'emporte. */
+  @media (pointer: coarse) {
+    .btn-sm {
+      @apply min-h-11;
+    }
+
+    .btn-icone {
+      @apply min-h-11 min-w-11;
+    }
+
+    .puce {
+      @apply min-h-11;
+    }
   }
 
   .lien {
