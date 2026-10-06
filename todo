@@ -129,7 +129,8 @@ Restent les petits défauts reportés de la revue finale et les actions hors cod
        dans le formulaire produit, listes de gestion écrasées par une réponse
        lente, « Aucun montant débité » affiché pendant la vérification d'un
        paiement, vitrine et pagination accessibles au clavier, erreurs des
-       tiroirs visibles, bouton « Modifier » des adresses, puces de 44 px.
+       tiroirs visibles, bouton « Modifier » des adresses, puces de 44 px,
+       tiroirs de gestion qui ne perdent plus une saisie en cours.
     -> Docker vérifié : image PHP 8.4 sans faille CRITICAL/HIGH corrigeable
        (Trivy), PHP-FPM sans aucun secret dans son environnement, CSP sans
        violation (les polices ne sont plus inlinées), manifeste au bon type.
@@ -156,6 +157,13 @@ Petits défauts reportés (revue finale, sans urgence) :
   « réduire les animations » ; reflet des squelettes animé en repeint.
 - Code : formats de dates et montants du graphique à ranger dans
   utils/format.js ; deux messages d'erreur sans messageErreur().
+- Interface (Web Interface Guidelines) : barre du navigateur blanche en thème
+  sombre (theme-color) ; double appui qui zoome sur les boutons − / + ; barre
+  du bas qui peut masquer l'élément focalisé sur mobile ; taille de fichier
+  formatée à la main ; champs de formulaire sans autocomplete ; vignettes
+  sans width/height ; noms de marque sans translate="no" ; clavier ouvert
+  d'office dans les tiroirs sur mobile ; pas d'alerte si l'onglet se ferme
+  avec une saisie en cours.
 
 ---
 
