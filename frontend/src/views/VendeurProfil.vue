@@ -142,6 +142,7 @@ import { resolveImageUrl } from '@/utils/images'
 import { formatPrice, formatDate } from '@/utils/format'
 import { Store, Star, Mail, Truck, MapPin, PackageOpen } from 'lucide-vue-next'
 import { formatVille } from '@/utils/villes'
+import { titrePage } from '@/utils/titre'
 
 const route = useRoute()
 
@@ -183,7 +184,7 @@ const charger = async () => {
   try {
     const response = await api.vendeurs.getOne(route.params.id)
     vendeur.value = response.data.data
-    document.title = `${vendeur.value.nom_complet} - Pâtisserie`
+    document.title = titrePage(vendeur.value.nom_complet)
     await chargerProduits(1)
   } catch (error) {
     vendeur.value = null

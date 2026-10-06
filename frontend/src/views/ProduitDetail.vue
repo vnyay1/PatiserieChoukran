@@ -258,6 +258,7 @@ import QuantiteStepper from '@/components/common/QuantiteStepper.vue'
 import { resolveImageUrl, onImageError } from '@/utils/images'
 import { formatPrice, SEUIL_STOCK_FAIBLE } from '@/utils/format'
 import { estIndisponible } from '@/utils/produit'
+import { titrePage } from '@/utils/titre'
 import {
   ShoppingCart, Check, AlertTriangle, Truck, ChevronRight, Store, CheckCircle2, XCircle, PackageOpen,
 } from 'lucide-vue-next'
@@ -360,7 +361,7 @@ const fetchProduit = async () => {
       produit.value = response.data.data
       const images = allImages.value
       currentImage.value = images[0] || resolveImageUrl(null)
-      document.title = `${produit.value.nom} - Pâtisserie`
+      document.title = titrePage(produit.value.nom)
 
       // Produits similaires et conditions de livraison du vendeur en parallèle
       fetchProduitsSimilaires()

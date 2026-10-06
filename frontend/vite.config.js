@@ -11,9 +11,22 @@ export default defineConfig(({ mode }) => {
   // Noms d'hôte acceptés en plus de localhost (tunnel ngrok…), séparés par des virgules :
   // le serveur de dev n'est exposé que sur demande, jamais par défaut
   const hotesAutorises = (env.VITE_HOTES_AUTORISES || '').split(',').map((hote) => hote.trim()).filter(Boolean)
+  // Adresse publique du site (https://…) : rend absolue l'image de partage d'index.html ;
+  // vide par défaut, l'adresse reste relative
+  const urlPublique = (env.VITE_URL_PUBLIQUE || '').replace(/\/+$/, '')
 
   return {
-    plugins: [vue()],
+    plugins: [
+      vue(),
+      {
+        name: 'url-publique',
+        // Avant le traitement HTML de Vite, qui signalerait %URL_PUBLIQUE% comme variable inconnue
+        transformIndexHtml: {
+          order: 'pre',
+          handler: (html) => html.replaceAll('%URL_PUBLIQUE%', urlPublique),
+        },
+      },
+    ],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),

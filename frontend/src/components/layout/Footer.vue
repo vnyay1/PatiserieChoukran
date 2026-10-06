@@ -9,7 +9,7 @@ File: src/components/layout/Footer.vue
         <!-- À propos -->
         <div class="md:pr-4">
           <p class="mb-4 flex items-center gap-3">
-            <img src="/logo.png" alt="" width="48" height="48" class="h-12 w-12 rounded-xl object-cover ring-1 ring-gray-200" loading="lazy" />
+            <img src="/logo.jpg" alt="" width="48" height="48" class="h-12 w-12 rounded-xl object-cover ring-1 ring-gray-200" loading="lazy" />
             <span class="font-display text-2xl font-bold text-gray-900">Choukrane</span>
           </p>
           <p class="text-sm leading-relaxed text-gray-600">

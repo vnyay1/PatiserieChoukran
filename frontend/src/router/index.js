@@ -4,6 +4,7 @@
 // ===================================
 
 import { createRouter, createWebHistory } from 'vue-router'
+import { titrePage } from '@/utils/titre'
 import { useAuthStore } from '@/stores/auth'
 
 // Lazy loading des composants
@@ -41,7 +42,8 @@ const routes = [
     path: '/',
     name: 'home',
     component: Home,
-    meta: { title: 'Accueil' }
+    // Pas de titre court : l'accueil garde la phrase complète (TITRE_ACCUEIL)
+    meta: {}
   },
   {
     path: '/produits',
@@ -226,9 +228,6 @@ router.beforeEach(async (to, from, next) => {
   const canManageCatalogue = authStore.canManageCatalogue
   const canManageCommandes = isAdmin || isVendeur
 
-  // Mettre à jour le titre de la page
-  document.title = `${to.meta.title || 'Choukrane'} - Pâtisserie`
-
   // Routes nécessitant l'authentification
   if (to.meta.requiresAuth && !isAuthenticated) {
     next({ name: 'login', query: { redirect: to.fullPath } })
@@ -284,6 +283,12 @@ router.beforeEach(async (to, from, next) => {
   }
 
   next()
+})
+
+// Titre de l'onglet une fois la navigation confirmée (après une éventuelle redirection) ;
+// la fiche produit et la page vendeur le précisent quand leurs données arrivent
+router.afterEach((to) => {
+  document.title = titrePage(to.meta.title)
 })
 
 export default router

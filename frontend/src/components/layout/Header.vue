@@ -15,7 +15,7 @@ File: src/components/layout/Header.vue
         <div class="flex min-w-0 items-center gap-2 md:gap-4">
           <!-- Logo dans un cadre arrondi ; le nom s'affiche quand la place le permet (pas à côté du menu md) -->
           <router-link to="/" class="flex flex-shrink-0 items-center gap-2.5 rounded-xl" aria-label="Choukrane Pâtisserie, accueil">
-            <img src="/logo.png" alt="" width="44" height="44" class="h-9 w-9 rounded-xl object-cover ring-1 ring-gray-200 md:h-11 md:w-11" />
+            <img src="/logo.jpg" alt="" width="44" height="44" class="h-9 w-9 rounded-xl object-cover ring-1 ring-gray-200 md:h-11 md:w-11" />
             <span class="hidden font-display text-xl font-bold leading-none text-gray-900 sm:inline md:hidden xl:inline" aria-hidden="true">
               Choukrane
             </span>
