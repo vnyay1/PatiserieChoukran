@@ -285,6 +285,7 @@ import TeleversementImage from '@/components/common/TeleversementImage.vue'
 import { Plus, Pencil, Trash2, RefreshCw, PackageOpen } from 'lucide-vue-next'
 import { resolveImageUrl, onImageError, verifierImage, TAILLE_MAX_IMAGE_MO } from '@/utils/images'
 import { formatPrice } from '@/utils/format'
+import { chargerToutesLesPages } from '@/utils/pagination'
 
 const PAR_PAGE = 12
 const FILTRES_VIDES = { search: '', categorie_id: '', est_disponible: '' }
@@ -344,12 +345,7 @@ const aideImagesSecondaires = computed(() => {
 
 const fetchCategories = async () => {
   try {
-    const response = await api.admin.categories.getAll({ per_page: 100 })
-    if (response.data.success) {
-      categories.value = Array.isArray(response.data.data)
-        ? response.data.data
-        : (response.data.data?.data || [])
-    }
+    categories.value = await chargerToutesLesPages(api.admin.categories.getAll)
   } catch (error) {
     console.error('Erreur chargement catégories:', error)
   }
