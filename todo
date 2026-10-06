@@ -110,6 +110,18 @@ Tous les points de cette liste ont été traités (branche amelioration/audit-co
        et paquets Composer). apk upgrade dans l'image et paquets mis à jour
        (Laravel 12.69, Guzzle 7.15.5, Symfony 7.4.19…).
 
+[x] Audit complet (octobre 2026) : revue de code, sécurité, design
+    -> paiement NotchPay : montant vérifié avant confirmation, commande figée
+       pendant un paiement ; commande payée non annulable par le client ;
+       panier sans doublon ; CSV neutralisé ; jetons expirant après 30 jours ;
+       pagination bornée ; téléphones validés ; mots de passe de 8 caractères ;
+       limites de débit ; CORS restreint ; en-têtes de sécurité et CSP ;
+       HTTPS par Caddy en production ; dépendances à jour ; actions GitHub
+       épinglées ; gitleaks en CI.
+    -> design : composants partagés, espace de gestion en tiroirs et cartes
+       mobiles, tableau de bord lisible, vitrine avec photos, animations
+       sobres, icônes et aperçus de partage.
+
 ---
 
 À faire par toi, hors code :
@@ -123,6 +135,10 @@ Tous les points de cette liste ont été traités (branche amelioration/audit-co
    - activer GitHub > Settings > Code security : Secret scanning + Push protection.
    La CI refuse désormais tout nouveau secret (job gitleaks) et le hook local
    bloque git add/commit des .env et de backups/.
+   - Actions GitHub : vérifier dans l'onglet Actions qu'aucun workflow n'a
+     tourné entre le 19/03/2026 17:43 et le 20/03/2026 05:40 UTC (tags piégés
+     de trivy-action, CVE-2026-33634). S'il y en a eu un, considérer comme
+     exposés les secrets du dépôt de l'époque et les remplacer.
 2. En local (XAMPP), passer MAIL_MAILER=log dans backend/.env si tu ne veux pas
    que les tests de commandes envoient de vrais e-mails (factures, nouvelles
    commandes) par Brevo.
@@ -133,7 +149,13 @@ Tous les points de cette liste ont été traités (branche amelioration/audit-co
    aussi dans .env.docker (aujourd'hui vide, donc pas de paiement en ligne en
    Docker) et déclarer le webhook https://<domaine>/api/v1/webhooks/notchpay.
 5. CD : créer les secrets DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY,
-   DEPLOY_KNOWN_HOSTS (et la variable DEPLOY_URL) ; déposer .env.docker dans
-   le dossier de déploiement du serveur.
+   DEPLOY_KNOWN_HOSTS (et la variable DEPLOY_URL, en https://) ; déposer
+   .env.docker dans le dossier de déploiement du serveur.
+   HTTPS (Caddy) : dans ce .env.docker, renseigner DOMAINE (sans https://),
+   APP_URL et FRONTEND_URL en https://<domaine>, TRUSTED_PROXIES et
+   NOTCHPAY_CALLBACK_URL ; faire pointer le DNS du domaine (A / AAAA) vers le
+   serveur et ouvrir les ports 80 et 443. Caddy obtient le certificat seul.
+   Au premier déploiement, les jetons de plus de 30 jours sont refusés :
+   chacun se reconnecte une fois.
 6. Redémarrer php artisan serve et npm run dev pour profiter d'OPcache et du
    proxy Vite (MySQL de XAMPP doit tourner).
