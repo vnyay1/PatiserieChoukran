@@ -310,10 +310,12 @@ jobs:
           echo "→ worker et planificateur en cours d'exécution"
           docker compose exec -T app sh -c 'pgrep -f "queue:work" >/dev/null && pgrep -f "schedule:work" >/dev/null'
 
+      # Sans .env.docker, la pile n'a jamais démarré (échec plus tôt, au scan par exemple) :
+      # compose refuserait de lire sa configuration et ajouterait deux échecs trompeurs
       - name: Journaux en cas d'échec
-        if: failure()
+        if: failure() && hashFiles('.env.docker') != ''
         run: docker compose logs --no-color
 
       - name: Arrêter la pile
-        if: always()
+        if: always() && hashFiles('.env.docker') != ''
         run: docker compose down -v
