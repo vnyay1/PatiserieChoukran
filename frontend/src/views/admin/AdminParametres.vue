@@ -139,6 +139,7 @@ File: src/views/admin/AdminParametres.vue
       @fermer="closeForm"
     >
       <form id="formulaire-parametre" class="grid grid-cols-1 gap-5 sm:grid-cols-2" novalidate @submit.prevent="submitForm">
+        <AlertMessage v-if="formError" ref="alerteFormulaire" type="error" tabindex="-1" class="sm:col-span-2">{{ formError }}</AlertMessage>
         <FormField v-slot="{ attrs }" label="Clé" requis>
           <input v-model="form.cle" v-bind="attrs" type="text" class="input" autocomplete="off" data-autofocus />
         </FormField>
@@ -187,8 +188,6 @@ File: src/views/admin/AdminParametres.vue
         <FormField v-slot="{ attrs }" label="Description" facultatif class="sm:col-span-2">
           <textarea v-model="form.description" v-bind="attrs" rows="3" class="input resize-y"></textarea>
         </FormField>
-
-        <AlertMessage v-if="formError" type="error" class="sm:col-span-2">{{ formError }}</AlertMessage>
       </form>
 
       <template #actions>
@@ -207,6 +206,7 @@ import api, { messageErreur } from '@/services/api'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useFiltresUrl } from '@/composables/useFiltresUrl'
+import { useErreurFormulaire } from '@/composables/useErreurFormulaire'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import EnTetePage from '@/components/common/EnTetePage.vue'
@@ -232,7 +232,7 @@ const erreurListe = ref('')
 const saving = ref(false)
 const showForm = ref(false)
 const isEditing = ref(false)
-const formError = ref('')
+const { erreur: formError, alerte: alerteFormulaire, signaler: signalerErreur } = useErreurFormulaire()
 const totalParametres = ref(0)
 
 // Filtres et page dans l'URL
@@ -335,14 +335,14 @@ const submitForm = async () => {
   formError.value = ''
 
   if (!form.value.cle.trim()) {
-    formError.value = 'Indiquez la clé du paramètre.'
+    signalerErreur('Indiquez la clé du paramètre.')
     return
   }
   if (form.value.type === 'json' && form.value.valeur) {
     try {
       JSON.parse(form.value.valeur)
     } catch {
-      formError.value = 'La valeur n\'est pas un JSON valide.'
+      signalerErreur('La valeur n\'est pas un JSON valide.')
       return
     }
   }
@@ -360,7 +360,7 @@ const submitForm = async () => {
       recharger()
     }
   } catch (error) {
-    formError.value = messageErreur(error, 'Erreur lors de l\'enregistrement.')
+    signalerErreur(messageErreur(error, 'Erreur lors de l\'enregistrement.'))
   } finally {
     saving.value = false
   }

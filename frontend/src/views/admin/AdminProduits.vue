@@ -183,6 +183,7 @@ File: src/views/admin/AdminProduits.vue
       @fermer="closeForm"
     >
       <form id="formulaire-produit" class="grid grid-cols-1 gap-5 sm:grid-cols-2" novalidate @submit.prevent="submitForm">
+        <AlertMessage v-if="formError" ref="alerteFormulaire" type="error" tabindex="-1" class="sm:col-span-2">{{ formError }}</AlertMessage>
         <FormField v-slot="{ attrs }" label="Nom" requis class="sm:col-span-2">
           <input v-model="form.nom" v-bind="attrs" type="text" class="input" data-autofocus />
         </FormField>
@@ -251,8 +252,6 @@ File: src/views/admin/AdminProduits.vue
           <input v-model="form.est_disponible" type="checkbox" class="h-5 w-5 flex-shrink-0 rounded" />
           <span class="text-sm text-gray-800">Produit disponible à la vente</span>
         </label>
-
-        <AlertMessage v-if="formError" type="error" class="sm:col-span-2">{{ formError }}</AlertMessage>
       </form>
 
       <template #actions>
@@ -272,6 +271,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useFiltresUrl } from '@/composables/useFiltresUrl'
+import { useErreurFormulaire } from '@/composables/useErreurFormulaire'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import EnTetePage from '@/components/common/EnTetePage.vue'
@@ -297,7 +297,7 @@ const erreurListe = ref('')
 const saving = ref(false)
 const showForm = ref(false)
 const isEditing = ref(false)
-const formError = ref('')
+const { erreur: formError, alerte: alerteFormulaire, signaler: signalerErreur } = useErreurFormulaire()
 const totalProduits = ref(0)
 
 const authStore = useAuthStore()
@@ -429,7 +429,7 @@ const onImagesSecondaires = (event) => {
     : fichiers.map(verifierImage).find(Boolean)
 
   if (erreur) {
-    formError.value = erreur
+    signalerErreur(erreur)
     imagesSecondaires.value = []
     event.target.value = ''
     return
@@ -473,11 +473,11 @@ const submitForm = async () => {
   formError.value = ''
 
   if (!form.value.nom.trim() || !form.value.categorie_id || form.value.prix_unitaire === '') {
-    formError.value = 'Renseignez au moins le nom, la catégorie et le prix.'
+    signalerErreur('Renseignez au moins le nom, la catégorie et le prix.')
     return
   }
   if (form.value.promo_active && (form.value.prix_promo === '' || form.value.prix_promo === null)) {
-    formError.value = 'Renseignez un prix promotionnel ou désactivez la promotion.'
+    signalerErreur('Renseignez un prix promotionnel ou désactivez la promotion.')
     return
   }
 
@@ -499,7 +499,7 @@ const submitForm = async () => {
       recharger()
     }
   } catch (error) {
-    formError.value = messageErreur(error, 'Erreur lors de l\'enregistrement.')
+    signalerErreur(messageErreur(error, 'Erreur lors de l\'enregistrement.'))
   } finally {
     saving.value = false
   }

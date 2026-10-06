@@ -154,6 +154,7 @@ File: src/views/admin/AdminQuartiers.vue
       @fermer="formulaireOuvert = false"
     >
       <form id="formulaire-quartier" class="space-y-5" novalidate @submit.prevent="enregistrer">
+        <AlertMessage v-if="erreurFormulaire" ref="alerteFormulaire" type="error" tabindex="-1">{{ erreurFormulaire }}</AlertMessage>
         <FormField v-slot="{ attrs }" label="Nom" requis>
           <input v-model="form.nom" v-bind="attrs" type="text" maxlength="150" class="input" data-autofocus />
         </FormField>
@@ -166,7 +167,6 @@ File: src/views/admin/AdminQuartiers.vue
           <input v-model="form.actif" type="checkbox" class="h-5 w-5 flex-shrink-0 rounded" />
           <span class="text-sm text-gray-800">Proposé aux clients</span>
         </label>
-        <AlertMessage v-if="erreurFormulaire" type="error">{{ erreurFormulaire }}</AlertMessage>
       </form>
 
       <template #actions>
@@ -185,6 +185,7 @@ import api, { messageErreur } from '@/services/api'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useFiltresUrl } from '@/composables/useFiltresUrl'
+import { useErreurFormulaire } from '@/composables/useErreurFormulaire'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
 import EnTetePage from '@/components/common/EnTetePage.vue'
@@ -210,7 +211,7 @@ const bascule = ref(null)
 const dernierePage = ref(1)
 const total = ref(0)
 const formulaireOuvert = ref(false)
-const erreurFormulaire = ref('')
+const { erreur: erreurFormulaire, alerte: alerteFormulaire, signaler: signalerErreur } = useErreurFormulaire()
 const form = ref({ id: null, nom: '', ville: VILLES[0].valeur, actif: true })
 
 // Filtres et page dans l'URL
@@ -260,7 +261,7 @@ const ouvrirModification = (quartier) => {
 const enregistrer = async () => {
   erreurFormulaire.value = ''
   if (!form.value.nom.trim()) {
-    erreurFormulaire.value = 'Indiquez le nom du quartier.'
+    signalerErreur('Indiquez le nom du quartier.')
     return
   }
 
@@ -277,7 +278,7 @@ const enregistrer = async () => {
     formulaireOuvert.value = false
     await recharger()
   } catch (error) {
-    erreurFormulaire.value = messageErreur(error, 'Impossible d\'enregistrer le quartier.')
+    signalerErreur(messageErreur(error, 'Impossible d\'enregistrer le quartier.'))
   } finally {
     saving.value = false
   }

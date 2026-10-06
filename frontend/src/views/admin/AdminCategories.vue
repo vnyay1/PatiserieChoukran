@@ -162,6 +162,7 @@ File: src/views/admin/AdminCategories.vue
       @fermer="closeForm"
     >
       <form id="formulaire-categorie" class="grid grid-cols-1 gap-5 sm:grid-cols-2" novalidate @submit.prevent="submitForm">
+        <AlertMessage v-if="formError" ref="alerteFormulaire" type="error" tabindex="-1" class="sm:col-span-2">{{ formError }}</AlertMessage>
         <FormField v-slot="{ attrs }" label="Nom" requis>
           <input v-model="form.nom" v-bind="attrs" type="text" class="input" data-autofocus />
         </FormField>
@@ -188,8 +189,6 @@ File: src/views/admin/AdminCategories.vue
           <input v-model="form.est_actif" type="checkbox" class="h-5 w-5 flex-shrink-0 rounded" />
           <span class="text-sm text-gray-800">Catégorie active (visible dans le catalogue)</span>
         </label>
-
-        <AlertMessage v-if="formError" type="error" class="sm:col-span-2">{{ formError }}</AlertMessage>
       </form>
 
       <template #actions>
@@ -208,6 +207,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useFiltresUrl } from '@/composables/useFiltresUrl'
+import { useErreurFormulaire } from '@/composables/useErreurFormulaire'
 import api, { messageErreur } from '@/services/api'
 import Card from '@/components/common/Card.vue'
 import Button from '@/components/common/Button.vue'
@@ -235,7 +235,7 @@ const erreurListe = ref('')
 const saving = ref(false)
 const showForm = ref(false)
 const isEditing = ref(false)
-const formError = ref('')
+const { erreur: formError, alerte: alerteFormulaire, signaler: signalerErreur } = useErreurFormulaire()
 const totalCategories = ref(0)
 
 // Filtres et page dans l'URL
@@ -347,7 +347,7 @@ const buildFormData = () => {
 const submitForm = async () => {
   formError.value = ''
   if (!form.value.nom.trim()) {
-    formError.value = 'Donnez un nom à la catégorie.'
+    signalerErreur('Donnez un nom à la catégorie.')
     return
   }
 
@@ -369,7 +369,7 @@ const submitForm = async () => {
       recharger()
     }
   } catch (error) {
-    formError.value = messageErreur(error, 'Erreur lors de l\'enregistrement.')
+    signalerErreur(messageErreur(error, 'Erreur lors de l\'enregistrement.'))
   } finally {
     saving.value = false
   }
